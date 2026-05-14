@@ -45,7 +45,7 @@ Global equities. No commodities, no DCF, no execution.
    and driver levels; evidence is preserved verbatim with source tier.
 3. **Global by default.** Reuses `altree-finance`'s `REGION_BY_SUFFIX` taxonomy
    (~50 Yahoo suffixes). MVP covers US, UK, Eurozone, non-EZ DM Europe, Japan,
-   Asia DM, Asia EM, Americas non-US.
+   Asia DM, Asia EM, Americas non-US, ANZ DM.
 4. **OpenBB-free.** Single-language Node stack via `yahoo-finance2`. Earnings
    transcripts via **IR-page discovery as primary path** (not fallback) given
    `yahoo-finance2`'s thin transcript coverage.
