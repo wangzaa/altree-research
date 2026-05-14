@@ -614,12 +614,14 @@ altree-research/
 ## 8. Supabase schema (initial migration)
 
 ```sql
--- users table managed by Better Auth (Postgres adapter) in schema `auth`
+-- users table managed by Better Auth (Postgres adapter) in schema `public`
+-- (Supabase reserves the `auth` schema for its own service; Better Auth uses
+-- public by default. `user` is a SQL keyword and must be quoted: public."user")
 -- (table + column names are Better Auth's defaults; rename via adapter config if needed)
 
 create table theses (
   id              text primary key,           -- e.g., eu_defense_rearmament_26_05_01
-  user_id         text references auth."user"(id) on delete cascade,
+  user_id         text references public."user"(id) on delete cascade,
   version         int default 1,
   created_at      timestamptz default now(),
 
@@ -635,7 +637,7 @@ create table theses (
 
 create table universes (
   id              text primary key,
-  created_by      text references auth."user"(id) on delete set null,
+  created_by      text references public."user"(id) on delete set null,
   created_at      timestamptz default now(),
   refreshed_at    timestamptz,
   universe        jsonb                        -- full universe schema
