@@ -5,6 +5,7 @@ import {
   type AnthropicTool,
   type AnthropicToolUse,
 } from "@/lib/anthropic/client";
+import { REGION_VALUES } from "@/lib/data/regions";
 import { ThesisSchema, type Thesis } from "@/lib/schemas/thesis";
 
 export interface ExtractThesisInput {
@@ -17,18 +18,6 @@ export interface ExtractThesisInput {
 export type ExtractThesisResult =
   | { ok: true; thesis: Thesis }
   | { ok: false; error: string; raw?: unknown };
-
-const REGION_VALUES = [
-  "US",
-  "UK",
-  "EUROZONE",
-  "NON_EZ_DM_EU",
-  "JAPAN",
-  "ASIA_DM",
-  "ASIA_EM",
-  "AMERICAS_NON_US",
-  "ANZ_DM",
-] as const;
 
 const TOOL_NAME = "extract_thesis";
 
@@ -233,6 +222,18 @@ export async function extractThesis(
   const toolUse = findToolUse(result.content);
   if (!toolUse) {
     return { ok: false, error: "Model did not produce a tool_use block" };
+  }
+
+  if (
+    typeof toolUse.input !== "object" ||
+    toolUse.input === null ||
+    Array.isArray(toolUse.input)
+  ) {
+    return {
+      ok: false,
+      error: "tool_use.input was not an object",
+      raw: toolUse.input,
+    };
   }
 
   const toolInput = toolUse.input as ToolThesisInput;

@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { isValidGicsCode } from "@/lib/data/gics";
-import { REGION_BY_SUFFIX, type Region } from "@/lib/data/regions";
-
-const REGION_VALUES = Array.from(
-  new Set(Object.values(REGION_BY_SUFFIX) as Region[]),
-) as [Region, ...Region[]];
+import { REGION_VALUES } from "@/lib/data/regions";
 
 const YAHOO_TICKER_REGEX = /^[A-Z0-9\-]+(\.[A-Z]+)?$/i;
 
@@ -64,7 +60,16 @@ export const IndustryDriverSchema = z
     verdict: VerdictSchema.nullable().default(null),
     classification: z.literal("industry"),
   })
-  .strict();
+  .strict()
+  .superRefine((driver, ctx) => {
+    if (driver.thesis_breaks_below >= driver.central_estimate.value) {
+      ctx.addIssue({
+        code: "custom",
+        message: `thesis_breaks_below (${driver.thesis_breaks_below}) must be less than central_estimate.value (${driver.central_estimate.value})`,
+        path: ["thesis_breaks_below"],
+      });
+    }
+  });
 
 export const FalsificationSchema = z
   .object({

@@ -129,6 +129,12 @@ describe("ThesisSchema validation failures", () => {
     };
     expect(() => ThesisSchema.parse(bad)).toThrow();
   });
+
+  it("rejects when thesis_breaks_below >= central_estimate.value", () => {
+    const bad = structuredClone(canonical);
+    bad.drivers.industry[0].thesis_breaks_below = 5.0;
+    expect(() => ThesisSchema.parse(bad)).toThrow();
+  });
 });
 
 describe("ThesisSchema defaults", () => {

@@ -76,6 +76,10 @@ export const REGION_BY_SUFFIX = {
   ".NZ": "ANZ_DM",
 } as const satisfies Record<string, Region>;
 
+export const REGION_VALUES: readonly Region[] = Array.from(
+  new Set(Object.values(REGION_BY_SUFFIX)),
+);
+
 /**
  * Map a Yahoo Finance ticker symbol to a Region.
  * "AAPL" -> "US", "RHM.DE" -> "EUROZONE", "BA.L" -> "UK", "7203.T" -> "JAPAN".

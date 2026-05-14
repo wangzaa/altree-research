@@ -155,4 +155,35 @@ describe("extractThesis", () => {
     expect(result.error.toLowerCase()).toMatch(/region/);
     expect(result.raw).toEqual(bad);
   });
+
+  it("returns ok:false when tool_use.input is not an object", async () => {
+    mockToolUseResponse("not an object");
+    const { extractThesis } = await import("@/lib/agents/thesis-extractor");
+    const result = await extractThesis(callerInput);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/tool_use/i);
+    expect(result.raw).toBe("not an object");
+  });
+
+  it("returns ok:false when the tool_use block has the wrong tool name", async () => {
+    createMessageMock.mockResolvedValueOnce({
+      content: [
+        {
+          type: "tool_use",
+          id: "toolu_1",
+          name: "extract_thesis_v2",
+          input: baseToolInput,
+        },
+      ],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 100, output_tokens: 50 },
+      raw: {},
+    });
+    const { extractThesis } = await import("@/lib/agents/thesis-extractor");
+    const result = await extractThesis(callerInput);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/tool_use/i);
+  });
 });
