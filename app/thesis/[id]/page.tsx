@@ -3,8 +3,8 @@ import { requireUser } from "@/lib/auth/require-user";
 import { ThesisIdSchema, type Thesis } from "@/lib/schemas/thesis";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { ThreePanelLayout } from "@/components/three-panel-layout";
-import { ThesisJsonView } from "@/components/thesis-json-view";
 import type { Stage } from "@/components/stage-list";
+import { ThesisDetail } from "./thesis-detail.client";
 
 const STAGE_1_COMPLETED_STAGES: Stage[] = [
   { name: "Thesis extraction", status: "completed" },
@@ -44,7 +44,7 @@ export default async function ThesisViewerPage({
   return (
     <ThreePanelLayout
       stages={STAGE_1_COMPLETED_STAGES}
-      artifact={<ThesisJsonView thesis={thesis} />}
+      artifact={<ThesisDetail initial={thesis} />}
     />
   );
 }
