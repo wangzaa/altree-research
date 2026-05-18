@@ -16,7 +16,7 @@ export const canonicalThesis: Thesis = {
   scope: {
     type: "thematic",
     sectors: ["20101010"],
-    regions: ["EUROZONE", "UK", "NON_EZ_DM_EU"],
+    regions: ["EUROZONE", "UK"],
     market_cap_min_usd: 1_000_000_000,
     tickers_seed: ["RHM.DE", "BA.L", "LDO.MI"],
     tickers_exclude: [],

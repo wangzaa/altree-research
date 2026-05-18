@@ -1,79 +1,121 @@
 export type Region =
   | "US"
+  | "CANADA"
+  | "LATAM"
   | "UK"
   | "EUROZONE"
-  | "NON_EZ_DM_EU"
+  | "NORDICS"
+  | "SWITZERLAND"
+  | "CEE"
+  | "MIDDLE_EAST"
+  | "AFRICA"
   | "JAPAN"
-  | "ASIA_DM"
-  | "ASIA_EM"
-  | "AMERICAS_NON_US"
-  | "ANZ_DM";
+  | "KOREA"
+  | "GREATER_CHINA"
+  | "SOUTH_ASIA"
+  | "SEA"
+  | "ANZ";
 
 export const REGION_BY_SUFFIX = {
   // US (no suffix in Yahoo)
   "": "US",
 
+  // Canada
+  ".TO": "CANADA",
+  ".V": "CANADA",
+  ".NE": "CANADA",
+  ".CN": "CANADA",
+
+  // Latin America
+  ".SA": "LATAM",
+  ".MX": "LATAM",
+  ".SN": "LATAM",
+  ".BA": "LATAM",
+  ".CL": "LATAM",
+  ".LM": "LATAM",
+
   // UK
   ".L": "UK",
 
-  // Eurozone (alphabetical by suffix)
-  ".AS": "EUROZONE",
-  ".AT": "EUROZONE",
-  ".BR": "EUROZONE",
+  // Eurozone (12 majors + Baltic states .RG/.TL/.VS — Latvia/Estonia/Lithuania)
   ".DE": "EUROZONE",
   ".F": "EUROZONE",
-  ".HE": "EUROZONE",
-  ".IR": "EUROZONE",
-  ".LS": "EUROZONE",
-  ".MC": "EUROZONE",
-  ".MI": "EUROZONE",
   ".PA": "EUROZONE",
+  ".MI": "EUROZONE",
+  ".MC": "EUROZONE",
+  ".AS": "EUROZONE",
+  ".BR": "EUROZONE",
+  ".LS": "EUROZONE",
+  ".I": "EUROZONE",
+  ".VI": "EUROZONE",
+  ".HE": "EUROZONE",
+  ".AT": "EUROZONE",
   ".RG": "EUROZONE",
   ".TL": "EUROZONE",
-  ".VI": "EUROZONE",
   ".VS": "EUROZONE",
 
-  // Non-EZ Developed Europe
-  ".CO": "NON_EZ_DM_EU",
-  ".IC": "NON_EZ_DM_EU",
-  ".OL": "NON_EZ_DM_EU",
-  ".ST": "NON_EZ_DM_EU",
-  ".SW": "NON_EZ_DM_EU",
-  ".VX": "NON_EZ_DM_EU",
+  // Nordics
+  ".ST": "NORDICS",
+  ".OL": "NORDICS",
+  ".CO": "NORDICS",
+  ".IC": "NORDICS",
+
+  // Switzerland (.VX is the legacy Swiss Virt-X listing suffix)
+  ".SW": "SWITZERLAND",
+  ".VX": "SWITZERLAND",
+
+  // Central & Eastern Europe
+  ".WA": "CEE",
+  ".BD": "CEE",
+  ".PR": "CEE",
+  ".RO": "CEE",
+  ".IS": "CEE",
+
+  // Middle East
+  ".TA": "MIDDLE_EAST",
+  ".AE": "MIDDLE_EAST",
+  ".SR": "MIDDLE_EAST",
+  ".QA": "MIDDLE_EAST",
+  ".KW": "MIDDLE_EAST",
+
+  // Africa
+  ".JO": "AFRICA",
+  ".CA": "AFRICA",
+  ".LG": "AFRICA",
+  ".MA": "AFRICA",
 
   // Japan
   ".T": "JAPAN",
 
-  // Asia DM (HK, Singapore, Korea, Taiwan)
-  ".HK": "ASIA_DM",
-  ".SI": "ASIA_DM",
-  ".KS": "ASIA_DM",
-  ".KQ": "ASIA_DM",
-  ".TW": "ASIA_DM",
-  ".TWO": "ASIA_DM",
+  // Korea
+  ".KS": "KOREA",
+  ".KQ": "KOREA",
 
-  // Asia EM
-  ".SS": "ASIA_EM",
-  ".SZ": "ASIA_EM",
-  ".BO": "ASIA_EM",
-  ".NS": "ASIA_EM",
-  ".JK": "ASIA_EM",
-  ".KL": "ASIA_EM",
-  ".BK": "ASIA_EM",
+  // Greater China (mainland + Hong Kong + Taiwan)
+  ".SS": "GREATER_CHINA",
+  ".SZ": "GREATER_CHINA",
+  ".HK": "GREATER_CHINA",
+  ".TW": "GREATER_CHINA",
+  ".TWO": "GREATER_CHINA",
 
-  // Americas non-US
-  ".TO": "AMERICAS_NON_US",
-  ".V": "AMERICAS_NON_US",
-  ".CN": "AMERICAS_NON_US",
-  ".NE": "AMERICAS_NON_US",
-  ".SA": "AMERICAS_NON_US",
-  ".MX": "AMERICAS_NON_US",
-  ".SN": "AMERICAS_NON_US",
-  ".BA": "AMERICAS_NON_US",
+  // South Asia (India + Pakistan + Bangladesh + Sri Lanka)
+  ".NS": "SOUTH_ASIA",
+  ".BO": "SOUTH_ASIA",
+  ".KA": "SOUTH_ASIA",
+  ".DH": "SOUTH_ASIA",
+  ".CM": "SOUTH_ASIA",
 
-  // ANZ DM
-  ".AX": "ANZ_DM",
-  ".NZ": "ANZ_DM",
+  // Southeast Asia
+  ".SI": "SEA",
+  ".JK": "SEA",
+  ".KL": "SEA",
+  ".BK": "SEA",
+  ".PS": "SEA",
+  ".VN": "SEA",
+
+  // ANZ (Australia + New Zealand)
+  ".AX": "ANZ",
+  ".NZ": "ANZ",
 } as const satisfies Record<string, Region>;
 
 export const REGION_VALUES: readonly Region[] = Array.from(
@@ -82,7 +124,8 @@ export const REGION_VALUES: readonly Region[] = Array.from(
 
 /**
  * Map a Yahoo Finance ticker symbol to a Region.
- * "AAPL" -> "US", "RHM.DE" -> "EUROZONE", "BA.L" -> "UK", "7203.T" -> "JAPAN".
+ * "AAPL" -> "US", "RHM.DE" -> "EUROZONE", "BA.L" -> "UK", "7203.T" -> "JAPAN",
+ * "2330.TW" -> "GREATER_CHINA", "000660.KS" -> "KOREA", "PETR4.SA" -> "LATAM".
  * Returns null if the suffix is unknown.
  */
 export function getRegionForTicker(ticker: string): Region | null {
