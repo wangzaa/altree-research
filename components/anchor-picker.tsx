@@ -5,12 +5,15 @@ import { getRegionForTicker } from "@/lib/data/regions";
 
 interface AnchorPickerProps {
   tickers_seed: string[];
+  /** Optional ticker → company name map. When provided, chips render as "TICKER — Name". */
+  tickerNames?: Record<string, string>;
   onSubmit: (anchor: string) => void;
   disabled: boolean;
 }
 
 export function AnchorPicker({
   tickers_seed,
+  tickerNames,
   onSubmit,
   disabled,
 }: AnchorPickerProps) {
@@ -58,17 +61,24 @@ export function AnchorPicker({
       {tickers_seed.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
           <span>Suggested from thesis:</span>
-          {tickers_seed.map((t) => (
-            <button
-              type="button"
-              key={t}
-              onClick={() => handleChipClick(t)}
-              disabled={disabled}
-              className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {t}
-            </button>
-          ))}
+          {tickers_seed.map((t) => {
+            const name = tickerNames?.[t];
+            return (
+              <button
+                type="button"
+                key={t}
+                onClick={() => handleChipClick(t)}
+                disabled={disabled}
+                title={name ? `${t} — ${name}` : t}
+                className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="font-mono">{t}</span>
+                {name ? (
+                  <span className="font-normal text-neutral-500">— {name}</span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
       ) : null}
 

@@ -11,6 +11,7 @@ import type { Universe } from "@/lib/schemas/universe";
 interface ThesisDetailProps {
   initial: Thesis;
   initialUniverse: Universe | null;
+  seedNames?: Record<string, string>;
 }
 
 interface DroppedTicker {
@@ -18,7 +19,11 @@ interface DroppedTicker {
   reason: string;
 }
 
-export function ThesisDetail({ initial, initialUniverse }: ThesisDetailProps) {
+export function ThesisDetail({
+  initial,
+  initialUniverse,
+  seedNames,
+}: ThesisDetailProps) {
   const [thesis, setThesis] = useState<Thesis>(initial);
   const [universe, setUniverse] = useState<Universe | null>(initialUniverse);
   const [picking, setPicking] = useState<boolean>(initialUniverse === null);
@@ -77,6 +82,7 @@ export function ThesisDetail({ initial, initialUniverse }: ThesisDetailProps) {
         {picking || universe === null ? (
           <AnchorPicker
             tickers_seed={thesis.scope.tickers_seed}
+            tickerNames={seedNames}
             onSubmit={handleBuild}
             disabled={building}
           />

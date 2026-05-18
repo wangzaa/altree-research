@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
+import { getQuote } from "@/lib/data/yahoo";
 import { ThesisIdSchema, type Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -46,6 +47,22 @@ export default async function ThesisViewerPage({
     }
   }
 
+  // Pre-fetch names for each seed ticker so the AnchorPicker chips can show
+  // "TICKER — Name" instead of just the symbol. Parallel; Yahoo errors absorbed
+  // silently (chip just shows the symbol if the lookup fails).
+  const seedNames: Record<string, string> = {};
+  if (!initialUniverse && thesis.scope.tickers_seed.length > 0) {
+    const results = await Promise.all(
+      thesis.scope.tickers_seed.map(async (t) => {
+        const quote = await getQuote(t);
+        return [t, quote?.name ?? null] as const;
+      }),
+    );
+    for (const [ticker, name] of results) {
+      if (name) seedNames[ticker] = name;
+    }
+  }
+
   const stages: Stage[] = [
     { name: "Thesis extraction", status: "completed" },
     {
@@ -61,7 +78,13 @@ export default async function ThesisViewerPage({
   return (
     <ThreePanelLayout
       stages={stages}
-      artifact={<ThesisDetail initial={thesis} initialUniverse={initialUniverse} />}
+      artifact={
+        <ThesisDetail
+          initial={thesis}
+          initialUniverse={initialUniverse}
+          seedNames={seedNames}
+        />
+      }
     />
   );
 }

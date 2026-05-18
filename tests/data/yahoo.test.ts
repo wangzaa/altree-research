@@ -3,11 +3,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const quoteMock = vi.fn();
 const quoteSummaryMock = vi.fn();
 
+// v3 default export is a class; lib/data/yahoo.ts does `new YahooFinance()`,
+// so the mock returns a constructor that yields an object with the spied methods.
 vi.mock("yahoo-finance2", () => ({
-  default: {
+  default: vi.fn().mockImplementation(() => ({
     quote: quoteMock,
     quoteSummary: quoteSummaryMock,
-  },
+  })),
 }));
 
 describe("getQuote", () => {

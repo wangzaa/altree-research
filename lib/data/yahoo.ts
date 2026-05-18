@@ -1,4 +1,8 @@
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
+
+// v3 of yahoo-finance2 requires instantiation (the default export changed
+// from a singleton to a class).
+const yahooFinance = new YahooFinance();
 
 export interface Quote {
   name: string;
