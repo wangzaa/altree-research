@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnchorPicker } from "@/components/anchor-picker";
 import { ThesisEditor } from "@/components/thesis-editor";
 import { ThesisJsonView } from "@/components/thesis-json-view";
@@ -24,6 +25,7 @@ export function ThesisDetail({
   initialUniverse,
   seedNames,
 }: ThesisDetailProps) {
+  const router = useRouter();
   const [thesis, setThesis] = useState<Thesis>(initial);
   const [universe, setUniverse] = useState<Universe | null>(initialUniverse);
   const [picking, setPicking] = useState<boolean>(initialUniverse === null);
@@ -59,6 +61,9 @@ export function ThesisDetail({
       setDropped(body.dropped ?? []);
       setPicking(false);
       setBuilding(false);
+      // Re-render the server tree so the left-panel StageList picks up the
+      // new universe_id and lights Stage 2 green.
+      router.refresh();
     } catch (err) {
       setBuildError(err instanceof Error ? err.message : "Unexpected error");
       setBuilding(false);

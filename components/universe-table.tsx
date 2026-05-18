@@ -147,10 +147,10 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
           <tbody className="divide-y divide-neutral-100 bg-white">
             {tickers.map((t, i) => (
               <tr key={`${t.ticker}-${i}`}>
-                <td className="px-3 py-2 font-mono text-xs">{t.ticker}</td>
-                <td className="px-3 py-2">{t.name}</td>
-                <td className="px-3 py-2 text-xs">{t.region}</td>
-                <td className="px-3 py-2 text-right tabular-nums">
+                <td className="px-3 py-2 font-mono text-xs text-neutral-900">{t.ticker}</td>
+                <td className="px-3 py-2 text-neutral-900">{t.name}</td>
+                <td className="px-3 py-2 text-xs text-neutral-700">{t.region}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-neutral-900">
                   {t.market_cap_usd_b.toFixed(1)}
                 </td>
                 <td className="px-3 py-2">
@@ -161,7 +161,7 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
                         exposure_tier: e.target.value as ExposureTier,
                       })
                     }
-                    className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs"
+                    className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
                   >
                     {TIER_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
@@ -176,7 +176,7 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
                     value={t.notes ?? ""}
                     placeholder="Notes"
                     onChange={(e) => updateRow(i, { notes: e.target.value })}
-                    className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs"
+                    className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900 placeholder:text-neutral-400"
                   />
                 </td>
                 <td className="px-3 py-2 text-right">
