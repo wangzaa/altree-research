@@ -124,7 +124,7 @@ Rules:
 - Be conservative — only change what the instruction explicitly requests.
 - Preserve all driver \`id\` fields. Do not rename, reorder, or replace driver ids.
 - GICS sector codes must be 2/4/6/8 digit numerics from the standard taxonomy.
-- Region codes are: US, UK, EUROZONE, NON_EZ_DM_EU, JAPAN, ASIA_DM, ASIA_EM, AMERICAS_NON_US, ANZ_DM.
+- Region codes are: US, CANADA, LATAM, UK, EUROZONE, NORDICS, SWITZERLAND, CEE, MIDDLE_EAST, AFRICA, JAPAN, KOREA, GREATER_CHINA, SOUTH_ASIA, SEA, ANZ. There is no catch-all region; if a ticker's market doesn't fit any of these, do not include it in the thesis.
 - Yahoo tickers use suffixes (RHM.DE = Germany, BA.L = UK, 7203.T = Japan, etc).
 - thesis_breaks_below must remain strictly less than the central_estimate value.
 - falsification.primary is required; falsification.secondary is optional.

@@ -335,7 +335,7 @@ optional notes. Sort/filter happens client-side.
   "scope": {
     "type": "thematic",                       // "thematic" | "single_name"
     "sectors": ["20101010"],                  // GICS industry codes
-    "regions": ["EUROZONE", "UK", "NON_EZ_DM_EU"],
+    "regions": ["EUROZONE", "UK"],
     "market_cap_min_usd": 1000000000,
     "tickers_seed": ["RHM.DE", "BA.L", "LDO.MI"],
     "tickers_exclude": []
@@ -378,7 +378,7 @@ id: eu_defense_global
 created_at: 2026-05-13
 last_refreshed: 2026-05-13
 gics_codes: [20101010]
-regions: [EUROZONE, UK, NON_EZ_DM_EU]
+regions: [EUROZONE, UK]
 market_cap_min_usd: 1000000000
 
 tickers:
