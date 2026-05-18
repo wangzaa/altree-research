@@ -23,7 +23,7 @@ Given a thesis whose scope identifies a sector/region/market-cap profile, let th
 
 The issue (#4) was written before S2 and S2.5 landed. Two corrections in this design:
 
-- **Region taxonomy:** the AC example uses `["EUROZONE", "UK", "NON_EZ_DM_EU"]`. S2.5 dissolved `NON_EZ_DM_EU` into a broader `OTHERS` bucket that also covers LatAm and any market not in the 15 first-class regions. `OTHERS` is too coarse to substitute for the original "non-Eurozone Developed Market Europe" intent — using it would silently widen the scope to Brazilian and Mexican equities. The cleaner post-S2.5 representation is `["EUROZONE", "UK"]`; Nordic primes like Saab (`SAAB-B.ST`) and Kongsberg (`KOG.OL`) enter the universe via `thesis.scope.tickers_seed` or via the discoverer agent's anchor-driven peer expansion, not via the regions filter.
+- **Region taxonomy:** the AC example uses `["EUROZONE", "UK", "NON_EZ_DM_EU"]`. S2.5 replaced the broad "non-Eurozone Developed Market Europe" bucket with two first-class regions: `NORDICS` (Sweden, Norway, Denmark, Iceland) and `SWITZERLAND`. The cleaner post-S2.5 representation for an EU-defence thesis that wants to include Saab (`SAAB-B.ST`) and Kongsberg (`KOG.OL`) is `["EUROZONE", "UK", "NORDICS"]`; a tighter scope is `["EUROZONE", "UK"]` with Nordic primes arriving via `thesis.scope.tickers_seed` or the discoverer agent's anchor-driven peer expansion.
 - **Discovery semantics:** the AC says "yahoo-finance2 screener pass". `yahoo-finance2` has no custom screener; replaced with the anchor+comps approach. The same downstream expectations hold: 10–30 ticker output, region mapped via `REGION_BY_SUFFIX`, market-cap floor enforced, ETF proxies tagged.
 
 ## Architecture
@@ -150,13 +150,9 @@ System prompt distills comps-analysis peer-selection wisdom:
 > - Include 1–2 ETF proxies (broad-sector ETFs that approximate the thesis exposure) tagged `etf_proxy`.
 > - Each non-ETF ticker is classified as `pure_play` (single-business primary exposure) or `diversified` (the company has the exposure but it's part of a larger mix).
 >
-> Yahoo ticker conventions:
-> - US: no suffix (AAPL).
-> - UK: `.L` (BA.L).
-> - Eurozone: `.DE/.PA/.MI/.AS/.MC/.BR/.HE/.IR/.LS/.AT/.F/.RG/.TL/.VI/.VS`.
-> - Japan: `.T` (7203.T).
-> - South Korea: `.KS/.KQ`. Taiwan: `.TW/.TWO`. China: `.SS/.SZ`. Hong Kong: `.HK`. Singapore: `.SI`. India: `.BO/.NS`. Indonesia: `.JK`. Malaysia: `.KL`. Thailand: `.BK`. ANZ: `.AX/.NZ`. Canada: `.TO/.V/.CN/.NE`.
-> - For tickers in markets outside this list, use the closest Yahoo suffix and tag region as OTHERS.
+> Yahoo ticker conventions (suffix → region):
+> - US (no suffix). UK: `.L`. EUROZONE: `.DE/.F/.PA/.MI/.MC/.AS/.BR/.LS/.I/.VI/.HE/.AT/.RG/.TL/.VS`. NORDICS: `.ST/.OL/.CO/.IC`. SWITZERLAND: `.SW/.VX`. CEE: `.WA/.BD/.PR/.RO/.IS`. JAPAN: `.T`. KOREA: `.KS/.KQ`. GREATER_CHINA: `.SS/.SZ/.HK/.TW/.TWO`. SOUTH_ASIA: `.NS/.BO/.KA/.DH/.CM`. SEA: `.SI/.JK/.KL/.BK/.PS/.VN`. ANZ: `.AX/.NZ`. CANADA: `.TO/.V/.NE/.CN`. LATAM: `.SA/.MX/.SN/.BA/.CL/.LM`. MIDDLE_EAST: `.TA/.AE/.SR/.QA/.KW`. AFRICA: `.JO/.CA/.LG/.MA`.
+> - There is no catch-all region; if a ticker's market doesn't fit any of these, do not include it in the thesis.
 >
 > Return the full candidate list via the supplied tool. Do not return free-text.
 
@@ -337,9 +333,9 @@ Yahoo errors on peer tickers (not anchor) are silently absorbed — the dropped 
 
 Issue #4 ACs translated for the anchor+comps approach (and S2.5 region taxonomy):
 
-- [ ] **EU-defence (preserves issue continuity):** A thesis with `scope.sectors = ["20101010"]`, `scope.regions = ["EUROZONE", "UK"]`, `scope.market_cap_min_usd = 1_000_000_000`, anchored on `RHM.DE`, produces a universe with 10–30 tickers including the major EU-defence primes (Rheinmetall, BAE Systems, Leonardo, Thales, Dassault Aviation). Nordic primes (Saab `SAAB-B.ST`, Kongsberg `KOG.OL`) arrive via the discoverer agent's domain knowledge of the EU-defence anchor — not via the regions filter, because `OTHERS` is too coarse for "non-Eurozone Developed Market Europe". → covered by manual smoke + agent test.
+- [ ] **EU-defence (preserves issue continuity):** A thesis with `scope.sectors = ["20101010"]`, `scope.regions = ["EUROZONE", "UK", "NORDICS"]`, `scope.market_cap_min_usd = 1_000_000_000`, anchored on `RHM.DE`, produces a universe with 10–30 tickers including the major EU-defence primes (Rheinmetall, BAE Systems, Leonardo, Thales, Dassault Aviation) plus Nordic primes Saab (`SAAB-B.ST`) and Kongsberg (`KOG.OL`) via the now-first-class `NORDICS` region. → covered by manual smoke + agent test.
 
-- [ ] **APAC semis (showcases S2.5's per-country granularity):** A thesis with `scope.sectors = ["453010"]` (Semiconductors), `scope.regions = ["TAIWAN", "SOUTH_KOREA", "CHINA"]`, `scope.market_cap_min_usd = 1_000_000_000`, anchored on `2330.TW` (TSMC), produces a universe of 10–30 names including TSMC, Samsung Electronics (`005930.KS`), SK Hynix (`000660.KS`), MediaTek (`2454.TW`), and SMIC (`0981.HK`). ASML (`ASML.AS`, EUROZONE) may also be included by the agent as a cross-region market leader per the "prefer in-scope but allow clear leaders" rule in the discoverer's system prompt. → covered by manual smoke + agent test.
+- [ ] **APAC semis (showcases the regional-cluster taxonomy):** A thesis with `scope.sectors = ["453010"]` (Semiconductors), `scope.regions = ["GREATER_CHINA", "KOREA"]`, `scope.market_cap_min_usd = 1_000_000_000`, anchored on `2330.TW` (TSMC), produces a universe of 10–30 names including TSMC (`2330.TW`, GREATER_CHINA), Samsung Electronics (`005930.KS`, KOREA), SK Hynix (`000660.KS`, KOREA), MediaTek (`2454.TW`, GREATER_CHINA), and SMIC (`0981.HK`, GREATER_CHINA). ASML (`ASML.AS`, EUROZONE) may also be included by the agent as a cross-region market leader per the "prefer in-scope but allow clear leaders" rule in the discoverer's system prompt. → covered by manual smoke + agent test.
 - [ ] Each ticker row carries `region` mapped via `REGION_BY_SUFFIX`, a `market_cap_usd_b` value from Yahoo, and an agent-assigned `exposure_tier`. → covered by `universe-build` test + universe Zod schema.
 - [ ] ETF proxies appear as rows with `exposure_tier: "etf_proxy"` and a `notes` string. → covered by discoverer test + agent system prompt explicitly asks for 1–2 ETFs.
 - [ ] Editing a row and saving persists; refresh shows the edit. → covered by `universe-patch` + manual smoke.
