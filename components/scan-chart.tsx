@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -28,13 +29,14 @@ const WINDOWS: Array<{ key: WindowKey; label: string; months: number }> = [
 
 interface ChartRow {
   date: string;
-  universe: number;
+  max: number;
+  min: number;
 }
 
 // Per-ticker rebase to 100 from each ticker's first in-window observation,
-// then average across tickers per date. Averaging raw absolute prices whipsaws
-// when tickers report on slightly different month-end dates and have wildly
-// different price levels — indexing first puts every series on the same scale.
+// then take the max and min across tickers per date. Per-ticker indexing puts
+// every series on the same scale; the spread between max and min shows how
+// wide the dispersion is between the best- and worst-performing names.
 function indexedRebase(
   history: TickerHistory[],
   windowMonths: number,
@@ -82,7 +84,8 @@ function indexedRebase(
     if (vals.length === 0) continue;
     rows.push({
       date: d,
-      universe: vals.reduce((a, b) => a + b, 0) / vals.length,
+      max: Math.max(...vals),
+      min: Math.min(...vals),
     });
   }
   return rows;
@@ -143,11 +146,26 @@ export function ScanChart({ history }: ScanChartProps) {
                   style: { fontSize: 11, fill: "#525252", textAnchor: "middle" },
                 }}
               />
-              <Tooltip />
+              <Tooltip
+                formatter={(value: number) => value.toFixed(1)}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+                iconType="plainline"
+              />
               <Line
                 type="monotone"
-                dataKey="universe"
-                stroke="#171717"
+                dataKey="max"
+                name="Best-performing ticker"
+                stroke="#16a34a"
+                strokeWidth={2}
+                dot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="min"
+                name="Worst-performing ticker"
+                stroke="#dc2626"
                 strokeWidth={2}
                 dot={false}
               />
