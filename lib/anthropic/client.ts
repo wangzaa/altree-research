@@ -14,7 +14,9 @@ export interface CreateMessageParams {
   tools?: AnthropicTool[];
   tool_choice?: Anthropic.MessageCreateParams["tool_choice"];
   max_tokens?: number;
-  temperature?: number;
+  // Pass `null` to omit the param entirely. Required for models like
+  // claude-opus-4-7 that reject any temperature value.
+  temperature?: number | null;
 }
 
 export interface CreateMessageResult {
@@ -52,10 +54,14 @@ export async function createMessage(
   const requestParams: Anthropic.MessageCreateParamsNonStreaming = {
     model: params.model ?? DEFAULT_MODEL,
     max_tokens: params.max_tokens ?? DEFAULT_MAX_TOKENS,
-    temperature: params.temperature ?? DEFAULT_TEMPERATURE,
     system: params.system,
     messages: params.messages,
   };
+  // Pass temperature only when not explicitly nulled. Models like
+  // claude-opus-4-7 reject any temperature value.
+  const temp =
+    params.temperature === undefined ? DEFAULT_TEMPERATURE : params.temperature;
+  if (temp !== null) requestParams.temperature = temp;
   if (params.tools !== undefined) requestParams.tools = params.tools;
   if (params.tool_choice !== undefined) {
     requestParams.tool_choice = params.tool_choice;
