@@ -114,6 +114,14 @@ const extractThesisTool: AnthropicTool = {
                   description:
                     "Strictly less than central_estimate.value. Drives the falsification trigger.",
                 },
+                tickers: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    description:
+                      "Yahoo Finance ticker directly relevant to THIS driver. Subset of scope.tickers_seed. 0-5 entries. Empty array if the driver applies to the whole universe.",
+                  },
+                },
                 classification: { type: "string", enum: ["industry"] },
               },
               required: [
@@ -170,7 +178,8 @@ Rules:
 - falsification.primary is required; falsification.secondary is optional.
 - horizon_years should be 3 to 10 for most theses; up to 30 for very long-cycle (utilities, REITs).
 - macro_premise should state stipulated macro context, not predict outcomes.
-- claim should be a specific, testable assertion (one sentence ideally).`,
+- claim should be a specific, testable assertion (one sentence ideally).
+- For each industry driver, populate driver.tickers with the 0-5 tickers from scope.tickers_seed that the driver most directly applies to. Leave empty if the driver applies to the whole universe.`,
     cache_control: { type: "ephemeral" },
   },
 ];
@@ -180,6 +189,7 @@ interface ToolDriverInput {
   claim: string;
   central_estimate: { value: number; unit: string };
   thesis_breaks_below: number;
+  tickers?: string[];
   classification: "industry";
 }
 
