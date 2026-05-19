@@ -2,7 +2,7 @@ import React from "react";
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ScanChart } from "@/components/scan-chart";
+import { ScanChart, buildCsv } from "@/components/scan-chart";
 import type { TickerHistory } from "@/lib/schemas/scan";
 
 // Use dates close to the current month so the default 5Y window keeps them.
@@ -83,5 +83,72 @@ describe("<ScanChart>", () => {
   it("renders an empty-state message when history is empty", () => {
     render(<ScanChart history={[]} />);
     expect(screen.getByText(/no history to display/i)).toBeInTheDocument();
+  });
+
+  it("renders a Download CSV button", () => {
+    render(<ScanChart history={sampleHistory} />);
+    expect(
+      screen.getByRole("button", { name: /download csv/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("buildCsv", () => {
+  it("emits one header row + one row per (ticker,date) with raw and indexed values", () => {
+    const csv = buildCsv(sampleHistory, 60);
+    const lines = csv.split("\n");
+    expect(lines[0]).toBe("ticker,date,close_raw,close_indexed");
+    expect(lines.length).toBe(1 + 3 + 3); // header + 3 RHM + 3 BA
+    // First RHM row: 100 raw, 100.0 indexed (rebased to itself).
+    const firstRhm = lines.find((l) => l.startsWith("RHM.DE,"));
+    expect(firstRhm).toMatch(/RHM\.DE,.*,100\.0000,100\.0000$/);
+  });
+
+  it("indexes each ticker independently to its own first in-window observation", () => {
+    const hist: TickerHistory[] = [
+      {
+        ticker: "FOO",
+        points: [
+          { date: isoMonthsAgo(2), close: 50 },
+          { date: isoMonthsAgo(0), close: 75 }, // +50% from base
+        ],
+      },
+      {
+        ticker: "BAR",
+        points: [
+          { date: isoMonthsAgo(2), close: 200 },
+          { date: isoMonthsAgo(0), close: 180 }, // -10% from base
+        ],
+      },
+    ];
+    const csv = buildCsv(hist, 60);
+    const lines = csv.split("\n");
+    const fooLast = lines.find(
+      (l) => l.startsWith("FOO,") && l.endsWith("150.0000"),
+    );
+    const barLast = lines.find(
+      (l) => l.startsWith("BAR,") && l.endsWith("90.0000"),
+    );
+    expect(fooLast).toBeDefined();
+    expect(barLast).toBeDefined();
+  });
+
+  it("skips zero/non-positive closes and tickers with no in-window data", () => {
+    const hist: TickerHistory[] = [
+      {
+        ticker: "BAD",
+        points: [
+          { date: isoMonthsAgo(2), close: 0 },
+          { date: isoMonthsAgo(1), close: 0 },
+        ],
+      },
+      {
+        ticker: "GOOD",
+        points: [{ date: isoMonthsAgo(1), close: 10 }],
+      },
+    ];
+    const csv = buildCsv(hist, 60);
+    expect(csv).not.toContain("BAD,");
+    expect(csv).toContain("GOOD,");
   });
 });

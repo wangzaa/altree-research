@@ -33,6 +33,53 @@ interface ChartRow {
   min: number;
 }
 
+// Tidy long-format CSV: one row per (ticker, date) in the selected window,
+// with both the raw close and the per-ticker rebased index value. Exported so
+// the operator can verify the chart's transformation in Excel / pandas.
+export function buildCsv(
+  history: TickerHistory[],
+  windowMonths: number,
+): string {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - windowMonths);
+  const cutoffMs = cutoff.getTime();
+
+  const rows: string[] = ["ticker,date,close_raw,close_indexed"];
+  for (const h of history) {
+    const inWindow = h.points.filter((p) => {
+      const ms = new Date(p.date).getTime();
+      return (
+        Number.isFinite(ms) &&
+        ms >= cutoffMs &&
+        Number.isFinite(p.close) &&
+        p.close > 0
+      );
+    });
+    if (inWindow.length === 0) continue;
+    const base = inWindow[0].close;
+    if (!Number.isFinite(base) || base <= 0) continue;
+    for (const p of inWindow) {
+      const indexed = (p.close / base) * 100;
+      rows.push(
+        `${h.ticker},${p.date},${p.close.toFixed(4)},${indexed.toFixed(4)}`,
+      );
+    }
+  }
+  return rows.join("\n");
+}
+
+function downloadCsv(filename: string, content: string): void {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 // Per-ticker rebase to 100 from each ticker's first in-window observation,
 // then take the max and min across tickers per date. Per-ticker indexing puts
 // every series on the same scale; the spread between max and min shows how
@@ -106,6 +153,16 @@ export function ScanChart({ history }: ScanChartProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-end gap-1">
+        <button
+          type="button"
+          onClick={() =>
+            downloadCsv(`scan-${windowKey}.csv`, buildCsv(history, months))
+          }
+          className="mr-2 rounded border border-neutral-300 bg-white px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          title="Download per-ticker raw + indexed prices for the selected window"
+        >
+          Download CSV
+        </button>
         {WINDOWS.map((w) => (
           <button
             key={w.key}
