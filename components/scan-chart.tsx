@@ -33,9 +33,29 @@ interface ChartRow {
   min: number;
 }
 
+// Asian exchanges (.KS / .TW) report monthly bars on the LAST day of the
+// month (2025-11-30); US listings (MU, AAPL...) on the FIRST day of the
+// following month (2025-12-01). Same underlying close, different label.
+// Snap any day 1-5 of a month to the previous month's bucket so they line up.
+export function monthBucket(isoDate: string): string | null {
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return null;
+  let year = d.getUTCFullYear();
+  let month = d.getUTCMonth();
+  if (d.getUTCDate() <= 5) {
+    month -= 1;
+    if (month < 0) {
+      month = 11;
+      year -= 1;
+    }
+  }
+  return `${year}-${String(month + 1).padStart(2, "0")}`;
+}
+
 // Tidy long-format CSV: one row per (ticker, date) in the selected window,
-// with both the raw close and the per-ticker rebased index value. Exported so
-// the operator can verify the chart's transformation in Excel / pandas.
+// with raw close, the month_bucket the row is collapsed into, and the
+// per-ticker rebased index value. Exported so the operator can verify the
+// chart's transformation in Excel / pandas.
 export function buildCsv(
   history: TickerHistory[],
   windowMonths: number,
@@ -44,7 +64,9 @@ export function buildCsv(
   cutoff.setMonth(cutoff.getMonth() - windowMonths);
   const cutoffMs = cutoff.getTime();
 
-  const rows: string[] = ["ticker,date,close_raw,close_indexed"];
+  const rows: string[] = [
+    "ticker,date,month_bucket,close_raw,close_indexed",
+  ];
   for (const h of history) {
     const inWindow = h.points.filter((p) => {
       const ms = new Date(p.date).getTime();
@@ -59,9 +81,10 @@ export function buildCsv(
     const base = inWindow[0].close;
     if (!Number.isFinite(base) || base <= 0) continue;
     for (const p of inWindow) {
+      const bucket = monthBucket(p.date) ?? "";
       const indexed = (p.close / base) * 100;
       rows.push(
-        `${h.ticker},${p.date},${p.close.toFixed(4)},${indexed.toFixed(4)}`,
+        `${h.ticker},${p.date},${bucket},${p.close.toFixed(4)},${indexed.toFixed(4)}`,
       );
     }
   }
@@ -81,9 +104,10 @@ function downloadCsv(filename: string, content: string): void {
 }
 
 // Per-ticker rebase to 100 from each ticker's first in-window observation,
-// then take the max and min across tickers per date. Per-ticker indexing puts
-// every series on the same scale; the spread between max and min shows how
-// wide the dispersion is between the best- and worst-performing names.
+// then take the max and min across tickers per month bucket. Bucketing by
+// YYYY-MM (with day 1-5 snapped to the prior month) aligns rows that arrive
+// on slightly different days across exchanges — e.g. Asian month-end vs US
+// month-start — so every bucket has data from the whole universe.
 function indexedRebase(
   history: TickerHistory[],
   windowMonths: number,
@@ -94,43 +118,65 @@ function indexedRebase(
   cutoff.setMonth(cutoff.getMonth() - windowMonths);
   const cutoffMs = cutoff.getTime();
 
-  const perTickerIndexed = new Map<string, Map<string, number>>();
+  // ticker -> bucket -> close (last row wins within a bucket)
+  const perTickerByBucket = new Map<string, Map<string, number>>();
   for (const h of history) {
-    const inWindow = h.points.filter((p) => {
+    const bucketed = new Map<string, number>();
+    const orderedDates: { date: string; ms: number; close: number; bucket: string }[] = [];
+    for (const p of h.points) {
       const ms = new Date(p.date).getTime();
-      return (
-        Number.isFinite(ms) &&
-        ms >= cutoffMs &&
-        Number.isFinite(p.close) &&
-        p.close > 0
-      );
-    });
-    if (inWindow.length === 0) continue;
-    const base = inWindow[0].close;
-    if (!Number.isFinite(base) || base <= 0) continue;
-    const indexed = new Map<string, number>();
-    for (const p of inWindow) {
-      indexed.set(p.date, (p.close / base) * 100);
+      if (
+        !Number.isFinite(ms) ||
+        ms < cutoffMs ||
+        !Number.isFinite(p.close) ||
+        p.close <= 0
+      ) {
+        continue;
+      }
+      const bucket = monthBucket(p.date);
+      if (!bucket) continue;
+      orderedDates.push({ date: p.date, ms, close: p.close, bucket });
     }
-    perTickerIndexed.set(h.ticker, indexed);
+    if (orderedDates.length === 0) continue;
+    orderedDates.sort((a, b) => a.ms - b.ms);
+    for (const row of orderedDates) {
+      bucketed.set(row.bucket, row.close);
+    }
+    perTickerByBucket.set(h.ticker, bucketed);
   }
 
-  const dateSet = new Set<string>();
-  for (const inner of perTickerIndexed.values()) {
-    for (const d of inner.keys()) dateSet.add(d);
+  // Per ticker: rebase its bucketed series to 100 from its earliest bucket.
+  const perTickerIndexed = new Map<string, Map<string, number>>();
+  for (const [ticker, bucketed] of perTickerByBucket) {
+    const buckets = Array.from(bucketed.keys()).sort();
+    if (buckets.length === 0) continue;
+    const base = bucketed.get(buckets[0]);
+    if (typeof base !== "number" || !Number.isFinite(base) || base <= 0) continue;
+    const indexed = new Map<string, number>();
+    for (const b of buckets) {
+      const close = bucketed.get(b);
+      if (typeof close !== "number" || !Number.isFinite(close)) continue;
+      indexed.set(b, (close / base) * 100);
+    }
+    perTickerIndexed.set(ticker, indexed);
   }
-  const dates = Array.from(dateSet).sort();
+
+  const bucketSet = new Set<string>();
+  for (const inner of perTickerIndexed.values()) {
+    for (const b of inner.keys()) bucketSet.add(b);
+  }
+  const buckets = Array.from(bucketSet).sort();
 
   const rows: ChartRow[] = [];
-  for (const d of dates) {
+  for (const b of buckets) {
     const vals: number[] = [];
     for (const inner of perTickerIndexed.values()) {
-      const v = inner.get(d);
+      const v = inner.get(b);
       if (typeof v === "number" && Number.isFinite(v)) vals.push(v);
     }
     if (vals.length === 0) continue;
     rows.push({
-      date: d,
+      date: b,
       max: Math.max(...vals),
       min: Math.min(...vals),
     });

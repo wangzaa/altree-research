@@ -2,7 +2,7 @@ import React from "react";
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ScanChart, buildCsv } from "@/components/scan-chart";
+import { ScanChart, buildCsv, monthBucket } from "@/components/scan-chart";
 import type { TickerHistory } from "@/lib/schemas/scan";
 
 // Use dates close to the current month so the default 5Y window keeps them.
@@ -93,11 +93,33 @@ describe("<ScanChart>", () => {
   });
 });
 
+describe("monthBucket", () => {
+  it("returns YYYY-MM for mid- or end-of-month dates", () => {
+    expect(monthBucket("2025-11-30")).toBe("2025-11");
+    expect(monthBucket("2025-11-15")).toBe("2025-11");
+    expect(monthBucket("2026-04-30")).toBe("2026-04");
+  });
+
+  it("snaps day 1-5 dates to the previous month", () => {
+    expect(monthBucket("2025-12-01")).toBe("2025-11");
+    expect(monthBucket("2026-01-01")).toBe("2025-12");
+    expect(monthBucket("2026-02-05")).toBe("2026-01");
+  });
+
+  it("wraps year boundary correctly", () => {
+    expect(monthBucket("2026-01-03")).toBe("2025-12");
+  });
+
+  it("returns null for invalid dates", () => {
+    expect(monthBucket("not-a-date")).toBeNull();
+  });
+});
+
 describe("buildCsv", () => {
-  it("emits one header row + one row per (ticker,date) with raw and indexed values", () => {
+  it("emits one header row + one row per (ticker,date) with raw and indexed values plus a month_bucket column", () => {
     const csv = buildCsv(sampleHistory, 60);
     const lines = csv.split("\n");
-    expect(lines[0]).toBe("ticker,date,close_raw,close_indexed");
+    expect(lines[0]).toBe("ticker,date,month_bucket,close_raw,close_indexed");
     expect(lines.length).toBe(1 + 3 + 3); // header + 3 RHM + 3 BA
     // First RHM row: 100 raw, 100.0 indexed (rebased to itself).
     const firstRhm = lines.find((l) => l.startsWith("RHM.DE,"));
