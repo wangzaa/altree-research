@@ -55,3 +55,83 @@ export async function getFundamentals(
     return null;
   }
 }
+
+export interface HistoryPoint {
+  date: string;
+  close: number;
+}
+
+export async function getHistory(
+  ticker: string,
+  options?: { period?: "5y" | "1y"; interval?: "1mo" | "1d" },
+): Promise<HistoryPoint[] | null> {
+  const period = options?.period ?? "5y";
+  const interval = options?.interval ?? "1mo";
+  const yearsBack = period === "5y" ? 5 : 1;
+  const period2 = new Date();
+  const period1 = new Date(period2);
+  period1.setFullYear(period2.getFullYear() - yearsBack);
+
+  try {
+    const raw = await yahooFinance.historical(ticker, {
+      period1,
+      period2,
+      interval,
+    });
+    if (!Array.isArray(raw)) return null;
+    return raw.map((row) => {
+      const r = row as {
+        date: Date | string;
+        close: number;
+        adjClose?: number;
+      };
+      const close = typeof r.adjClose === "number" ? r.adjClose : r.close;
+      const dateStr =
+        r.date instanceof Date
+          ? r.date.toISOString().slice(0, 10)
+          : String(r.date).slice(0, 10);
+      return { date: dateStr, close };
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[lib/data/yahoo] getHistory error for ${ticker}:`, message);
+    return null;
+  }
+}
+
+export interface TickerRatios {
+  gross_margin: number | null;
+  ebit_margin: number | null;
+  fcf_yield: number | null;
+}
+
+export async function getRatios(ticker: string): Promise<TickerRatios | null> {
+  try {
+    const raw = await yahooFinance.quoteSummary(ticker, {
+      modules: ["financialData", "defaultKeyStatistics"],
+    });
+    const r = raw as {
+      financialData?: {
+        grossMargins?: number;
+        operatingMargins?: number;
+        freeCashflow?: number;
+      };
+      defaultKeyStatistics?: { marketCap?: number };
+    };
+    const fd = r.financialData ?? {};
+    const ks = r.defaultKeyStatistics ?? {};
+    const fcf =
+      typeof fd.freeCashflow === "number" && typeof ks.marketCap === "number" && ks.marketCap > 0
+        ? fd.freeCashflow / ks.marketCap
+        : null;
+    return {
+      gross_margin: typeof fd.grossMargins === "number" ? fd.grossMargins : null,
+      ebit_margin: typeof fd.operatingMargins === "number" ? fd.operatingMargins : null,
+      fcf_yield: fcf,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[lib/data/yahoo] getRatios error for ${ticker}:`, message);
+    return null;
+  }
+}
