@@ -106,6 +106,7 @@ export async function POST(req: Request) {
           ratios.push(r);
           tickers_snapshot.push({
             ticker: row.ticker,
+            name: row.name,
             trailing_pe: r.trailing_pe,
             ebitda: r.ebitda,
             ebitda_margin: r.ebitda_margin,

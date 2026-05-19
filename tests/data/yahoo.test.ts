@@ -176,15 +176,13 @@ describe("getRatios", () => {
         financialCurrency: "EUR",
       },
       defaultKeyStatistics: { trailingPE: 18.5 },
-      earnings: {
-        earningsChart: {
-          quarterly: [
-            { date: "1Q2025", actual: 1.15 },
-            { date: "2Q2025", actual: 1.30 },
-            { date: "3Q2025", actual: 1.42 },
-            { date: "4Q2025", actual: 1.85 },
-          ],
-        },
+      earningsHistory: {
+        history: [
+          { quarter: new Date("2025-03-31T00:00:00Z"), epsActual: 1.15 },
+          { quarter: new Date("2025-06-30T00:00:00Z"), epsActual: 1.30 },
+          { quarter: new Date("2025-09-30T00:00:00Z"), epsActual: 1.42 },
+          { quarter: new Date("2025-12-31T00:00:00Z"), epsActual: 1.85 },
+        ],
       },
       summaryDetail: { currency: "EUR" },
       price: { currency: "EUR" },
@@ -206,15 +204,44 @@ describe("getRatios", () => {
         { period_end_iso: "2025-12-31", eps: 1.85 },
       ],
     });
-    expect(quoteSummaryMock).toHaveBeenCalledWith("RHM.DE", {
-      modules: [
-        "financialData",
-        "defaultKeyStatistics",
-        "earnings",
-        "summaryDetail",
-        "price",
-      ],
+    expect(quoteSummaryMock).toHaveBeenCalledWith(
+      "RHM.DE",
+      {
+        modules: [
+          "financialData",
+          "defaultKeyStatistics",
+          "earnings",
+          "earningsHistory",
+          "summaryDetail",
+          "price",
+        ],
+      },
+      { validateResult: false },
+    );
+  });
+
+  it("handles nested {raw} shape for numeric fields when Yahoo doesn't normalise", async () => {
+    quoteSummaryMock.mockResolvedValueOnce({
+      financialData: {
+        grossMargins: { raw: 0.42, fmt: "42%" },
+        operatingMargins: { raw: 0.22, fmt: "22%" },
+        ebitda: { raw: 2_500_000_000, fmt: "2.5B" },
+        totalRevenue: { raw: 10_000_000_000, fmt: "10B" },
+        revenueGrowth: { raw: 0.18, fmt: "18%" },
+        financialCurrency: "KRW",
+      },
+      defaultKeyStatistics: { trailingPE: { raw: 12.3, fmt: "12.3" } },
+      earningsHistory: { history: [] },
     });
+    const { getRatios } = await import("@/lib/data/yahoo");
+    const result = await getRatios("000660.KS");
+    expect(result?.trailing_pe).toBe(12.3);
+    expect(result?.gross_margin).toBe(0.42);
+    expect(result?.ebit_margin).toBe(0.22);
+    expect(result?.ebitda).toBe(2_500_000_000);
+    expect(result?.ebitda_margin).toBeCloseTo(0.25, 5);
+    expect(result?.revenue_growth_yoy).toBe(0.18);
+    expect(result?.currency).toBe("KRW");
   });
 
   it("returns nulls for missing fields without erroring", async () => {
@@ -248,25 +275,24 @@ describe("getRatios", () => {
     expect(result?.trailing_pe).toBeNull();
   });
 
-  it("skips malformed quarter strings in earnings.earningsChart.quarterly", async () => {
+  it("skips quarterly EPS entries with missing date or epsActual", async () => {
     quoteSummaryMock.mockResolvedValueOnce({
       financialData: {},
       defaultKeyStatistics: {},
-      earnings: {
-        earningsChart: {
-          quarterly: [
-            { date: "1Q2024", actual: 1.0 },
-            { date: "garbage", actual: 99.0 },
-            { date: "2Q2024", actual: 1.1 },
-          ],
-        },
+      earningsHistory: {
+        history: [
+          { quarter: new Date("2024-03-31T00:00:00Z"), epsActual: 1.0 },
+          { quarter: null, epsActual: 99.0 },
+          { quarter: new Date("2024-06-30T00:00:00Z"), epsActual: null },
+          { quarter: new Date("2024-09-30T00:00:00Z"), epsActual: 1.1 },
+        ],
       },
     });
     const { getRatios } = await import("@/lib/data/yahoo");
     const result = await getRatios("X.L");
     expect(result?.quarterly_eps).toEqual([
       { period_end_iso: "2024-03-31", eps: 1.0 },
-      { period_end_iso: "2024-06-30", eps: 1.1 },
+      { period_end_iso: "2024-09-30", eps: 1.1 },
     ]);
   });
 

@@ -54,6 +54,7 @@ function priceAtWindowStart(
 
 interface ComputedRow {
   ticker: string;
+  name: string;
   pe_start: number | null;
   pe_end: number | null;
   revenue_growth_yoy: number | null;
@@ -90,6 +91,7 @@ export function computeRows(
     }
     return {
       ticker: s.ticker,
+      name: s.name,
       pe_start,
       pe_end: s.trailing_pe,
       revenue_growth_yoy: s.revenue_growth_yoy,
@@ -156,6 +158,7 @@ export function PerTickerTable({
         <thead className="bg-neutral-50 text-neutral-600">
           <tr>
             <th className="px-3 py-2 text-left font-medium">Ticker</th>
+            <th className="px-3 py-2 text-left font-medium">Name</th>
             <th className="px-3 py-2 text-right font-medium">
               P/E <span className="text-neutral-400">(start)</span>
             </th>
@@ -171,6 +174,7 @@ export function PerTickerTable({
           {rows.map((r) => (
             <tr key={r.ticker}>
               <td className="px-3 py-2 font-mono">{r.ticker}</td>
+              <td className="px-3 py-2">{r.name}</td>
               <td className="px-3 py-2 text-right tabular-nums">
                 {fmtRatio(r.pe_start)}
               </td>

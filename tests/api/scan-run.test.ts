@@ -156,6 +156,7 @@ describe("POST /api/scan/run", () => {
     expect(body.scan.tickers_snapshot[0]).toEqual(
       expect.objectContaining({
         ticker: expect.any(String),
+        name: expect.any(String),
         trailing_pe: 18.5,
         ebitda: 1e9,
         ebitda_margin: 0.2,

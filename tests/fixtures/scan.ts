@@ -31,6 +31,7 @@ export const canonicalScan: ScanResults = {
   tickers_snapshot: [
     {
       ticker: "RHM.DE",
+      name: "Rheinmetall AG",
       trailing_pe: 22.0,
       ebitda: 1_800_000_000,
       ebitda_margin: 0.20,
@@ -46,6 +47,7 @@ export const canonicalScan: ScanResults = {
     },
     {
       ticker: "BA.L",
+      name: "BAE Systems plc",
       trailing_pe: 15.8,
       ebitda: 3_200_000_000,
       ebitda_margin: 0.13,

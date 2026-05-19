@@ -45,6 +45,7 @@ export const QuarterlyEpsSchema = z
 export const TickerSnapshotSchema = z
   .object({
     ticker: z.string().min(1),
+    name: z.string().min(1),
     trailing_pe: z.number().nullable(),
     ebitda: z.number().nullable(),
     ebitda_margin: z.number().nullable(),

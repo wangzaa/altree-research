@@ -114,105 +114,112 @@ export interface TickerRatios {
   ebitda_margin: number | null;      // decimal (ebitda / totalRevenue)
   revenue_growth_yoy: number | null; // decimal (Yahoo's financialData.revenueGrowth)
   currency: string | null;           // ISO currency code, e.g. "USD", "KRW", "TWD"
-  quarterly_eps: QuarterlyEps[];     // up to ~8 quarters from earningsChart
+  quarterly_eps: QuarterlyEps[];     // up to ~4 actual-EPS quarters from earningsHistory.history
 }
 
-// "1Q2024" -> "2024-03-31"; "4Q2023" -> "2023-12-31".
-// Quarter strings from Yahoo's earnings.earningsChart.quarterly[].date.
-const QUARTER_END_DAY: Record<number, [number, number]> = {
-  1: [3, 31],
-  2: [6, 30],
-  3: [9, 30],
-  4: [12, 31],
-};
+// Yahoo's quoteSummary can return numeric fields either as a bare number or
+// as a `{raw, fmt}` object depending on the ticker / module / market.
+// yahoo-finance2 v3's bundled schema sometimes mismatches the live shape and
+// silently strips fields when validateResult is on. We disable validation
+// (so we receive the raw shape) and normalise here.
+function extractNumber(field: unknown): number | null {
+  if (typeof field === "number" && Number.isFinite(field)) return field;
+  if (typeof field === "object" && field !== null && "raw" in field) {
+    const raw = (field as { raw?: unknown }).raw;
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  }
+  return null;
+}
 
-function quarterStringToPeriodEnd(qs: string): string | null {
-  const m = qs.match(/^([1-4])Q(\d{4})$/);
-  if (!m) return null;
-  const q = Number(m[1]);
-  const y = Number(m[2]);
-  const [month, day] = QUARTER_END_DAY[q];
-  return `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+function extractString(field: unknown): string | null {
+  if (typeof field === "string" && field.length > 0) return field;
+  return null;
+}
+
+function extractDateIso(field: unknown): string | null {
+  if (field instanceof Date && !Number.isNaN(field.getTime())) {
+    return field.toISOString().slice(0, 10);
+  }
+  if (typeof field === "string") {
+    const d = new Date(field);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
+  if (typeof field === "object" && field !== null && "raw" in field) {
+    const raw = (field as { raw?: unknown }).raw;
+    if (typeof raw === "number") {
+      // Yahoo unix seconds.
+      const d = new Date(raw * 1000);
+      if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+    }
+  }
+  return null;
 }
 
 export async function getRatios(ticker: string): Promise<TickerRatios | null> {
   try {
-    const raw = await yahooFinance.quoteSummary(ticker, {
-      modules: [
-        "financialData",
-        "defaultKeyStatistics",
-        "earnings",
-        "summaryDetail",
-        "price",
-      ],
-    });
-    const r = raw as {
-      financialData?: {
-        grossMargins?: number;
-        operatingMargins?: number;
-        ebitda?: number;
-        totalRevenue?: number;
-        revenueGrowth?: number;
-        financialCurrency?: string;
-      };
-      defaultKeyStatistics?: { trailingPE?: number };
-      earnings?: {
-        earningsChart?: {
-          quarterly?: Array<{ date?: string; actual?: number }>;
-        };
-        financialCurrency?: string;
-      };
-      summaryDetail?: { currency?: string };
-      price?: { currency?: string };
-    };
-    const fd = r.financialData ?? {};
-    const ks = r.defaultKeyStatistics ?? {};
-    const earningsQuarterly = r.earnings?.earningsChart?.quarterly ?? [];
+    const raw = await yahooFinance.quoteSummary(
+      ticker,
+      {
+        modules: [
+          "financialData",
+          "defaultKeyStatistics",
+          "earnings",
+          "earningsHistory",
+          "summaryDetail",
+          "price",
+        ],
+      },
+      // Disable yahoo-finance2's strict schema validation; it strips fields
+      // that don't match the bundled schema (notably trailingPE for KS/TW
+      // markets). We normalise the raw response ourselves below.
+      { validateResult: false },
+    );
+    const r = raw as Record<string, unknown>;
+    const fd = (r.financialData ?? {}) as Record<string, unknown>;
+    const ks = (r.defaultKeyStatistics ?? {}) as Record<string, unknown>;
+    const earningsHistory =
+      ((r.earningsHistory as Record<string, unknown> | undefined)?.history as
+        | Array<Record<string, unknown>>
+        | undefined) ?? [];
 
     // Negative trailing P/E (loss-making company) is meaningless as a ratio —
     // surface as null so it doesn't drag the universe mean.
-    const pe =
-      typeof ks.trailingPE === "number" && Number.isFinite(ks.trailingPE) && ks.trailingPE > 0
-        ? ks.trailingPE
-        : null;
+    const peRaw = extractNumber(ks.trailingPE);
+    const pe = peRaw !== null && peRaw > 0 ? peRaw : null;
 
-    const ebitda =
-      typeof fd.ebitda === "number" && Number.isFinite(fd.ebitda) ? fd.ebitda : null;
-    const totalRevenue =
-      typeof fd.totalRevenue === "number" && Number.isFinite(fd.totalRevenue)
-        ? fd.totalRevenue
-        : null;
+    const ebitda = extractNumber(fd.ebitda);
+    const totalRevenue = extractNumber(fd.totalRevenue);
     const ebitda_margin =
       ebitda !== null && totalRevenue !== null && totalRevenue > 0
         ? ebitda / totalRevenue
         : null;
 
-    const revenue_growth_yoy =
-      typeof fd.revenueGrowth === "number" && Number.isFinite(fd.revenueGrowth)
-        ? fd.revenueGrowth
-        : null;
+    const revenue_growth_yoy = extractNumber(fd.revenueGrowth);
 
     // Currency preference: financialData.financialCurrency (the reporting
     // currency for the income statement, which matches ebitda) > earnings >
     // summaryDetail/price (trading currency, which may differ for ADRs).
     const currency =
-      fd.financialCurrency ??
-      r.earnings?.financialCurrency ??
-      r.summaryDetail?.currency ??
-      r.price?.currency ??
+      extractString(fd.financialCurrency) ??
+      extractString((r.earnings as Record<string, unknown> | undefined)?.financialCurrency) ??
+      extractString((r.summaryDetail as Record<string, unknown> | undefined)?.currency) ??
+      extractString((r.price as Record<string, unknown> | undefined)?.currency) ??
       null;
 
+    // earningsHistory.history[] holds the actuals (~4 quarters) with real
+    // Date objects on `.quarter`. Cleaner source than earningsChart.quarterly
+    // which mixes actuals with forward estimates.
     const quarterly_eps: QuarterlyEps[] = [];
-    for (const q of earningsQuarterly) {
-      if (typeof q.date !== "string" || typeof q.actual !== "number") continue;
-      const period_end_iso = quarterStringToPeriodEnd(q.date);
-      if (!period_end_iso) continue;
-      quarterly_eps.push({ period_end_iso, eps: q.actual });
+    for (const q of earningsHistory) {
+      const period_end_iso = extractDateIso(q.quarter);
+      const eps = extractNumber(q.epsActual);
+      if (!period_end_iso || eps === null) continue;
+      quarterly_eps.push({ period_end_iso, eps });
     }
 
     return {
-      gross_margin: typeof fd.grossMargins === "number" ? fd.grossMargins : null,
-      ebit_margin: typeof fd.operatingMargins === "number" ? fd.operatingMargins : null,
+      gross_margin: extractNumber(fd.grossMargins),
+      ebit_margin: extractNumber(fd.operatingMargins),
       trailing_pe: pe,
       ebitda,
       ebitda_margin,

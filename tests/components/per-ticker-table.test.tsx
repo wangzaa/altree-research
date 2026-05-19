@@ -69,6 +69,7 @@ describe("computeRows", () => {
     const snapshots: TickerSnapshot[] = [
       {
         ticker: "FOO",
+        name: "Foo Co",
         trailing_pe: 20.0,
         ebitda: 1e9,
         ebitda_margin: 0.15,
@@ -106,6 +107,7 @@ describe("computeRows", () => {
     const snapshots: TickerSnapshot[] = [
       {
         ticker: "NEW",
+        name: "Newco Ltd",
         trailing_pe: 30.0,
         ebitda: 1e9,
         ebitda_margin: 0.15,
@@ -132,6 +134,7 @@ describe("<PerTickerTable>", () => {
   const snapshots: TickerSnapshot[] = [
     {
       ticker: "TEST",
+      name: "Test Industries",
       trailing_pe: 18.5,
       ebitda: 1_500_000_000,
       ebitda_margin: 0.15,
@@ -146,6 +149,7 @@ describe("<PerTickerTable>", () => {
       <PerTickerTable snapshots={snapshots} history={[]} windowMonths={60} />,
     );
     expect(screen.getByText("TEST")).toBeInTheDocument();
+    expect(screen.getByText("Test Industries")).toBeInTheDocument();
     expect(screen.getByText("$1.5B")).toBeInTheDocument();
     expect(screen.getByText("18.5×")).toBeInTheDocument();
     expect(screen.getByText("22.0%")).toBeInTheDocument();
