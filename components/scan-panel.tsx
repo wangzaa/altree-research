@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ScanChart } from "@/components/scan-chart";
 import type { ScanResults } from "@/lib/schemas/scan";
 
@@ -58,6 +59,7 @@ function FundamentalsTable({
 }
 
 export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
+  const router = useRouter();
   const [scan, setScan] = useState<ScanResults | null>(initial);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +92,9 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
       setScan(body.scan);
       setDropped([...(body.dropped ?? []), ...(body.dropped_ratios ?? [])]);
       setRunning(false);
+      // Re-render the server tree so the left-panel StageList picks up the
+      // new scan_runs row and flips Scanner from pending to completed.
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected error");
       setRunning(false);

@@ -6,9 +6,15 @@ import { ScanPanel } from "@/components/scan-panel";
 import { cloneCanonicalScan } from "@/tests/fixtures/scan";
 
 const fetchMock = vi.fn();
+const routerRefreshMock = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: routerRefreshMock }),
+}));
 
 beforeEach(() => {
   fetchMock.mockReset();
+  routerRefreshMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
 });
 
@@ -64,6 +70,9 @@ describe("<ScanPanel>", () => {
       "/api/scan/run",
       expect.objectContaining({ method: "POST" }),
     );
+    // router.refresh re-renders the server tree so the left-panel StageList
+    // picks up the new scan_runs row.
+    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
   });
 
   it("surfaces dropped count when present in response", async () => {
