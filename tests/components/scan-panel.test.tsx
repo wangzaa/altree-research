@@ -39,7 +39,9 @@ describe("<ScanPanel>", () => {
         initial={scan}
       />,
     );
-    expect(screen.getByText(/RHM\.DE/)).toBeInTheDocument();
+    // RHM.DE may appear in both the per-ticker table and the tickers-in-history
+    // line; just confirm at least one mention exists.
+    expect(screen.getAllByText(/RHM\.DE/).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /re-run scan/i })).toBeInTheDocument();
   });
 

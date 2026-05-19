@@ -135,7 +135,7 @@ describe("POST /api/scan/run", () => {
         { date: "2021-07-01", close: 110 },
       ]);
       getRatiosMock.mockResolvedValueOnce({
-        gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5,
+        gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5, ebitda: 1e9, ebitda_margin: 0.2, revenue_growth_yoy: 0.18, currency: "USD", quarterly_eps: [{ period_end_iso: "2025-12-31", eps: 1.0 }],
       });
     }
     scanRunnerMock.mockResolvedValueOnce({
@@ -151,6 +151,18 @@ describe("POST /api/scan/run", () => {
     expect(body.scan.descriptive_markdown).toContain("para 1");
     expect(body.scan.history_5y.length).toBeGreaterThan(0);
     expect(body.scan.fundamentals_snapshot.per_ticker_used).toBeGreaterThan(0);
+    expect(Array.isArray(body.scan.tickers_snapshot)).toBe(true);
+    expect(body.scan.tickers_snapshot.length).toBeGreaterThan(0);
+    expect(body.scan.tickers_snapshot[0]).toEqual(
+      expect.objectContaining({
+        ticker: expect.any(String),
+        trailing_pe: 18.5,
+        ebitda: 1e9,
+        ebitda_margin: 0.2,
+        revenue_growth_yoy: 0.18,
+        currency: "USD",
+      }),
+    );
 
     expect(scanDeleteMock).toHaveBeenCalledTimes(1);
     expect(scanInsertMock).toHaveBeenCalledTimes(1);
@@ -175,7 +187,7 @@ describe("POST /api/scan/run", () => {
       getHistoryMock.mockResolvedValueOnce(null);
     }
     getRatiosMock.mockResolvedValue({
-      gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5,
+      gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5, ebitda: 1e9, ebitda_margin: 0.2, revenue_growth_yoy: 0.18, currency: "USD", quarterly_eps: [{ period_end_iso: "2025-12-31", eps: 1.0 }],
     });
 
     const { POST } = await import("@/app/api/scan/run/route");
@@ -203,7 +215,7 @@ describe("POST /api/scan/run", () => {
         { date: "2021-07-01", close: 110 },
       ]);
       getRatiosMock.mockResolvedValueOnce({
-        gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5,
+        gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5, ebitda: 1e9, ebitda_margin: 0.2, revenue_growth_yoy: 0.18, currency: "USD", quarterly_eps: [{ period_end_iso: "2025-12-31", eps: 1.0 }],
       });
     }
     scanRunnerMock.mockResolvedValueOnce({
@@ -237,7 +249,7 @@ describe("POST /api/scan/run", () => {
         { date: "2021-07-01", close: 110 },
       ]);
       getRatiosMock.mockResolvedValueOnce({
-        gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5,
+        gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5, ebitda: 1e9, ebitda_margin: 0.2, revenue_growth_yoy: 0.18, currency: "USD", quarterly_eps: [{ period_end_iso: "2025-12-31", eps: 1.0 }],
       });
     }
     scanRunnerMock.mockResolvedValueOnce({

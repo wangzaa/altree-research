@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -13,19 +13,25 @@ import {
 } from "recharts";
 import type { TickerHistory } from "@/lib/schemas/scan";
 
-interface ScanChartProps {
-  history: TickerHistory[];
-}
+export type WindowKey = "3mth" | "6mth" | "12mth" | "3y" | "5y";
 
-type WindowKey = "3mth" | "6mth" | "12mth" | "3y" | "5y";
-
-const WINDOWS: Array<{ key: WindowKey; label: string; months: number }> = [
+export const WINDOWS: Array<{ key: WindowKey; label: string; months: number }> = [
   { key: "3mth", label: "3M", months: 3 },
   { key: "6mth", label: "6M", months: 6 },
   { key: "12mth", label: "12M", months: 12 },
   { key: "3y", label: "3Y", months: 36 },
   { key: "5y", label: "5Y", months: 60 },
 ];
+
+export function monthsFor(key: WindowKey): number {
+  return WINDOWS.find((w) => w.key === key)?.months ?? 60;
+}
+
+interface ScanChartProps {
+  history: TickerHistory[];
+  windowKey: WindowKey;
+  onWindowChange: (next: WindowKey) => void;
+}
 
 interface ChartRow {
   date: string;
@@ -184,9 +190,12 @@ function indexedRebase(
   return rows;
 }
 
-export function ScanChart({ history }: ScanChartProps) {
-  const [windowKey, setWindowKey] = useState<WindowKey>("5y");
-  const months = WINDOWS.find((w) => w.key === windowKey)?.months ?? 60;
+export function ScanChart({
+  history,
+  windowKey,
+  onWindowChange,
+}: ScanChartProps) {
+  const months = monthsFor(windowKey);
   const data = useMemo(
     () => indexedRebase(history, months),
     [history, months],
@@ -213,7 +222,7 @@ export function ScanChart({ history }: ScanChartProps) {
           <button
             key={w.key}
             type="button"
-            onClick={() => setWindowKey(w.key)}
+            onClick={() => onWindowChange(w.key)}
             aria-pressed={windowKey === w.key}
             className={
               windowKey === w.key

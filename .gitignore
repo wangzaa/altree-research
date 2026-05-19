@@ -41,6 +41,11 @@ yarn-error.log*
 !.vscode/settings.json
 !.vscode/extensions.json
 .idea
+.claude/
+
+# macOS Finder / iCloud creates "* 2.*" duplicates when files are moved on
+# synced folders; never commit these.
+* 2.*
 
 # testing
 coverage

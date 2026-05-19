@@ -99,36 +99,126 @@ export async function getHistory(
   }
 }
 
+export interface QuarterlyEps {
+  period_end_iso: string; // YYYY-MM-DD
+  eps: number;
+}
+
 export interface TickerRatios {
   gross_margin: number | null;
   ebit_margin: number | null;
   trailing_pe: number | null;
+  // Per-ticker fields used by the scan-panel per-ticker table. Not
+  // aggregated; passed through to the UI as-is.
+  ebitda: number | null;             // native reporting currency, absolute
+  ebitda_margin: number | null;      // decimal (ebitda / totalRevenue)
+  revenue_growth_yoy: number | null; // decimal (Yahoo's financialData.revenueGrowth)
+  currency: string | null;           // ISO currency code, e.g. "USD", "KRW", "TWD"
+  quarterly_eps: QuarterlyEps[];     // up to ~8 quarters from earningsChart
+}
+
+// "1Q2024" -> "2024-03-31"; "4Q2023" -> "2023-12-31".
+// Quarter strings from Yahoo's earnings.earningsChart.quarterly[].date.
+const QUARTER_END_DAY: Record<number, [number, number]> = {
+  1: [3, 31],
+  2: [6, 30],
+  3: [9, 30],
+  4: [12, 31],
+};
+
+function quarterStringToPeriodEnd(qs: string): string | null {
+  const m = qs.match(/^([1-4])Q(\d{4})$/);
+  if (!m) return null;
+  const q = Number(m[1]);
+  const y = Number(m[2]);
+  const [month, day] = QUARTER_END_DAY[q];
+  return `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 export async function getRatios(ticker: string): Promise<TickerRatios | null> {
   try {
     const raw = await yahooFinance.quoteSummary(ticker, {
-      modules: ["financialData", "defaultKeyStatistics"],
+      modules: [
+        "financialData",
+        "defaultKeyStatistics",
+        "earnings",
+        "summaryDetail",
+        "price",
+      ],
     });
     const r = raw as {
       financialData?: {
         grossMargins?: number;
         operatingMargins?: number;
+        ebitda?: number;
+        totalRevenue?: number;
+        revenueGrowth?: number;
+        financialCurrency?: string;
       };
       defaultKeyStatistics?: { trailingPE?: number };
+      earnings?: {
+        earningsChart?: {
+          quarterly?: Array<{ date?: string; actual?: number }>;
+        };
+        financialCurrency?: string;
+      };
+      summaryDetail?: { currency?: string };
+      price?: { currency?: string };
     };
     const fd = r.financialData ?? {};
     const ks = r.defaultKeyStatistics ?? {};
+    const earningsQuarterly = r.earnings?.earningsChart?.quarterly ?? [];
+
     // Negative trailing P/E (loss-making company) is meaningless as a ratio —
     // surface as null so it doesn't drag the universe mean.
     const pe =
       typeof ks.trailingPE === "number" && Number.isFinite(ks.trailingPE) && ks.trailingPE > 0
         ? ks.trailingPE
         : null;
+
+    const ebitda =
+      typeof fd.ebitda === "number" && Number.isFinite(fd.ebitda) ? fd.ebitda : null;
+    const totalRevenue =
+      typeof fd.totalRevenue === "number" && Number.isFinite(fd.totalRevenue)
+        ? fd.totalRevenue
+        : null;
+    const ebitda_margin =
+      ebitda !== null && totalRevenue !== null && totalRevenue > 0
+        ? ebitda / totalRevenue
+        : null;
+
+    const revenue_growth_yoy =
+      typeof fd.revenueGrowth === "number" && Number.isFinite(fd.revenueGrowth)
+        ? fd.revenueGrowth
+        : null;
+
+    // Currency preference: financialData.financialCurrency (the reporting
+    // currency for the income statement, which matches ebitda) > earnings >
+    // summaryDetail/price (trading currency, which may differ for ADRs).
+    const currency =
+      fd.financialCurrency ??
+      r.earnings?.financialCurrency ??
+      r.summaryDetail?.currency ??
+      r.price?.currency ??
+      null;
+
+    const quarterly_eps: QuarterlyEps[] = [];
+    for (const q of earningsQuarterly) {
+      if (typeof q.date !== "string" || typeof q.actual !== "number") continue;
+      const period_end_iso = quarterStringToPeriodEnd(q.date);
+      if (!period_end_iso) continue;
+      quarterly_eps.push({ period_end_iso, eps: q.actual });
+    }
+
     return {
       gross_margin: typeof fd.grossMargins === "number" ? fd.grossMargins : null,
       ebit_margin: typeof fd.operatingMargins === "number" ? fd.operatingMargins : null,
       trailing_pe: pe,
+      ebitda,
+      ebitda_margin,
+      revenue_growth_yoy,
+      currency,
+      quarterly_eps,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

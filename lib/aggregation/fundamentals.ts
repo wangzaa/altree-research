@@ -1,8 +1,16 @@
-import type { TickerRatios } from "@/lib/data/yahoo";
+// The aggregator only cares about the three numeric ratios used by the
+// scan-runner agent prompt (gross / EBIT / P/E). The data layer's TickerRatios
+// is wider — it also carries per-ticker extras (EBITDA, currency, quarterly
+// EPS) used by the per-ticker UI table.
+export interface AggregatedRatios {
+  gross_margin: number | null;
+  ebit_margin: number | null;
+  trailing_pe: number | null;
+}
 
 export interface FundamentalsAggregate {
-  mean: TickerRatios;
-  median: TickerRatios;
+  mean: AggregatedRatios;
+  median: AggregatedRatios;
   per_ticker_used: number;
 }
 
@@ -22,7 +30,7 @@ function medianOf(values: number[]): number | null {
   return (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function columnValues(rows: TickerRatios[], col: Column): number[] {
+function columnValues(rows: AggregatedRatios[], col: Column): number[] {
   const out: number[] = [];
   for (const row of rows) {
     const v = row[col];
@@ -32,14 +40,14 @@ function columnValues(rows: TickerRatios[], col: Column): number[] {
 }
 
 export function aggregateFundamentals(
-  rows: TickerRatios[],
+  rows: AggregatedRatios[],
 ): FundamentalsAggregate {
-  const mean: TickerRatios = {
+  const mean: AggregatedRatios = {
     gross_margin: null,
     ebit_margin: null,
     trailing_pe: null,
   };
-  const median: TickerRatios = {
+  const median: AggregatedRatios = {
     gross_margin: null,
     ebit_margin: null,
     trailing_pe: null,

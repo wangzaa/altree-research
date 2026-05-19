@@ -32,6 +32,28 @@ export const FundamentalsSnapshotSchema = z
   })
   .strict();
 
+export const QuarterlyEpsSchema = z
+  .object({
+    period_end_iso: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    eps: z.number(),
+  })
+  .strict();
+
+// Per-ticker financial snapshot used by the scan-panel per-ticker table.
+// Separate from the aggregate fundamentals_snapshot which is mean/median
+// across the universe for the agent prompt.
+export const TickerSnapshotSchema = z
+  .object({
+    ticker: z.string().min(1),
+    trailing_pe: z.number().nullable(),
+    ebitda: z.number().nullable(),
+    ebitda_margin: z.number().nullable(),
+    revenue_growth_yoy: z.number().nullable(),
+    currency: z.string().nullable(),
+    quarterly_eps: z.array(QuarterlyEpsSchema),
+  })
+  .strict();
+
 export const ScanResultsSchema = z
   .object({
     thesis_id: ThesisIdSchema,
@@ -39,6 +61,7 @@ export const ScanResultsSchema = z
     ran_at: z.string(),
     history_5y: z.array(TickerHistorySchema).min(1),
     fundamentals_snapshot: FundamentalsSnapshotSchema,
+    tickers_snapshot: z.array(TickerSnapshotSchema),
     descriptive_markdown: z.string().min(1),
   })
   .strict();
@@ -46,4 +69,6 @@ export const ScanResultsSchema = z
 export type HistoryPoint = z.infer<typeof HistoryPointSchema>;
 export type TickerHistory = z.infer<typeof TickerHistorySchema>;
 export type FundamentalsSnapshot = z.infer<typeof FundamentalsSnapshotSchema>;
+export type QuarterlyEps = z.infer<typeof QuarterlyEpsSchema>;
+export type TickerSnapshot = z.infer<typeof TickerSnapshotSchema>;
 export type ScanResults = z.infer<typeof ScanResultsSchema>;

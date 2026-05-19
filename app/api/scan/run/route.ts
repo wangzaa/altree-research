@@ -9,6 +9,7 @@ import {
   ScanResultsSchema,
   type ScanResults,
   type TickerHistory,
+  type TickerSnapshot,
 } from "@/lib/schemas/scan";
 import type { Universe } from "@/lib/schemas/universe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -88,6 +89,7 @@ export async function POST(req: Request) {
     const history_5y: TickerHistory[] = [];
     const dropped: DroppedTicker[] = [];
     const ratios: TickerRatios[] = [];
+    const tickers_snapshot: TickerSnapshot[] = [];
     const dropped_ratios: DroppedRatios[] = [];
 
     for (const row of universe.tickers) {
@@ -102,6 +104,15 @@ export async function POST(req: Request) {
         const r = await getRatios(row.ticker);
         if (r) {
           ratios.push(r);
+          tickers_snapshot.push({
+            ticker: row.ticker,
+            trailing_pe: r.trailing_pe,
+            ebitda: r.ebitda,
+            ebitda_margin: r.ebitda_margin,
+            revenue_growth_yoy: r.revenue_growth_yoy,
+            currency: r.currency,
+            quarterly_eps: r.quarterly_eps,
+          });
         } else {
           dropped_ratios.push({ ticker: row.ticker, reason: "ratios_lookup_failed" });
         }
@@ -152,6 +163,7 @@ export async function POST(req: Request) {
         median: fundamentalsAggregate.median,
         per_ticker_used: fundamentalsAggregate.per_ticker_used,
       },
+      tickers_snapshot,
       descriptive_markdown: agentResult.markdown,
     };
 

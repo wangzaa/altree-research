@@ -2,7 +2,12 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ScanChart } from "@/components/scan-chart";
+import { PerTickerTable } from "@/components/per-ticker-table";
+import {
+  ScanChart,
+  monthsFor,
+  type WindowKey,
+} from "@/components/scan-chart";
 import type { ScanResults } from "@/lib/schemas/scan";
 
 interface ScanPanelProps {
@@ -16,58 +21,13 @@ interface Dropped {
   reason: string;
 }
 
-function FundamentalsTable({
-  snapshot,
-}: {
-  snapshot: ScanResults["fundamentals_snapshot"];
-}) {
-  // Margins are stored as decimals (0.34 = 34%); P/E is an absolute ratio (18.5x).
-  const pct = (v: number | null) =>
-    v === null ? "—" : `${(v * 100).toFixed(1)}%`;
-  const ratio = (v: number | null) =>
-    v === null ? "—" : `${v.toFixed(1)}×`;
-  return (
-    <section className="rounded-md border border-neutral-200 bg-white p-3 text-xs">
-      <h4 className="mb-2 font-medium text-neutral-700">
-        Mean / median gross margin · EBIT margin · trailing P/E
-        <span className="ml-2 font-normal text-neutral-500">
-          ({snapshot.per_ticker_used} tickers)
-        </span>
-      </h4>
-      <table className="w-full text-neutral-800">
-        <thead className="text-neutral-500">
-          <tr>
-            <th className="text-left font-normal"></th>
-            <th className="text-right font-normal">Gross</th>
-            <th className="text-right font-normal">EBIT</th>
-            <th className="text-right font-normal">P/E</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Mean</td>
-            <td className="text-right tabular-nums">{pct(snapshot.mean.gross_margin)}</td>
-            <td className="text-right tabular-nums">{pct(snapshot.mean.ebit_margin)}</td>
-            <td className="text-right tabular-nums">{ratio(snapshot.mean.trailing_pe)}</td>
-          </tr>
-          <tr>
-            <td>Median</td>
-            <td className="text-right tabular-nums">{pct(snapshot.median.gross_margin)}</td>
-            <td className="text-right tabular-nums">{pct(snapshot.median.ebit_margin)}</td>
-            <td className="text-right tabular-nums">{ratio(snapshot.median.trailing_pe)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
 export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
   const router = useRouter();
   const [scan, setScan] = useState<ScanResults | null>(initial);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dropped, setDropped] = useState<Dropped[]>([]);
+  const [windowKey, setWindowKey] = useState<WindowKey>("5y");
 
   async function handleRun() {
     setRunning(true);
@@ -130,8 +90,16 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <ScanChart history={scan.history_5y} />
-      <FundamentalsTable snapshot={scan.fundamentals_snapshot} />
+      <ScanChart
+        history={scan.history_5y}
+        windowKey={windowKey}
+        onWindowChange={setWindowKey}
+      />
+      <PerTickerTable
+        snapshots={scan.tickers_snapshot}
+        history={scan.history_5y}
+        windowMonths={monthsFor(windowKey)}
+      />
       <article className="whitespace-pre-wrap rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-800">
         {scan.descriptive_markdown}
       </article>

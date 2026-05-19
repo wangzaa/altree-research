@@ -165,15 +165,29 @@ describe("getRatios", () => {
     quoteSummaryMock.mockReset();
   });
 
-  it("joins financialData + defaultKeyStatistics into a flat row", async () => {
+  it("joins all quoteSummary modules into a flat row with ratios + extras", async () => {
     quoteSummaryMock.mockResolvedValueOnce({
       financialData: {
         grossMargins: 0.34,
         operatingMargins: 0.18,
+        ebitda: 1_500_000_000,
+        totalRevenue: 10_000_000_000,
+        revenueGrowth: 0.22,
+        financialCurrency: "EUR",
       },
-      defaultKeyStatistics: {
-        trailingPE: 18.5,
+      defaultKeyStatistics: { trailingPE: 18.5 },
+      earnings: {
+        earningsChart: {
+          quarterly: [
+            { date: "1Q2025", actual: 1.15 },
+            { date: "2Q2025", actual: 1.30 },
+            { date: "3Q2025", actual: 1.42 },
+            { date: "4Q2025", actual: 1.85 },
+          ],
+        },
       },
+      summaryDetail: { currency: "EUR" },
+      price: { currency: "EUR" },
     });
     const { getRatios } = await import("@/lib/data/yahoo");
     const result = await getRatios("RHM.DE");
@@ -181,9 +195,25 @@ describe("getRatios", () => {
       gross_margin: 0.34,
       ebit_margin: 0.18,
       trailing_pe: 18.5,
+      ebitda: 1_500_000_000,
+      ebitda_margin: 0.15,
+      revenue_growth_yoy: 0.22,
+      currency: "EUR",
+      quarterly_eps: [
+        { period_end_iso: "2025-03-31", eps: 1.15 },
+        { period_end_iso: "2025-06-30", eps: 1.30 },
+        { period_end_iso: "2025-09-30", eps: 1.42 },
+        { period_end_iso: "2025-12-31", eps: 1.85 },
+      ],
     });
     expect(quoteSummaryMock).toHaveBeenCalledWith("RHM.DE", {
-      modules: ["financialData", "defaultKeyStatistics"],
+      modules: [
+        "financialData",
+        "defaultKeyStatistics",
+        "earnings",
+        "summaryDetail",
+        "price",
+      ],
     });
   });
 
@@ -198,6 +228,11 @@ describe("getRatios", () => {
       gross_margin: 0.20,
       ebit_margin: null,
       trailing_pe: null,
+      ebitda: null,
+      ebitda_margin: null,
+      revenue_growth_yoy: null,
+      currency: null,
+      quarterly_eps: [],
     });
   });
 
@@ -208,11 +243,31 @@ describe("getRatios", () => {
     });
     const { getRatios } = await import("@/lib/data/yahoo");
     const result = await getRatios("LOSSCO");
-    expect(result).toEqual({
-      gross_margin: 0.20,
-      ebit_margin: -0.05,
-      trailing_pe: null,
+    expect(result?.gross_margin).toBe(0.20);
+    expect(result?.ebit_margin).toBe(-0.05);
+    expect(result?.trailing_pe).toBeNull();
+  });
+
+  it("skips malformed quarter strings in earnings.earningsChart.quarterly", async () => {
+    quoteSummaryMock.mockResolvedValueOnce({
+      financialData: {},
+      defaultKeyStatistics: {},
+      earnings: {
+        earningsChart: {
+          quarterly: [
+            { date: "1Q2024", actual: 1.0 },
+            { date: "garbage", actual: 99.0 },
+            { date: "2Q2024", actual: 1.1 },
+          ],
+        },
+      },
     });
+    const { getRatios } = await import("@/lib/data/yahoo");
+    const result = await getRatios("X.L");
+    expect(result?.quarterly_eps).toEqual([
+      { period_end_iso: "2024-03-31", eps: 1.0 },
+      { period_end_iso: "2024-06-30", eps: 1.1 },
+    ]);
   });
 
   it("returns null on yahoo error", async () => {

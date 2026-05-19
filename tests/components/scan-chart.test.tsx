@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScanChart, buildCsv, monthBucket } from "@/components/scan-chart";
@@ -35,7 +35,9 @@ describe("<ScanChart>", () => {
   it("renders the chart wrapper and the timeframe buttons on a canonical history", () => {
     // jsdom can't measure ResponsiveContainer so the inner SVG is suppressed;
     // assert the chart's outer wrapper div exists.
-    const { container } = render(<ScanChart history={sampleHistory} />);
+    const { container } = render(
+      <ScanChart history={sampleHistory} windowKey="5y" onWindowChange={() => {}} />,
+    );
     expect(container.querySelector("div.h-64")).toBeInTheDocument();
     expect(screen.queryByText(/no history/i)).toBeNull();
     for (const label of ["3M", "6M", "12M", "3Y", "5Y"]) {
@@ -43,50 +45,52 @@ describe("<ScanChart>", () => {
     }
   });
 
-  it("defaults to the 5Y window (button marked pressed)", () => {
-    render(<ScanChart history={sampleHistory} />);
+  it("reflects the controlled windowKey (5Y button marked pressed)", () => {
+    render(
+      <ScanChart history={sampleHistory} windowKey="5y" onWindowChange={() => {}} />,
+    );
     expect(screen.getByRole("button", { name: "5Y" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
   });
 
-  it("clicking a narrower window updates aria-pressed and still renders the chart", async () => {
+  it("clicking a different window fires onWindowChange with the new key", async () => {
     const user = userEvent.setup();
-    render(<ScanChart history={sampleHistory} />);
+    const onWindowChange = vi.fn();
+    render(
+      <ScanChart history={sampleHistory} windowKey="5y" onWindowChange={onWindowChange} />,
+    );
     await user.click(screen.getByRole("button", { name: "3M" }));
-    expect(screen.getByRole("button", { name: "3M" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByRole("button", { name: "5Y" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(onWindowChange).toHaveBeenCalledWith("3mth");
   });
 
-  it("renders the no-history-in-window message when all points are older than the selected window", async () => {
-    const user = userEvent.setup();
+  it("renders the no-history-in-window message when all points are older than the selected window", () => {
     const oldOnly: TickerHistory[] = [
       {
         ticker: "ANCIENT.OL",
         points: [{ date: "2018-01-01", close: 10 }],
       },
     ];
-    render(<ScanChart history={oldOnly} />);
-    await user.click(screen.getByRole("button", { name: "3M" }));
+    render(
+      <ScanChart history={oldOnly} windowKey="3mth" onWindowChange={() => {}} />,
+    );
     expect(
       screen.getByText(/no history in the selected window/i),
     ).toBeInTheDocument();
   });
 
   it("renders an empty-state message when history is empty", () => {
-    render(<ScanChart history={[]} />);
+    render(
+      <ScanChart history={[]} windowKey="5y" onWindowChange={() => {}} />,
+    );
     expect(screen.getByText(/no history to display/i)).toBeInTheDocument();
   });
 
   it("renders a Download CSV button", () => {
-    render(<ScanChart history={sampleHistory} />);
+    render(
+      <ScanChart history={sampleHistory} windowKey="5y" onWindowChange={() => {}} />,
+    );
     expect(
       screen.getByRole("button", { name: /download csv/i }),
     ).toBeInTheDocument();
