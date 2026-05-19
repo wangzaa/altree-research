@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "pulse": "unset ANTHROPIC_API_KEY; tsx --env-file=.env prototypes/semi-substack-pulse/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
@@ -40,7 +41,9 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.18",
     "jsdom": "^27.0.1",
+    "rss-parser": "^3.13.0",
     "tailwindcss": "^4",
+    "tsx": "^4.22.3",
     "typescript": "^5",
     "vite": "^8.0.12",
     "vitest": "^3.2.4"
