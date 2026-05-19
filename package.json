@@ -12,7 +12,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "pulse": "unset ANTHROPIC_API_KEY; tsx --env-file=.env prototypes/semi-substack-pulse/run.ts"
+    "pulse": "unset ANTHROPIC_API_KEY; tsx --env-file=.env prototypes/semi-substack-pulse/run.ts",
+    "corpus:refresh": "unset ANTHROPIC_API_KEY; tsx --env-file=.env scripts/corpus-refresh.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
