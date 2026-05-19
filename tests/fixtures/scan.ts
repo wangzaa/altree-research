@@ -24,15 +24,14 @@ export const canonicalScan: ScanResults = {
   ],
   fundamentals_snapshot: {
     as_of: "2026-05-19T12:00:00.000Z",
-    mean: { gross_margin: 0.35, ebit_margin: 0.15, trailing_pe: 18.5 },
-    median: { gross_margin: 0.34, ebit_margin: 0.14, trailing_pe: 17.2 },
+    mean: { gross_margin: 0.35, ebit_margin: 0.15 },
+    median: { gross_margin: 0.34, ebit_margin: 0.14 },
     per_ticker_used: 2,
   },
   tickers_snapshot: [
     {
       ticker: "RHM.DE",
       name: "Rheinmetall AG",
-      trailing_pe: 22.0,
       ebitda: 1_800_000_000,
       ebitda_margin: 0.20,
       revenue_growth_yoy: 0.34,
@@ -48,7 +47,6 @@ export const canonicalScan: ScanResults = {
     {
       ticker: "BA.L",
       name: "BAE Systems plc",
-      trailing_pe: 15.8,
       ebitda: 3_200_000_000,
       ebitda_margin: 0.13,
       revenue_growth_yoy: 0.12,

@@ -175,7 +175,6 @@ describe("getRatios", () => {
         revenueGrowth: 0.22,
         financialCurrency: "EUR",
       },
-      defaultKeyStatistics: { trailingPE: 18.5 },
       earningsHistory: {
         history: [
           { quarter: new Date("2025-03-31T00:00:00Z"), epsActual: 1.15 },
@@ -192,7 +191,6 @@ describe("getRatios", () => {
     expect(result).toEqual({
       gross_margin: 0.34,
       ebit_margin: 0.18,
-      trailing_pe: 18.5,
       ebitda: 1_500_000_000,
       ebitda_margin: 0.15,
       revenue_growth_yoy: 0.22,
@@ -209,7 +207,6 @@ describe("getRatios", () => {
       {
         modules: [
           "financialData",
-          "defaultKeyStatistics",
           "earnings",
           "earningsHistory",
           "summaryDetail",
@@ -230,12 +227,10 @@ describe("getRatios", () => {
         revenueGrowth: { raw: 0.18, fmt: "18%" },
         financialCurrency: "KRW",
       },
-      defaultKeyStatistics: { trailingPE: { raw: 12.3, fmt: "12.3" } },
       earningsHistory: { history: [] },
     });
     const { getRatios } = await import("@/lib/data/yahoo");
     const result = await getRatios("000660.KS");
-    expect(result?.trailing_pe).toBe(12.3);
     expect(result?.gross_margin).toBe(0.42);
     expect(result?.ebit_margin).toBe(0.22);
     expect(result?.ebitda).toBe(2_500_000_000);
@@ -247,32 +242,18 @@ describe("getRatios", () => {
   it("returns nulls for missing fields without erroring", async () => {
     quoteSummaryMock.mockResolvedValueOnce({
       financialData: { grossMargins: 0.20 },
-      defaultKeyStatistics: {},
     });
     const { getRatios } = await import("@/lib/data/yahoo");
     const result = await getRatios("FOO.BAR");
     expect(result).toEqual({
       gross_margin: 0.20,
       ebit_margin: null,
-      trailing_pe: null,
       ebitda: null,
       ebitda_margin: null,
       revenue_growth_yoy: null,
       currency: null,
       quarterly_eps: [],
     });
-  });
-
-  it("returns null trailing_pe for a loss-making company (negative PE)", async () => {
-    quoteSummaryMock.mockResolvedValueOnce({
-      financialData: { grossMargins: 0.20, operatingMargins: -0.05 },
-      defaultKeyStatistics: { trailingPE: -12 },
-    });
-    const { getRatios } = await import("@/lib/data/yahoo");
-    const result = await getRatios("LOSSCO");
-    expect(result?.gross_margin).toBe(0.20);
-    expect(result?.ebit_margin).toBe(-0.05);
-    expect(result?.trailing_pe).toBeNull();
   });
 
   it("skips quarterly EPS entries with missing date or epsActual", async () => {

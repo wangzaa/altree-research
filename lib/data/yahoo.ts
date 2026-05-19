@@ -107,9 +107,12 @@ export interface QuarterlyEps {
 export interface TickerRatios {
   gross_margin: number | null;
   ebit_margin: number | null;
-  trailing_pe: number | null;
   // Per-ticker fields used by the scan-panel per-ticker table. Not
   // aggregated; passed through to the UI as-is.
+  // P/E is intentionally NOT fetched from Yahoo's trailingPE — that field
+  // has spotty coverage for non-US listings and is sometimes stale relative
+  // to the latest reported EPS. The UI computes P/E client-side from
+  // quarterly_eps + history at the latest EPS report date.
   ebitda: number | null;             // native reporting currency, absolute
   ebitda_margin: number | null;      // decimal (ebitda / totalRevenue)
   revenue_growth_yoy: number | null; // decimal (Yahoo's financialData.revenueGrowth)
@@ -162,7 +165,6 @@ export async function getRatios(ticker: string): Promise<TickerRatios | null> {
       {
         modules: [
           "financialData",
-          "defaultKeyStatistics",
           "earnings",
           "earningsHistory",
           "summaryDetail",
@@ -170,22 +172,16 @@ export async function getRatios(ticker: string): Promise<TickerRatios | null> {
         ],
       },
       // Disable yahoo-finance2's strict schema validation; it strips fields
-      // that don't match the bundled schema (notably trailingPE for KS/TW
-      // markets). We normalise the raw response ourselves below.
+      // that don't match the bundled schema (e.g. revenueGrowth or EBITDA
+      // for some KS/TW markets). We normalise the raw response ourselves.
       { validateResult: false },
     );
     const r = raw as Record<string, unknown>;
     const fd = (r.financialData ?? {}) as Record<string, unknown>;
-    const ks = (r.defaultKeyStatistics ?? {}) as Record<string, unknown>;
     const earningsHistory =
       ((r.earningsHistory as Record<string, unknown> | undefined)?.history as
         | Array<Record<string, unknown>>
         | undefined) ?? [];
-
-    // Negative trailing P/E (loss-making company) is meaningless as a ratio —
-    // surface as null so it doesn't drag the universe mean.
-    const peRaw = extractNumber(ks.trailingPE);
-    const pe = peRaw !== null && peRaw > 0 ? peRaw : null;
 
     const ebitda = extractNumber(fd.ebitda);
     const totalRevenue = extractNumber(fd.totalRevenue);
@@ -220,7 +216,6 @@ export async function getRatios(ticker: string): Promise<TickerRatios | null> {
     return {
       gross_margin: extractNumber(fd.grossMargins),
       ebit_margin: extractNumber(fd.operatingMargins),
-      trailing_pe: pe,
       ebitda,
       ebitda_margin,
       revenue_growth_yoy,

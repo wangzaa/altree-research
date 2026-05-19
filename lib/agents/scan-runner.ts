@@ -52,13 +52,13 @@ const systemBlocks: AnthropicTextBlockParam[] = [
     type: "text",
     text: `You are writing the Stage-3 scan context for a retail-investor research note. Be punchy. Use plain English. Short sentences.
 
-You are given: the thesis claim, the universe of tickers, 5 years of monthly closing prices per ticker, and a snapshot of universe-aggregate fundamentals (mean and median gross margin, EBIT margin, trailing P/E).
+You are given: the thesis claim, the universe of tickers, 5 years of monthly closing prices per ticker, and a snapshot of universe-aggregate fundamentals (mean and median gross margin, EBIT margin).
 
 Write exactly three short paragraphs, ~60-90 words each. Purely descriptive — say what the numbers are, not what they mean.
 
 Paragraph 1 — how this basket of stocks moved over the period. Lead with the headline magnitude (e.g. "The basket roughly doubled" or "Up about 35%"). Mention when the biggest moves happened. Plain talk; no jargon.
 
-Paragraph 2 — what the fundamentals look like today. Cover mean and median for gross margin, EBIT margin, and trailing P/E. Translate decimals naturally ("around 35%", not "0.354"). Note where mean and median diverge — that signals a few outliers pulling the average.
+Paragraph 2 — what the fundamentals look like today. Cover mean and median for gross margin and EBIT margin. Translate decimals naturally ("around 35%", not "0.354"). Note where mean and median diverge — that signals a few outliers pulling the average.
 
 Paragraph 3 — names that stood out. Pick 1-3 tickers with the biggest moves up or down. Use rough numbers ("up ~110%", "down ~30%"). No more than 3 names.
 
@@ -102,7 +102,6 @@ ${histLines}
 Fundamentals snapshot (${fund.per_ticker_used} tickers contributing):
 gross_margin: mean=${fund.mean.gross_margin ?? "n/a"} median=${fund.median.gross_margin ?? "n/a"}
 ebit_margin: mean=${fund.mean.ebit_margin ?? "n/a"} median=${fund.median.ebit_margin ?? "n/a"}
-trailing_pe: mean=${fund.mean.trailing_pe ?? "n/a"} median=${fund.median.trailing_pe ?? "n/a"}
 
 Write the three-paragraph descriptive markdown via the return_scan_description tool.`;
 }

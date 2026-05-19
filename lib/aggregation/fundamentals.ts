@@ -1,11 +1,12 @@
-// The aggregator only cares about the three numeric ratios used by the
-// scan-runner agent prompt (gross / EBIT / P/E). The data layer's TickerRatios
-// is wider — it also carries per-ticker extras (EBITDA, currency, quarterly
-// EPS) used by the per-ticker UI table.
+// The aggregator only cares about the two margin ratios used by the
+// scan-runner agent prompt (gross margin / EBIT margin). The data layer's
+// TickerRatios is wider — it also carries per-ticker extras (EBITDA,
+// currency, quarterly EPS) used by the per-ticker UI table. P/E is no longer
+// aggregated because we don't trust Yahoo's trailingPE field; the table
+// computes P/E client-side per ticker from quarterly EPS + price history.
 export interface AggregatedRatios {
   gross_margin: number | null;
   ebit_margin: number | null;
-  trailing_pe: number | null;
 }
 
 export interface FundamentalsAggregate {
@@ -14,7 +15,7 @@ export interface FundamentalsAggregate {
   per_ticker_used: number;
 }
 
-const COLUMNS = ["gross_margin", "ebit_margin", "trailing_pe"] as const;
+const COLUMNS = ["gross_margin", "ebit_margin"] as const;
 type Column = (typeof COLUMNS)[number];
 
 function meanOf(values: number[]): number | null {
@@ -45,12 +46,10 @@ export function aggregateFundamentals(
   const mean: AggregatedRatios = {
     gross_margin: null,
     ebit_margin: null,
-    trailing_pe: null,
   };
   const median: AggregatedRatios = {
     gross_margin: null,
     ebit_margin: null,
-    trailing_pe: null,
   };
   for (const col of COLUMNS) {
     const vals = columnValues(rows, col);
@@ -61,8 +60,7 @@ export function aggregateFundamentals(
   for (const row of rows) {
     if (
       (typeof row.gross_margin === "number" && Number.isFinite(row.gross_margin)) ||
-      (typeof row.ebit_margin === "number" && Number.isFinite(row.ebit_margin)) ||
-      (typeof row.trailing_pe === "number" && Number.isFinite(row.trailing_pe))
+      (typeof row.ebit_margin === "number" && Number.isFinite(row.ebit_margin))
     ) {
       used++;
     }

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { monthBucket } from "@/components/scan-chart";
 import type {
   TickerHistory,
   TickerSnapshot,
@@ -11,52 +10,72 @@ import type {
 interface PerTickerTableProps {
   snapshots: TickerSnapshot[];
   history: TickerHistory[];
-  windowMonths: number;
 }
 
-// Sum of the EPS from the 4 most recent quarters ending on or before `asOfMs`.
-// Returns null when fewer than 4 quarters are available before that date or
-// when the sum is non-positive (loss-makers — P/E ratio is meaningless).
-export function ttmEpsAt(
-  quarterlyEps: QuarterlyEps[],
-  asOfIso: string,
-): number | null {
-  const asOfMs = new Date(asOfIso).getTime();
-  if (!Number.isFinite(asOfMs)) return null;
-  const eligible = quarterlyEps
-    .filter((q) => {
-      const ms = new Date(q.period_end_iso).getTime();
-      return Number.isFinite(ms) && ms <= asOfMs;
-    })
-    .sort((a, b) =>
-      b.period_end_iso.localeCompare(a.period_end_iso),
-    );
-  if (eligible.length < 4) return null;
-  const ttm = eligible.slice(0, 4).reduce((s, q) => s + q.eps, 0);
+// Sum of the 4 most recent quarterly EPS actuals. Returns null when fewer
+// than 4 quarters of data exist or when the sum is non-positive (loss-makers
+// — P/E ratio is meaningless).
+export function ttmEpsLatest(quarterlyEps: QuarterlyEps[]): number | null {
+  if (quarterlyEps.length < 4) return null;
+  const sorted = [...quarterlyEps].sort((a, b) =>
+    b.period_end_iso.localeCompare(a.period_end_iso),
+  );
+  const ttm = sorted.slice(0, 4).reduce((s, q) => s + q.eps, 0);
   if (!Number.isFinite(ttm) || ttm <= 0) return null;
   return ttm;
 }
 
-// Find the earliest in-window close for a ticker (the value indexed to 100
-// in the chart). Buckets are compared as YYYY-MM strings.
-function priceAtWindowStart(
+// Closing price closest in time to `asOfIso`. Returns null when no point is
+// within `toleranceDays` of the target date — avoids quoting a P/E built
+// from a price weeks away from the EPS report.
+export function closestCloseTo(
   history: TickerHistory,
-  windowStartBucket: string,
-): { close: number; period_end_iso: string } | null {
+  asOfIso: string,
+  toleranceDays = 60,
+): number | null {
+  const targetMs = new Date(asOfIso).getTime();
+  if (!Number.isFinite(targetMs)) return null;
+  const toleranceMs = toleranceDays * 24 * 60 * 60 * 1000;
+
+  let best: { ms: number; close: number } | null = null;
   for (const p of history.points) {
-    const bucket = monthBucket(p.date);
-    if (bucket && bucket >= windowStartBucket) {
-      return { close: p.close, period_end_iso: p.date };
+    const ms = new Date(p.date).getTime();
+    if (!Number.isFinite(ms) || !Number.isFinite(p.close) || p.close <= 0) continue;
+    if (best === null || Math.abs(ms - targetMs) < Math.abs(best.ms - targetMs)) {
+      best = { ms, close: p.close };
     }
   }
-  return null;
+  if (best === null) return null;
+  if (Math.abs(best.ms - targetMs) > toleranceMs) return null;
+  return best.close;
+}
+
+// P/E = closing price near latest EPS date / TTM EPS (sum of last 4
+// reported quarters). Anchored to the EPS report date so the ratio reflects
+// the valuation at the time the market priced in those earnings.
+export function computePe(
+  snapshot: TickerSnapshot,
+  history: TickerHistory | undefined,
+): number | null {
+  if (!history || history.points.length === 0) return null;
+  const ttm = ttmEpsLatest(snapshot.quarterly_eps);
+  if (ttm === null) return null;
+
+  const latestEpsIso = [...snapshot.quarterly_eps]
+    .sort((a, b) => b.period_end_iso.localeCompare(a.period_end_iso))[0]
+    ?.period_end_iso;
+  if (!latestEpsIso) return null;
+
+  const close = closestCloseTo(history, latestEpsIso);
+  if (close === null) return null;
+
+  return close / ttm;
 }
 
 interface ComputedRow {
   ticker: string;
   name: string;
-  pe_start: number | null;
-  pe_end: number | null;
+  pe: number | null;
   revenue_growth_yoy: number | null;
   ebitda: number | null;
   ebitda_margin: number | null;
@@ -66,40 +85,17 @@ interface ComputedRow {
 export function computeRows(
   snapshots: TickerSnapshot[],
   history: TickerHistory[],
-  windowMonths: number,
 ): ComputedRow[] {
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - windowMonths);
-  const cutoffIso = cutoff.toISOString().slice(0, 10);
-  const cutoffBucket = monthBucket(cutoffIso);
-
   const historyByTicker = new Map(history.map((h) => [h.ticker, h]));
-
-  return snapshots.map((s) => {
-    let pe_start: number | null = null;
-    if (cutoffBucket) {
-      const h = historyByTicker.get(s.ticker);
-      if (h) {
-        const start = priceAtWindowStart(h, cutoffBucket);
-        if (start) {
-          const ttm = ttmEpsAt(s.quarterly_eps, start.period_end_iso);
-          if (ttm !== null && start.close > 0) {
-            pe_start = start.close / ttm;
-          }
-        }
-      }
-    }
-    return {
-      ticker: s.ticker,
-      name: s.name,
-      pe_start,
-      pe_end: s.trailing_pe,
-      revenue_growth_yoy: s.revenue_growth_yoy,
-      ebitda: s.ebitda,
-      ebitda_margin: s.ebitda_margin,
-      currency: s.currency,
-    };
-  });
+  return snapshots.map((s) => ({
+    ticker: s.ticker,
+    name: s.name,
+    pe: computePe(s, historyByTicker.get(s.ticker)),
+    revenue_growth_yoy: s.revenue_growth_yoy,
+    ebitda: s.ebitda,
+    ebitda_margin: s.ebitda_margin,
+    currency: s.currency,
+  }));
 }
 
 function fmtRatio(v: number | null): string {
@@ -134,14 +130,10 @@ export function fmtEbitda(value: number | null, currency: string | null): string
   return `${num}${suffix}`;
 }
 
-export function PerTickerTable({
-  snapshots,
-  history,
-  windowMonths,
-}: PerTickerTableProps) {
+export function PerTickerTable({ snapshots, history }: PerTickerTableProps) {
   const rows = React.useMemo(
-    () => computeRows(snapshots, history, windowMonths),
-    [snapshots, history, windowMonths],
+    () => computeRows(snapshots, history),
+    [snapshots, history],
   );
 
   if (rows.length === 0) {
@@ -159,12 +151,7 @@ export function PerTickerTable({
           <tr>
             <th className="px-3 py-2 text-left font-medium">Ticker</th>
             <th className="px-3 py-2 text-left font-medium">Name</th>
-            <th className="px-3 py-2 text-right font-medium">
-              P/E <span className="text-neutral-400">(start)</span>
-            </th>
-            <th className="px-3 py-2 text-right font-medium">
-              P/E <span className="text-neutral-400">(now)</span>
-            </th>
+            <th className="px-3 py-2 text-right font-medium">P/E</th>
             <th className="px-3 py-2 text-right font-medium">Rev YoY</th>
             <th className="px-3 py-2 text-right font-medium">EBITDA</th>
             <th className="px-3 py-2 text-right font-medium">EBITDA %</th>
@@ -176,10 +163,7 @@ export function PerTickerTable({
               <td className="px-3 py-2 font-mono">{r.ticker}</td>
               <td className="px-3 py-2">{r.name}</td>
               <td className="px-3 py-2 text-right tabular-nums">
-                {fmtRatio(r.pe_start)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmtRatio(r.pe_end)}
+                {fmtRatio(r.pe)}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 {fmtPct(r.revenue_growth_yoy)}

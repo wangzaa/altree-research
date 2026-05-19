@@ -3,11 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PerTickerTable } from "@/components/per-ticker-table";
-import {
-  ScanChart,
-  monthsFor,
-  type WindowKey,
-} from "@/components/scan-chart";
+import { ScanChart, type WindowKey } from "@/components/scan-chart";
 import type { ScanResults } from "@/lib/schemas/scan";
 
 interface ScanPanelProps {
@@ -98,7 +94,6 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
       <PerTickerTable
         snapshots={scan.tickers_snapshot}
         history={scan.history_5y}
-        windowMonths={monthsFor(windowKey)}
       />
       <article className="whitespace-pre-wrap rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-800">
         {scan.descriptive_markdown}

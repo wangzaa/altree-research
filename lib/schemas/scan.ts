@@ -19,7 +19,6 @@ export const TickerRatiosSchema = z
   .object({
     gross_margin: z.number().nullable(),
     ebit_margin: z.number().nullable(),
-    trailing_pe: z.number().nullable(),
   })
   .strict();
 
@@ -46,7 +45,6 @@ export const TickerSnapshotSchema = z
   .object({
     ticker: z.string().min(1),
     name: z.string().min(1),
-    trailing_pe: z.number().nullable(),
     ebitda: z.number().nullable(),
     ebitda_margin: z.number().nullable(),
     revenue_growth_yoy: z.number().nullable(),
