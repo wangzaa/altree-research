@@ -77,6 +77,12 @@ const refineThesisTool: AnthropicTool = {
                   required: ["value", "unit"],
                 },
                 thesis_breaks_below: { type: "number" },
+                tickers: {
+                  type: "array",
+                  items: { type: "string" },
+                  description:
+                    "Per-driver ticker scope. Subset of scope.tickers_seed. Preserve unless the instruction asks to change it.",
+                },
                 classification: { type: "string", enum: ["industry"] },
               },
               required: [
@@ -129,6 +135,7 @@ Rules:
 - thesis_breaks_below must remain strictly less than the central_estimate value.
 - falsification.primary is required; falsification.secondary is optional.
 - horizon_years should remain in the existing range unless the instruction asks to change it.
+- Per-driver tickers[] is a subset of scope.tickers_seed; preserve it unless the instruction asks to change it (e.g., "add ASML to M1's tickers" or "drop NVDA from M2").
 - Return the full new thesis via the supplied tool. Do not return free-text.`,
     cache_control: { type: "ephemeral" },
   },
@@ -139,6 +146,7 @@ interface ToolDriverInput {
   claim: string;
   central_estimate: { value: number; unit: string };
   thesis_breaks_below: number;
+  tickers?: string[];
   classification: "industry";
 }
 
