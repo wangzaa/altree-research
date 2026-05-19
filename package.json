@@ -23,6 +23,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "recharts": "^2.15.4",
+    "rss-parser": "^3.13.0",
     "yahoo-finance2": "^3.14.1",
     "zod": "^4.4.3"
   },
@@ -41,7 +42,6 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.18",
     "jsdom": "^27.0.1",
-    "rss-parser": "^3.13.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
     "typescript": "^5",
