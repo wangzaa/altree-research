@@ -57,6 +57,7 @@ export const IndustryDriverSchema = z
     central_estimate: CentralEstimateSchema,
     thesis_breaks_below: z.number(),
     evidence: z.array(EvidenceSchema).default([]),
+    tickers: z.array(z.string().regex(YAHOO_TICKER_REGEX)).optional(),
     verdict: VerdictSchema.nullable().default(null),
     classification: z.literal("industry"),
   })
