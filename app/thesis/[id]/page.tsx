@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { getQuote } from "@/lib/data/yahoo";
+import { ScanResultsSchema, type ScanResults } from "@/lib/schemas/scan";
 import { ThesisIdSchema, type Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -47,6 +48,23 @@ export default async function ThesisViewerPage({
     }
   }
 
+  // Pre-load the most recent scan_runs row for this thesis (owner-scoped via
+  // thesis ownership). null when no scan has been run.
+  let initialScan: ScanResults | null = null;
+  {
+    const { data: sRows } = await supabase
+      .from("scan_runs")
+      .select("results")
+      .eq("thesis_id", id)
+      .order("run_at", { ascending: false })
+      .limit(1);
+    const raw = sRows?.[0]?.results;
+    if (raw) {
+      const parsed = ScanResultsSchema.safeParse(raw);
+      if (parsed.success) initialScan = parsed.data;
+    }
+  }
+
   // Pre-fetch names for each seed ticker so the AnchorPicker chips can show
   // "TICKER — Name" instead of just the symbol. Parallel; Yahoo errors absorbed
   // silently (chip just shows the symbol if the lookup fails).
@@ -70,7 +88,10 @@ export default async function ThesisViewerPage({
       status: initialUniverse ? "completed" : "pending",
     },
     { name: "Screener", status: "pending" },
-    { name: "Scanner", status: "pending" },
+    {
+      name: "Scanner",
+      status: initialScan ? "completed" : "pending",
+    },
     { name: "Validator", status: "pending" },
     { name: "Memo", status: "pending" },
   ];
@@ -82,6 +103,7 @@ export default async function ThesisViewerPage({
         <ThesisDetail
           initial={thesis}
           initialUniverse={initialUniverse}
+          initialScan={initialScan}
           seedNames={seedNames}
         />
       }

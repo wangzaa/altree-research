@@ -3,15 +3,18 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnchorPicker } from "@/components/anchor-picker";
+import { ScanPanel } from "@/components/scan-panel";
 import { ThesisEditor } from "@/components/thesis-editor";
 import { ThesisJsonView } from "@/components/thesis-json-view";
 import { UniverseTable } from "@/components/universe-table";
+import type { ScanResults } from "@/lib/schemas/scan";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
 
 interface ThesisDetailProps {
   initial: Thesis;
   initialUniverse: Universe | null;
+  initialScan: ScanResults | null;
   seedNames?: Record<string, string>;
 }
 
@@ -23,6 +26,7 @@ interface DroppedTicker {
 export function ThesisDetail({
   initial,
   initialUniverse,
+  initialScan,
   seedNames,
 }: ThesisDetailProps) {
   const router = useRouter();
@@ -118,6 +122,19 @@ export function ThesisDetail({
           </p>
         ) : null}
       </section>
+
+      {universe ? (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+            Stage 3 — Scan
+          </h2>
+          <ScanPanel
+            thesisId={thesis.id}
+            universeId={universe.id}
+            initial={initialScan}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
