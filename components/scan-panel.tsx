@@ -21,11 +21,15 @@ function FundamentalsTable({
 }: {
   snapshot: ScanResults["fundamentals_snapshot"];
 }) {
-  const fmt = (v: number | null) => (v === null ? "—" : `${(v * 100).toFixed(1)}%`);
+  // Margins are stored as decimals (0.34 = 34%); P/E is an absolute ratio (18.5x).
+  const pct = (v: number | null) =>
+    v === null ? "—" : `${(v * 100).toFixed(1)}%`;
+  const ratio = (v: number | null) =>
+    v === null ? "—" : `${v.toFixed(1)}×`;
   return (
     <section className="rounded-md border border-neutral-200 bg-white p-3 text-xs">
       <h4 className="mb-2 font-medium text-neutral-700">
-        Mean / median gross margin · EBIT margin · FCF yield
+        Mean / median gross margin · EBIT margin · trailing P/E
         <span className="ml-2 font-normal text-neutral-500">
           ({snapshot.per_ticker_used} tickers)
         </span>
@@ -36,21 +40,21 @@ function FundamentalsTable({
             <th className="text-left font-normal"></th>
             <th className="text-right font-normal">Gross</th>
             <th className="text-right font-normal">EBIT</th>
-            <th className="text-right font-normal">FCF yld</th>
+            <th className="text-right font-normal">P/E</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td>Mean</td>
-            <td className="text-right tabular-nums">{fmt(snapshot.mean.gross_margin)}</td>
-            <td className="text-right tabular-nums">{fmt(snapshot.mean.ebit_margin)}</td>
-            <td className="text-right tabular-nums">{fmt(snapshot.mean.fcf_yield)}</td>
+            <td className="text-right tabular-nums">{pct(snapshot.mean.gross_margin)}</td>
+            <td className="text-right tabular-nums">{pct(snapshot.mean.ebit_margin)}</td>
+            <td className="text-right tabular-nums">{ratio(snapshot.mean.trailing_pe)}</td>
           </tr>
           <tr>
             <td>Median</td>
-            <td className="text-right tabular-nums">{fmt(snapshot.median.gross_margin)}</td>
-            <td className="text-right tabular-nums">{fmt(snapshot.median.ebit_margin)}</td>
-            <td className="text-right tabular-nums">{fmt(snapshot.median.fcf_yield)}</td>
+            <td className="text-right tabular-nums">{pct(snapshot.median.gross_margin)}</td>
+            <td className="text-right tabular-nums">{pct(snapshot.median.ebit_margin)}</td>
+            <td className="text-right tabular-nums">{ratio(snapshot.median.trailing_pe)}</td>
           </tr>
         </tbody>
       </table>

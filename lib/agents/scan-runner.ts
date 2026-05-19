@@ -50,19 +50,19 @@ const returnScanDescriptionTool: AnthropicTool = {
 const systemBlocks: AnthropicTextBlockParam[] = [
   {
     type: "text",
-    text: `You are writing the descriptive Stage-3 context for an investment research artifact.
+    text: `You are writing the Stage-3 scan context for a retail-investor research note. Be punchy. Use plain English. Short sentences.
 
-You are given: the thesis claim, the universe of tickers being investigated, 5 years of monthly closing prices per ticker, and a single snapshot of universe-aggregate fundamentals (mean and median gross margin, EBIT margin, FCF yield).
+You are given: the thesis claim, the universe of tickers, 5 years of monthly closing prices per ticker, and a snapshot of universe-aggregate fundamentals (mean and median gross margin, EBIT margin, trailing P/E).
 
-Your job: write exactly three short paragraphs (~80-120 words each) of purely descriptive prose summarising what the data shows.
+Write exactly three short paragraphs, ~60-90 words each. Purely descriptive — say what the numbers are, not what they mean.
 
-Paragraph 1 — universe price-history trajectory: aggregate trends across the universe. No predictions.
+Paragraph 1 — how this basket of stocks moved over the period. Lead with the headline magnitude (e.g. "The basket roughly doubled" or "Up about 35%"). Mention when the biggest moves happened. Plain talk; no jargon.
 
-Paragraph 2 — fundamentals snapshot: report mean and median for gross margin, EBIT margin, FCF yield as observed today. Note the spread between mean and median where notable.
+Paragraph 2 — what the fundamentals look like today. Cover mean and median for gross margin, EBIT margin, and trailing P/E. Translate decimals naturally ("around 35%", not "0.354"). Note where mean and median diverge — that signals a few outliers pulling the average.
 
-Paragraph 3 — dispersion / outliers: name 1-3 tickers whose 5y trajectory diverges sharply from the universe (top performer, bottom performer, or notable shape). Cite the rough magnitude.
+Paragraph 3 — names that stood out. Pick 1-3 tickers with the biggest moves up or down. Use rough numbers ("up ~110%", "down ~30%"). No more than 3 names.
 
-FORBIDDEN: judgment, prediction, valuation language. Do NOT use the words: "should", "will", "expect", "likely", "believe", "outperform", "undervalued", "overvalued". State only what the numbers are. Do NOT recommend action.
+FORBIDDEN words: "should", "will", "expect", "likely", "believe", "outperform", "undervalued", "overvalued". State the numbers — don't predict or recommend.
 
 Return the markdown via the return_scan_description tool. Do not return free-text alone.`,
     cache_control: { type: "ephemeral" },
@@ -102,7 +102,7 @@ ${histLines}
 Fundamentals snapshot (${fund.per_ticker_used} tickers contributing):
 gross_margin: mean=${fund.mean.gross_margin ?? "n/a"} median=${fund.median.gross_margin ?? "n/a"}
 ebit_margin: mean=${fund.mean.ebit_margin ?? "n/a"} median=${fund.median.ebit_margin ?? "n/a"}
-fcf_yield: mean=${fund.mean.fcf_yield ?? "n/a"} median=${fund.median.fcf_yield ?? "n/a"}
+trailing_pe: mean=${fund.mean.trailing_pe ?? "n/a"} median=${fund.median.trailing_pe ?? "n/a"}
 
 Write the three-paragraph descriptive markdown via the return_scan_description tool.`;
 }

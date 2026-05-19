@@ -35,8 +35,8 @@ describe("ScanResultsSchema", () => {
 
   it("accepts null mean / median values for fundamentals columns", () => {
     const ok = cloneCanonicalScan();
-    ok.fundamentals_snapshot.mean.fcf_yield = null;
-    ok.fundamentals_snapshot.median.fcf_yield = null;
+    ok.fundamentals_snapshot.mean.trailing_pe = null;
+    ok.fundamentals_snapshot.median.trailing_pe = null;
     expect(ScanResultsSchema.safeParse(ok).success).toBe(true);
   });
 });

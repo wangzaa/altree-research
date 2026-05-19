@@ -19,7 +19,7 @@ export const TickerRatiosSchema = z
   .object({
     gross_margin: z.number().nullable(),
     ebit_margin: z.number().nullable(),
-    fcf_yield: z.number().nullable(),
+    trailing_pe: z.number().nullable(),
   })
   .strict();
 

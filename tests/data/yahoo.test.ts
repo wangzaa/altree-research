@@ -170,10 +170,9 @@ describe("getRatios", () => {
       financialData: {
         grossMargins: 0.34,
         operatingMargins: 0.18,
-        freeCashflow: 1_500_000_000,
       },
       defaultKeyStatistics: {
-        marketCap: 60_000_000_000,
+        trailingPE: 18.5,
       },
     });
     const { getRatios } = await import("@/lib/data/yahoo");
@@ -181,7 +180,7 @@ describe("getRatios", () => {
     expect(result).toEqual({
       gross_margin: 0.34,
       ebit_margin: 0.18,
-      fcf_yield: 1_500_000_000 / 60_000_000_000,
+      trailing_pe: 18.5,
     });
     expect(quoteSummaryMock).toHaveBeenCalledWith("RHM.DE", {
       modules: ["financialData", "defaultKeyStatistics"],
@@ -198,7 +197,21 @@ describe("getRatios", () => {
     expect(result).toEqual({
       gross_margin: 0.20,
       ebit_margin: null,
-      fcf_yield: null,
+      trailing_pe: null,
+    });
+  });
+
+  it("returns null trailing_pe for a loss-making company (negative PE)", async () => {
+    quoteSummaryMock.mockResolvedValueOnce({
+      financialData: { grossMargins: 0.20, operatingMargins: -0.05 },
+      defaultKeyStatistics: { trailingPE: -12 },
+    });
+    const { getRatios } = await import("@/lib/data/yahoo");
+    const result = await getRatios("LOSSCO");
+    expect(result).toEqual({
+      gross_margin: 0.20,
+      ebit_margin: -0.05,
+      trailing_pe: null,
     });
   });
 

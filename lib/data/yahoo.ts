@@ -102,7 +102,7 @@ export async function getHistory(
 export interface TickerRatios {
   gross_margin: number | null;
   ebit_margin: number | null;
-  fcf_yield: number | null;
+  trailing_pe: number | null;
 }
 
 export async function getRatios(ticker: string): Promise<TickerRatios | null> {
@@ -114,20 +114,21 @@ export async function getRatios(ticker: string): Promise<TickerRatios | null> {
       financialData?: {
         grossMargins?: number;
         operatingMargins?: number;
-        freeCashflow?: number;
       };
-      defaultKeyStatistics?: { marketCap?: number };
+      defaultKeyStatistics?: { trailingPE?: number };
     };
     const fd = r.financialData ?? {};
     const ks = r.defaultKeyStatistics ?? {};
-    const fcf =
-      typeof fd.freeCashflow === "number" && typeof ks.marketCap === "number" && ks.marketCap > 0
-        ? fd.freeCashflow / ks.marketCap
+    // Negative trailing P/E (loss-making company) is meaningless as a ratio —
+    // surface as null so it doesn't drag the universe mean.
+    const pe =
+      typeof ks.trailingPE === "number" && Number.isFinite(ks.trailingPE) && ks.trailingPE > 0
+        ? ks.trailingPE
         : null;
     return {
       gross_margin: typeof fd.grossMargins === "number" ? fd.grossMargins : null,
       ebit_margin: typeof fd.operatingMargins === "number" ? fd.operatingMargins : null,
-      fcf_yield: fcf,
+      trailing_pe: pe,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

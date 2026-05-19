@@ -6,7 +6,7 @@ export interface FundamentalsAggregate {
   per_ticker_used: number;
 }
 
-const COLUMNS = ["gross_margin", "ebit_margin", "fcf_yield"] as const;
+const COLUMNS = ["gross_margin", "ebit_margin", "trailing_pe"] as const;
 type Column = (typeof COLUMNS)[number];
 
 function meanOf(values: number[]): number | null {
@@ -37,12 +37,12 @@ export function aggregateFundamentals(
   const mean: TickerRatios = {
     gross_margin: null,
     ebit_margin: null,
-    fcf_yield: null,
+    trailing_pe: null,
   };
   const median: TickerRatios = {
     gross_margin: null,
     ebit_margin: null,
-    fcf_yield: null,
+    trailing_pe: null,
   };
   for (const col of COLUMNS) {
     const vals = columnValues(rows, col);
@@ -54,7 +54,7 @@ export function aggregateFundamentals(
     if (
       (typeof row.gross_margin === "number" && Number.isFinite(row.gross_margin)) ||
       (typeof row.ebit_margin === "number" && Number.isFinite(row.ebit_margin)) ||
-      (typeof row.fcf_yield === "number" && Number.isFinite(row.fcf_yield))
+      (typeof row.trailing_pe === "number" && Number.isFinite(row.trailing_pe))
     ) {
       used++;
     }

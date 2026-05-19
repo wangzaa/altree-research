@@ -135,7 +135,7 @@ describe("POST /api/scan/run", () => {
         { date: "2021-07-01", close: 110 },
       ]);
       getRatiosMock.mockResolvedValueOnce({
-        gross_margin: 0.3, ebit_margin: 0.15, fcf_yield: 0.04,
+        gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5,
       });
     }
     scanRunnerMock.mockResolvedValueOnce({
@@ -175,7 +175,7 @@ describe("POST /api/scan/run", () => {
       getHistoryMock.mockResolvedValueOnce(null);
     }
     getRatiosMock.mockResolvedValue({
-      gross_margin: 0.3, ebit_margin: 0.15, fcf_yield: 0.04,
+      gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5,
     });
 
     const { POST } = await import("@/app/api/scan/run/route");
@@ -203,7 +203,7 @@ describe("POST /api/scan/run", () => {
         { date: "2021-07-01", close: 110 },
       ]);
       getRatiosMock.mockResolvedValueOnce({
-        gross_margin: 0.3, ebit_margin: 0.15, fcf_yield: 0.04,
+        gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5,
       });
     }
     scanRunnerMock.mockResolvedValueOnce({
@@ -237,7 +237,7 @@ describe("POST /api/scan/run", () => {
         { date: "2021-07-01", close: 110 },
       ]);
       getRatiosMock.mockResolvedValueOnce({
-        gross_margin: 0.3, ebit_margin: 0.15, fcf_yield: 0.04,
+        gross_margin: 0.3, ebit_margin: 0.15, trailing_pe: 18.5,
       });
     }
     scanRunnerMock.mockResolvedValueOnce({

@@ -128,11 +128,21 @@ export function ScanChart({ history }: ScanChartProps) {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={data}
-              margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
+              margin={{ top: 8, right: 16, bottom: 0, left: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} domain={["auto", "auto"]} />
+              <YAxis
+                tick={{ fontSize: 10 }}
+                domain={["auto", "auto"]}
+                label={{
+                  value: "Price Index (100 = window start)",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 10,
+                  style: { fontSize: 11, fill: "#525252", textAnchor: "middle" },
+                }}
+              />
               <Tooltip />
               <Line
                 type="monotone"

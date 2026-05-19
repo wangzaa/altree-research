@@ -24,12 +24,12 @@ export const canonicalScan: ScanResults = {
   ],
   fundamentals_snapshot: {
     as_of: "2026-05-19T12:00:00.000Z",
-    mean: { gross_margin: 0.35, ebit_margin: 0.15, fcf_yield: 0.05 },
-    median: { gross_margin: 0.34, ebit_margin: 0.14, fcf_yield: 0.05 },
+    mean: { gross_margin: 0.35, ebit_margin: 0.15, trailing_pe: 18.5 },
+    median: { gross_margin: 0.34, ebit_margin: 0.14, trailing_pe: 17.2 },
     per_ticker_used: 2,
   },
   descriptive_markdown:
-    "The universe price level rose roughly 25% over the period, with the steepest move from late 2024 into Q1 2026.\n\nMean gross margin sits at 35% with the median close behind at 34%. EBIT margin averages 15%; FCF yield 5%.\n\nRheinmetall accounts for the largest single-name move, rising ~110% over the period; BAE Systems compounded ~75%; Leonardo moved roughly in line with the universe.",
+    "The universe price level rose roughly 25% over the period, with the steepest move from late 2024 into Q1 2026.\n\nMean gross margin sits at 35% with the median close behind at 34%. EBIT margin averages 15%; P/E around 18.\n\nRheinmetall accounts for the largest single-name move, rising ~110% over the period; BAE Systems compounded ~75%; Leonardo moved roughly in line with the universe.",
 };
 
 export function cloneCanonicalScan(): ScanResults {
