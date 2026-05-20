@@ -1,0 +1,38 @@
+{
+  "experts": [
+    {
+      "slug": "fabricated_knowledge",
+      "name": "Fabricated Knowledge",
+      "author": "Doug O'Laughlin",
+      "url": "https://www.fabricatedknowledge.com",
+      "feed_url": "https://www.fabricatedknowledge.com/feed",
+      "sectors": ["semis"]
+    },
+    {
+      "slug": "mules_musings",
+      "name": "Mule's Musings",
+      "author": "Doug O'Laughlin",
+      "url": "https://mule.substack.com",
+      "feed_url": "https://mule.substack.com/feed",
+      "sectors": ["semis"]
+    },
+    {
+      "slug": "asianometry",
+      "name": "Asianometry",
+      "author": "Jon Y",
+      "url": "https://www.asianometry.com",
+      "feed_url": "https://www.asianometry.com/feed",
+      "sectors": ["semis"],
+      "notes": "Primary content on YouTube; Substack hosts companion notes only"
+    },
+    {
+      "slug": "semianalysis",
+      "name": "SemiAnalysis",
+      "author": "Dylan Patel et al.",
+      "url": "https://www.semianalysis.com",
+      "feed_url": "https://www.semianalysis.com/feed",
+      "sectors": ["semis"],
+      "notes": "Heavily paywalled; RSS gives excerpts only for most posts"
+    }
+  ]
+}

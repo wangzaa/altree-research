@@ -45,7 +45,7 @@ Global equities. No commodities, no DCF, no execution.
    and driver levels; evidence is preserved verbatim with source tier.
 3. **Global by default.** Reuses `altree-finance`'s `REGION_BY_SUFFIX` taxonomy
    (~50 Yahoo suffixes). MVP covers US, UK, Eurozone, non-EZ DM Europe, Japan,
-   Asia DM, Asia EM, Americas non-US.
+   Asia DM, Asia EM, Americas non-US, ANZ DM.
 4. **OpenBB-free.** Single-language Node stack via `yahoo-finance2`. Earnings
    transcripts via **IR-page discovery as primary path** (not fallback) given
    `yahoo-finance2`'s thin transcript coverage.
@@ -335,7 +335,7 @@ optional notes. Sort/filter happens client-side.
   "scope": {
     "type": "thematic",                       // "thematic" | "single_name"
     "sectors": ["20101010"],                  // GICS industry codes
-    "regions": ["EUROZONE", "UK", "NON_EZ_DM_EU"],
+    "regions": ["EUROZONE", "UK"],
     "market_cap_min_usd": 1000000000,
     "tickers_seed": ["RHM.DE", "BA.L", "LDO.MI"],
     "tickers_exclude": []
@@ -378,7 +378,7 @@ id: eu_defense_global
 created_at: 2026-05-13
 last_refreshed: 2026-05-13
 gics_codes: [20101010]
-regions: [EUROZONE, UK, NON_EZ_DM_EU]
+regions: [EUROZONE, UK]
 market_cap_min_usd: 1000000000
 
 tickers:
@@ -614,12 +614,14 @@ altree-research/
 ## 8. Supabase schema (initial migration)
 
 ```sql
--- users table managed by Better Auth (Postgres adapter) in schema `auth`
+-- users table managed by Better Auth (Postgres adapter) in schema `public`
+-- (Supabase reserves the `auth` schema for its own service; Better Auth uses
+-- public by default. `user` is a SQL keyword and must be quoted: public."user")
 -- (table + column names are Better Auth's defaults; rename via adapter config if needed)
 
 create table theses (
   id              text primary key,           -- e.g., eu_defense_rearmament_26_05_01
-  user_id         text references auth."user"(id) on delete cascade,
+  user_id         text references public."user"(id) on delete cascade,
   version         int default 1,
   created_at      timestamptz default now(),
 
@@ -635,7 +637,7 @@ create table theses (
 
 create table universes (
   id              text primary key,
-  created_by      text references auth."user"(id) on delete set null,
+  created_by      text references public."user"(id) on delete set null,
   created_at      timestamptz default now(),
   refreshed_at    timestamptz,
   universe        jsonb                        -- full universe schema

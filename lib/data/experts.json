@@ -1,0 +1,40 @@
+{
+  "experts": [
+    {
+      "slug": "fabricated_knowledge",
+      "name": "Fabricated Knowledge",
+      "author": "Doug O'Laughlin",
+      "url": "https://www.fabricatedknowledge.com",
+      "feed_url": "https://www.fabricatedknowledge.com/feed",
+      "sectors": ["semis"],
+      "active": true,
+      "notes": "Mule's Musings (mule.substack.com) is the same author's older publication; its current RSS mirrors fabricatedknowledge.com — don't add it separately."
+    },
+    {
+      "slug": "asianometry",
+      "name": "Asianometry",
+      "author": "Jon Y",
+      "url": "https://www.asianometry.com",
+      "feed_url": "https://www.asianometry.com/feed",
+      "sectors": ["semis"],
+      "active": true,
+      "notes": "Primary content on YouTube; Substack hosts companion notes only."
+    },
+    {
+      "slug": "semianalysis",
+      "name": "SemiAnalysis",
+      "author": "Dylan Patel et al.",
+      "url": "https://www.semianalysis.com",
+      "feed_url": "https://www.semianalysis.com/feed",
+      "sectors": ["semis"],
+      "active": true,
+      "notes": "Heavily paywalled per stated policy, but RSS currently returns full content. Re-check if posts shrink to excerpts later."
+    }
+  ],
+  "sectors": {
+    "semis": {
+      "label": "Semiconductors",
+      "gics": ["45301010", "45301020"]
+    }
+  }
+}
