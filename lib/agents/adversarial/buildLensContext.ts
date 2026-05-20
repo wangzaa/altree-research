@@ -6,7 +6,11 @@
 // spec signoff (recorded as a PR comment on the corpus-Stage-4 ticket).
 
 import type Anthropic from "@anthropic-ai/sdk";
-import { disallowFor, findFirstDisallowed } from "./disallow";
+import {
+  systemDisallowFor,
+  corpusDisallowFor,
+  findFirstDisallowed,
+} from "./disallow";
 import type { IndustryDriver, Thesis } from "@/lib/schemas/thesis";
 
 export type Lens = "bull" | "bear";
@@ -140,8 +144,6 @@ ${blocks}`;
 }
 
 export function buildLensContext(input: BuildLensContextInput): LensRequest {
-  const patterns = disallowFor(input.lens);
-
   // Assertion: priorEvidence isolation
   if (input.priorEvidence) {
     if (input.priorEvidence.lens !== input.lens) {
@@ -158,9 +160,10 @@ export function buildLensContext(input: BuildLensContextInput): LensRequest {
 
   const system = buildSystemPrompt(input);
 
-  // Assertion: opposite-lens disallow-list absent from system prompt
+  // Assertion: broad opposite-lens disallow-list absent from system prompt.
+  // The prompt is OUR text — we can guarantee it.
   {
-    const hit = findFirstDisallowed(system, patterns);
+    const hit = findFirstDisallowed(system, systemDisallowFor(input.lens));
     if (hit) {
       throw new Error(
         `buildLensContext: disallowed pattern ${hit} present in system prompt for lens ${input.lens}`,
@@ -170,11 +173,14 @@ export function buildLensContext(input: BuildLensContextInput): LensRequest {
 
   const userText = buildUserMessage(input);
 
-  // Defense-in-depth: scan injected post content for the opposite-lens
-  // disallow-list. A bull post mentioning "bear case" is not necessarily
-  // bad — but we fail closed to surface the issue.
+  // Assertion: opposite-lens AGENT IDENTIFIER absent from injected corpus
+  // content. Narrow scope — real financial commentary uses "bear case" /
+  // "downside" / "bullish" etc routinely, so the broad patterns would
+  // false-positive on legitimate input. Only the agent identifiers should
+  // never appear in corpus content; if they do, something has gone wrong
+  // (e.g. an event log got mistakenly injected as a post).
   {
-    const hit = findFirstDisallowed(userText, patterns);
+    const hit = findFirstDisallowed(userText, corpusDisallowFor(input.lens));
     if (hit) {
       throw new Error(
         `buildLensContext: disallowed pattern ${hit} present in injected post content for lens ${input.lens}`,

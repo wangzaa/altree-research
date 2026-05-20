@@ -121,14 +121,39 @@ describe("buildLensContext", () => {
     ).toThrow(/thesis_id mismatch/i);
   });
 
-  it("throws when posts content contains a leakage sentinel (defense in depth)", () => {
+  it("allows posts content with neutral financial vocabulary (bear case, downside)", () => {
+    // Real corpus posts contain phrases like "bear case", "downside risk",
+    // "bullish outlook" routinely. Only the AGENT IDENTIFIER bear_researcher
+    // is treated as a leakage sentinel in corpus content (see next test).
     const thesis = makeThesis();
     expect(() =>
       buildLensContext({
         lens: "bull",
         thesis,
         driver: thesis.drivers.industry[0],
-        posts: [{ ...fakePosts[0], content: "This is bear evidence." }],
+        posts: [
+          {
+            ...fakePosts[0],
+            content: "The bear case for ASML is China export controls; the bullish view is full backlog.",
+          },
+        ],
+      }),
+    ).not.toThrow();
+  });
+
+  it("throws when posts content contains an opposite-agent identifier", () => {
+    const thesis = makeThesis();
+    expect(() =>
+      buildLensContext({
+        lens: "bull",
+        thesis,
+        driver: thesis.drivers.industry[0],
+        posts: [
+          {
+            ...fakePosts[0],
+            content: "bear_researcher wrote: hyperscalers are slowing.",
+          },
+        ],
       }),
     ).toThrow(/disallowed/i);
   });
