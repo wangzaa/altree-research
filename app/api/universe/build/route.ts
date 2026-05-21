@@ -12,6 +12,7 @@ import {
 } from "@/lib/schemas/universe";
 import { generateUniverseId } from "@/lib/schemas/universe-id";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getModelFor } from "@/lib/data/agent-models";
 
 const BodySchema = z.object({
   thesis_id: ThesisIdSchema,
@@ -81,6 +82,15 @@ export async function POST(req: Request) {
     }
     const anchorFundamentals = (await getFundamentals(anchor_ticker)) ?? {};
 
+    const discovererModel = getModelFor("universe_discoverer");
+    await supabase.from("pipeline_events").insert({
+      thesis_id,
+      stage: "universe",
+      agent: "universe_discoverer",
+      event_type: "start",
+      payload: { anchor: anchor_ticker, model: discovererModel },
+    });
+
     let discovery;
     try {
       discovery = await discoverUniverse({
@@ -96,12 +106,26 @@ export async function POST(req: Request) {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[/api/universe/build] discover_failed:", message);
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "universe",
+        agent: "universe_discoverer",
+        event_type: "error",
+        payload: { error: message, model: discovererModel },
+      });
       return NextResponse.json(
         { error: "discovery_failed", detail: message },
         { status: 422 },
       );
     }
     if (!discovery.ok) {
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "universe",
+        agent: "universe_discoverer",
+        event_type: "error",
+        payload: { error: discovery.error, model: discovererModel },
+      });
       return NextResponse.json(
         {
           error: "discovery_failed",
@@ -111,6 +135,18 @@ export async function POST(req: Request) {
         { status: 422 },
       );
     }
+
+    await supabase.from("pipeline_events").insert({
+      thesis_id,
+      stage: "universe",
+      agent: "universe_discoverer",
+      event_type: "complete",
+      payload: {
+        model: discovery.model,
+        usage: discovery.usage,
+        proposed: discovery.tickers.length,
+      },
+    });
 
     const tickers: UniverseTicker[] = [];
     const dropped: DroppedTicker[] = [];
@@ -157,6 +193,21 @@ export async function POST(req: Request) {
         notes: proposed.notes,
       });
     }
+
+    await supabase.from("pipeline_events").insert({
+      thesis_id,
+      stage: "universe",
+      agent: "yahoo_filter",
+      event_type: "complete",
+      payload: {
+        survivors: tickers.length,
+        dropped: dropped.length,
+        dropped_reasons: dropped.reduce<Record<string, number>>((acc, d) => {
+          acc[d.reason] = (acc[d.reason] ?? 0) + 1;
+          return acc;
+        }, {}),
+      },
+    });
 
     if (tickers.length < MIN_SURVIVORS) {
       return NextResponse.json(

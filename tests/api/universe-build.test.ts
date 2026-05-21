@@ -20,6 +20,7 @@ const universesSelectMock = vi.fn(() => ({
 const universesInsertMock = vi.fn();
 const thesesUpdateEqMock = vi.fn();
 const thesesUpdateMock = vi.fn(() => ({ eq: thesesUpdateEqMock }));
+const pipelineInsertMock = vi.fn();
 
 const fromMock = vi.fn((table: string) => {
   if (table === "theses") {
@@ -33,6 +34,9 @@ const fromMock = vi.fn((table: string) => {
       select: universesSelectMock,
       insert: universesInsertMock,
     };
+  }
+  if (table === "pipeline_events") {
+    return { insert: pipelineInsertMock };
   }
   throw new Error(`unexpected table ${table}`);
 });
@@ -87,10 +91,12 @@ beforeEach(() => {
   universesInsertMock.mockReset();
   thesesUpdateMock.mockClear();
   thesesUpdateEqMock.mockReset();
+  pipelineInsertMock.mockReset();
 
   likeUniversesLimitMock.mockResolvedValue({ data: [], error: null });
   universesInsertMock.mockResolvedValue({ error: null });
   thesesUpdateEqMock.mockResolvedValue({ error: null });
+  pipelineInsertMock.mockResolvedValue({ error: null });
   generateUniverseIdMock.mockReturnValue(`${THESIS_ID}_universe_01`);
 });
 

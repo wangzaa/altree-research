@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { generateThesisId } from "@/lib/schemas/thesis-id";
 import { sluggifyForThesis } from "@/lib/schemas/slug";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getModelFor } from "@/lib/data/agent-models";
 
 const BodySchema = z.object({
   source_snippet: z.string().min(20).max(10_000),
@@ -59,6 +60,18 @@ export async function POST(req: Request) {
   const existingIds = (existing.data ?? []).map((row) => row.id);
   const id = generateThesisId({ slug, year, month, existingIds });
 
+  const extractorModel = getModelFor("thesis_extractor");
+  await supabase.from("pipeline_events").insert({
+    thesis_id: id,
+    stage: "extract",
+    agent: "thesis_extractor",
+    event_type: "start",
+    payload: {
+      snippet_chars: source_snippet.length,
+      model: extractorModel,
+    },
+  });
+
   const result = await extractThesis({
     sourceSnippet: source_snippet,
     id,
@@ -67,11 +80,30 @@ export async function POST(req: Request) {
   });
 
   if (!result.ok) {
+    await supabase.from("pipeline_events").insert({
+      thesis_id: id,
+      stage: "extract",
+      agent: "thesis_extractor",
+      event_type: "error",
+      payload: { error: result.error, model: extractorModel },
+    });
     return NextResponse.json(
       { error: result.error, raw: result.raw ?? null },
       { status: 422 },
     );
   }
+
+  await supabase.from("pipeline_events").insert({
+    thesis_id: id,
+    stage: "extract",
+    agent: "thesis_extractor",
+    event_type: "complete",
+    payload: {
+      model: result.model,
+      usage: result.usage,
+      drivers: result.thesis.drivers.industry.length,
+    },
+  });
 
   const insert = await supabase.from("theses").insert({
     id,
