@@ -20,6 +20,8 @@ export const DriverValidationResultSchema = z
   .object({
     bull_evidence: z.array(CorpusEvidenceSchema).default([]),
     bear_evidence: z.array(CorpusEvidenceSchema).default([]),
+    bull_synthesis: z.string().nullish(),
+    bear_synthesis: z.string().nullish(),
     // verified flags and triangulator_output land in narrowed S7.
   })
   .strict();

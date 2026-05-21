@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runBullResearcher } from "@/lib/agents/bull-researcher";
 import { runBearResearcher } from "@/lib/agents/bear-researcher";
+import { synthesiseLens } from "@/lib/agents/lens-synthesiser";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { ThesisIdSchema, ThesisSchema, type Thesis } from "@/lib/schemas/thesis";
@@ -153,9 +154,106 @@ export async function POST(req: Request) {
       },
     ]);
 
+    // Bull + Bear synthesis. Best-effort; if either side throws, the route
+    // still persists the evidence + returns nullable syntheses so the UI
+    // can fall back to raw evidence.
+    const bullSynthModel = getModelFor("bull_synthesiser");
+    const bearSynthModel = getModelFor("bear_synthesiser");
+    await supabase.from("pipeline_events").insert([
+      {
+        thesis_id,
+        stage: "validate",
+        agent: "bull_synthesiser",
+        event_type: "start",
+        payload: { driver_id, model: bullSynthModel },
+      },
+      {
+        thesis_id,
+        stage: "validate",
+        agent: "bear_synthesiser",
+        event_type: "start",
+        payload: { driver_id, model: bearSynthModel },
+      },
+    ]);
+
+    const [bullSynthSettled, bearSynthSettled] = await Promise.allSettled([
+      synthesiseLens({
+        lens: "bull",
+        thesis,
+        driver,
+        evidence: bull.evidence,
+      }),
+      synthesiseLens({
+        lens: "bear",
+        thesis,
+        driver,
+        evidence: bear.evidence,
+      }),
+    ]);
+
+    let bullSynthesis: string | null = null;
+    if (bullSynthSettled.status === "fulfilled") {
+      bullSynthesis = bullSynthSettled.value.synthesis;
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "validate",
+        agent: "bull_synthesiser",
+        event_type: "complete",
+        payload: {
+          driver_id,
+          model: bullSynthSettled.value.model,
+          usage: bullSynthSettled.value.usage,
+          chars: bullSynthSettled.value.synthesis.length,
+        },
+      });
+    } else {
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "validate",
+        agent: "bull_synthesiser",
+        event_type: "error",
+        payload: {
+          driver_id,
+          error: String(bullSynthSettled.reason),
+          model: bullSynthModel,
+        },
+      });
+    }
+
+    let bearSynthesis: string | null = null;
+    if (bearSynthSettled.status === "fulfilled") {
+      bearSynthesis = bearSynthSettled.value.synthesis;
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "validate",
+        agent: "bear_synthesiser",
+        event_type: "complete",
+        payload: {
+          driver_id,
+          model: bearSynthSettled.value.model,
+          usage: bearSynthSettled.value.usage,
+          chars: bearSynthSettled.value.synthesis.length,
+        },
+      });
+    } else {
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "validate",
+        agent: "bear_synthesiser",
+        event_type: "error",
+        payload: {
+          driver_id,
+          error: String(bearSynthSettled.reason),
+          model: bearSynthModel,
+        },
+      });
+    }
+
     const partial = DriverValidationResultSchema.parse({
       bull_evidence: bull.evidence,
       bear_evidence: bear.evidence,
+      bull_synthesis: bullSynthesis,
+      bear_synthesis: bearSynthesis,
     });
 
     // Merge into the latest validation_runs row for this thesis; create if
@@ -201,6 +299,8 @@ export async function POST(req: Request) {
         driver_id,
         bull_evidence: bull.evidence,
         bear_evidence: bear.evidence,
+        bull_synthesis: bullSynthesis,
+        bear_synthesis: bearSynthesis,
       },
       { status: 200 },
     );

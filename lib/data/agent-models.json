@@ -5,5 +5,7 @@
   "universe_discoverer": "anthropic/claude-sonnet-4-6",
   "scan_runner":         "anthropic/claude-sonnet-4-6",
   "bull_researcher":     "anthropic/claude-opus-4-7",
-  "bear_researcher":     "anthropic/claude-opus-4-7"
+  "bear_researcher":     "anthropic/claude-opus-4-7",
+  "bull_synthesiser":    "anthropic/claude-haiku-4-5",
+  "bear_synthesiser":    "anthropic/claude-haiku-4-5"
 }
