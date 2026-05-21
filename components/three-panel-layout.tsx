@@ -28,9 +28,14 @@ function Panel({
 export interface ThreePanelLayoutProps {
   stages: Stage[];
   artifact: ReactNode;
+  thesisId?: string;
 }
 
-export function ThreePanelLayout({ stages, artifact }: ThreePanelLayoutProps) {
+export function ThreePanelLayout({
+  stages,
+  artifact,
+  thesisId,
+}: ThreePanelLayoutProps) {
   return (
     <main className="min-h-screen bg-neutral-50 p-4">
       <div className="flex h-[calc(100vh-2rem)] flex-col gap-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)_320px]">
@@ -43,7 +48,7 @@ export function ThreePanelLayout({ stages, artifact }: ThreePanelLayoutProps) {
         <Panel title="Artifact">{artifact}</Panel>
 
         <Panel title="Live log">
-          <LiveLog />
+          <LiveLog thesisId={thesisId} />
         </Panel>
       </div>
     </main>

@@ -99,6 +99,7 @@ export default async function ThesisViewerPage({
   return (
     <ThreePanelLayout
       stages={stages}
+      thesisId={thesis.id}
       artifact={
         <ThesisDetail
           initial={thesis}
