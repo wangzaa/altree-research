@@ -3,7 +3,7 @@ import { cloneCanonicalThesis } from "@/tests/fixtures/thesis";
 
 const createMessageMock = vi.fn();
 
-vi.mock("@/lib/anthropic/client", () => ({
+vi.mock("@/lib/llm/client", () => ({
   createMessage: createMessageMock,
 }));
 
@@ -29,11 +29,11 @@ function toolInputFromThesis(t: ReturnType<typeof cloneCanonicalThesis>) {
 
 function mockToolUse(input: unknown) {
   createMessageMock.mockResolvedValueOnce({
-    content: [
-      { type: "tool_use", id: "toolu_1", name: "propose_thesis", input },
-    ],
-    stop_reason: "tool_use",
+    text: "",
+    tool_calls: [{ id: "call_1", name: "propose_thesis", input }],
     usage: { input_tokens: 100, output_tokens: 50 },
+    model: "anthropic/claude-sonnet-4-6",
+    finish_reason: "tool_calls",
     raw: {},
   });
 }
@@ -77,8 +77,8 @@ describe("refineThesis", () => {
     expect(call.tool_choice).toEqual({ type: "tool", name: "propose_thesis" });
     expect(call.tools).toHaveLength(1);
     expect(call.tools[0].name).toBe("propose_thesis");
-    expect(Array.isArray(call.system)).toBe(true);
-    expect(call.system[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(typeof call.system).toBe("string");
+    expect(call.agent).toBe("thesis_refiner");
     expect(call.messages).toHaveLength(1);
     expect(call.messages[0].role).toBe("user");
     const userContent = call.messages[0].content as string;
@@ -112,9 +112,11 @@ describe("refineThesis", () => {
 
   it("returns ok:false when no tool_use block exists", async () => {
     createMessageMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: "sorry, I cannot help" }],
-      stop_reason: "end_turn",
+      text: "sorry, I cannot help",
+      tool_calls: [],
       usage: { input_tokens: 10, output_tokens: 5 },
+      model: "anthropic/claude-sonnet-4-6",
+      finish_reason: "stop",
       raw: {},
     });
     const { refineThesis } = await import("@/lib/agents/thesis-refiner");
@@ -129,16 +131,17 @@ describe("refineThesis", () => {
 
   it("returns ok:false when tool_use has the wrong tool name", async () => {
     createMessageMock.mockResolvedValueOnce({
-      content: [
+      text: "",
+      tool_calls: [
         {
-          type: "tool_use",
-          id: "toolu_1",
+          id: "call_1",
           name: "extract_thesis",
           input: toolInputFromThesis(cloneCanonicalThesis()),
         },
       ],
-      stop_reason: "tool_use",
       usage: { input_tokens: 10, output_tokens: 5 },
+      model: "anthropic/claude-sonnet-4-6",
+      finish_reason: "tool_calls",
       raw: {},
     });
     const { refineThesis } = await import("@/lib/agents/thesis-refiner");

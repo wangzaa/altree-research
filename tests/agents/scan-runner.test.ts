@@ -5,17 +5,17 @@ import { cloneCanonicalScan } from "@/tests/fixtures/scan";
 
 const createMessageMock = vi.fn();
 
-vi.mock("@/lib/anthropic/client", () => ({
+vi.mock("@/lib/llm/client", () => ({
   createMessage: createMessageMock,
 }));
 
 function mockToolUse(input: unknown) {
   createMessageMock.mockResolvedValueOnce({
-    content: [
-      { type: "tool_use", id: "toolu_1", name: "return_scan_description", input },
-    ],
-    stop_reason: "tool_use",
+    text: "",
+    tool_calls: [{ id: "call_1", name: "return_scan_description", input }],
     usage: { input_tokens: 100, output_tokens: 50 },
+    model: "anthropic/claude-sonnet-4-6",
+    finish_reason: "tool_calls",
     raw: {},
   });
 }
@@ -59,15 +59,15 @@ describe("scanRunner", () => {
     expect(call.tool_choice).toEqual({ type: "tool", name: "return_scan_description" });
     expect(call.tools).toHaveLength(1);
     expect(call.tools[0].name).toBe("return_scan_description");
-    expect(Array.isArray(call.system)).toBe(true);
-    expect(call.system[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(typeof call.system).toBe("string");
+    expect(call.agent).toBe("scan_runner");
   });
 
   it("system prompt mentions descriptive + forbidden words", async () => {
     mockToolUse({ markdown: validMarkdown });
     const { scanRunner } = await import("@/lib/agents/scan-runner");
     await scanRunner(buildInput());
-    const sys = (createMessageMock.mock.calls[0][0].system[0].text as string).toLowerCase();
+    const sys = (createMessageMock.mock.calls[0][0].system as string).toLowerCase();
     expect(sys).toContain("descriptive");
     expect(sys).toContain("forbidden");
     expect(sys).toContain("should");
@@ -89,9 +89,11 @@ describe("scanRunner", () => {
 
   it("returns ok:false when no tool_use block is present", async () => {
     createMessageMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: "oops" }],
-      stop_reason: "end_turn",
+      text: "oops",
+      tool_calls: [],
       usage: { input_tokens: 1, output_tokens: 1 },
+      model: "anthropic/claude-sonnet-4-6",
+      finish_reason: "stop",
       raw: {},
     });
     const { scanRunner } = await import("@/lib/agents/scan-runner");

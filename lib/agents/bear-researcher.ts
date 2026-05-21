@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { retrieve } from "@/lib/agents/expert-corpus/retrieve";
 import {
@@ -10,14 +9,15 @@ import {
   type CorpusEvidence,
 } from "@/lib/schemas/validation";
 import { loadRegistry } from "@/lib/data/experts";
+import { createMessage } from "@/lib/llm/client";
 import type { IndustryDriver, Thesis } from "@/lib/schemas/thesis";
 
-const BEAR_MODEL = "claude-opus-4-7";
 const RETRIEVE_LIMIT_DEFAULT = 12;
 
 export type RunResult = {
   evidence: CorpusEvidence[];
   usage: { input_tokens: number; output_tokens: number };
+  model: string;
 };
 
 const ToolInputSchema = z
@@ -71,39 +71,26 @@ export async function runBearResearcher(params: {
     posts: lensPosts,
   });
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const res = await client.messages.create({
-    model: BEAR_MODEL,
-    max_tokens: 4096,
+  const res = await createMessage({
+    agent: "bear_researcher",
     system: req.system,
     messages: req.messages,
     tools: req.tools,
     tool_choice: req.tool_choice,
+    max_tokens: 4096,
   });
 
-  const toolUse = res.content.find((b) => b.type === "tool_use");
-  if (!toolUse || toolUse.type !== "tool_use") {
+  const toolCall = res.tool_calls.find((tc) => tc.name === "submit_evidence");
+  if (!toolCall) {
     throw new Error(
-      `bear_researcher: no tool_use block (stop=${res.stop_reason})`,
+      `bear_researcher: no submit_evidence tool call (finish=${res.finish_reason})`,
     );
   }
 
-  let raw: unknown = toolUse.input;
-  if (
-    raw &&
-    typeof raw === "object" &&
-    !Array.isArray(raw) &&
-    typeof (raw as { evidence?: unknown }).evidence === "string"
-  ) {
-    raw = { evidence: JSON.parse((raw as { evidence: string }).evidence) };
-  }
-
-  const parsed = ToolInputSchema.parse(raw);
+  const parsed = ToolInputSchema.parse(toolCall.input);
   return {
     evidence: parsed.evidence,
-    usage: {
-      input_tokens: res.usage.input_tokens,
-      output_tokens: res.usage.output_tokens,
-    },
+    usage: res.usage,
+    model: res.model,
   };
 }

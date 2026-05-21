@@ -5,7 +5,7 @@
 // HITL: the system prompt text below is reviewer-gated. Do not edit without
 // spec signoff (recorded as a PR comment on the corpus-Stage-4 ticket).
 
-import type Anthropic from "@anthropic-ai/sdk";
+import type { ToolSpec } from "@/lib/llm/client";
 import {
   systemDisallowFor,
   corpusDisallowFor,
@@ -39,13 +39,13 @@ export type BuildLensContextInput = {
 };
 
 export type LensRequest = {
-  system: Anthropic.TextBlockParam[];
-  messages: Anthropic.MessageParam[];
-  tools: Anthropic.Tool[];
-  tool_choice: Anthropic.MessageCreateParams["tool_choice"];
+  system: string;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  tools: ToolSpec[];
+  tool_choice: { type: "tool"; name: string };
 };
 
-export const SUBMIT_EVIDENCE_TOOL: Anthropic.Tool = {
+export const SUBMIT_EVIDENCE_TOOL: ToolSpec = {
   name: "submit_evidence",
   description:
     "Submit the extracted per-lens evidence items. Call exactly once.",
@@ -189,7 +189,7 @@ export function buildLensContext(input: BuildLensContextInput): LensRequest {
   }
 
   return {
-    system: [{ type: "text", text: system }],
+    system,
     messages: [{ role: "user", content: userText }],
     tools: [SUBMIT_EVIDENCE_TOOL],
     tool_choice: { type: "tool", name: "submit_evidence" },

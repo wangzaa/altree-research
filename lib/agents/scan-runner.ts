@@ -1,11 +1,5 @@
 import { z } from "zod";
-import {
-  createMessage,
-  type AnthropicContentBlock,
-  type AnthropicTextBlockParam,
-  type AnthropicTool,
-  type AnthropicToolUse,
-} from "@/lib/anthropic/client";
+import { createMessage, type ToolSpec } from "@/lib/llm/client";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
 import type { FundamentalsAggregate } from "@/lib/aggregation/fundamentals";
@@ -30,7 +24,7 @@ const ToolInputSchema = z
   })
   .strict();
 
-const returnScanDescriptionTool: AnthropicTool = {
+const returnScanDescriptionTool: ToolSpec = {
   name: TOOL_NAME,
   description:
     "Return the three-paragraph descriptive markdown for the Stage-3 scan. Do not return free-text.",
@@ -47,10 +41,7 @@ const returnScanDescriptionTool: AnthropicTool = {
   },
 };
 
-const systemBlocks: AnthropicTextBlockParam[] = [
-  {
-    type: "text",
-    text: `You are writing the Stage-3 scan context for a retail-investor research note. Be punchy. Use plain English. Short sentences.
+const SYSTEM_PROMPT = `You are writing the Stage-3 scan context for a retail-investor research note. Be punchy. Use plain English. Short sentences.
 
 You are given: the thesis claim, the universe of tickers, 5 years of monthly closing prices per ticker, and a snapshot of universe-aggregate fundamentals (mean and median gross margin, EBIT margin).
 
@@ -64,21 +55,7 @@ Paragraph 3 — names that stood out. Pick 1-3 tickers with the biggest moves up
 
 FORBIDDEN words: "should", "will", "expect", "likely", "believe", "outperform", "undervalued", "overvalued". State the numbers — don't predict or recommend.
 
-Return the markdown via the return_scan_description tool. Do not return free-text alone.`,
-    cache_control: { type: "ephemeral" },
-  },
-];
-
-function findToolUse(
-  content: AnthropicContentBlock[],
-): AnthropicToolUse | undefined {
-  for (const block of content) {
-    if (block.type === "tool_use" && block.name === TOOL_NAME) {
-      return block;
-    }
-  }
-  return undefined;
-}
+Return the markdown via the return_scan_description tool. Do not return free-text alone.`;
 
 function summarisePoints(history: TickerHistory): string {
   if (history.points.length === 0) return `${history.ticker}: no data`;
@@ -89,7 +66,9 @@ function summarisePoints(history: TickerHistory): string {
 
 function buildUserMessage(input: ScanRunnerInput): string {
   const { thesis, universe, history_5y, fundamentals_snapshot } = input;
-  const tickerList = universe.tickers.map((t) => `${t.ticker} (${t.name})`).join(", ");
+  const tickerList = universe.tickers
+    .map((t) => `${t.ticker} (${t.name})`)
+    .join(", ");
   const histLines = history_5y.map(summarisePoints).join("\n");
   const fund = fundamentals_snapshot;
   return `Thesis claim: ${thesis.claim}
@@ -110,30 +89,35 @@ export async function scanRunner(
   input: ScanRunnerInput,
 ): Promise<ScanRunnerResult> {
   const result = await createMessage({
-    system: systemBlocks,
+    agent: "scan_runner",
+    system: SYSTEM_PROMPT,
     tools: [returnScanDescriptionTool],
     tool_choice: { type: "tool", name: TOOL_NAME },
     messages: [{ role: "user", content: buildUserMessage(input) }],
     max_tokens: 1024,
   });
 
-  const toolUse = findToolUse(result.content);
-  if (!toolUse) {
+  const toolCall = result.tool_calls.find((tc) => tc.name === TOOL_NAME);
+  if (!toolCall) {
     return {
       ok: false,
       error: "Model did not produce a return_scan_description tool_use block",
     };
   }
   if (
-    typeof toolUse.input !== "object" ||
-    toolUse.input === null ||
-    Array.isArray(toolUse.input)
+    typeof toolCall.input !== "object" ||
+    toolCall.input === null ||
+    Array.isArray(toolCall.input)
   ) {
-    return { ok: false, error: "tool_use.input was not an object", raw: toolUse.input };
+    return {
+      ok: false,
+      error: "tool_use.input was not an object",
+      raw: toolCall.input,
+    };
   }
-  const parsed = ToolInputSchema.safeParse(toolUse.input);
+  const parsed = ToolInputSchema.safeParse(toolCall.input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.message, raw: toolUse.input };
+    return { ok: false, error: parsed.error.message, raw: toolCall.input };
   }
   return { ok: true, markdown: parsed.data.markdown };
 }

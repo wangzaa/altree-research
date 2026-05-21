@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { ThesisIdSchema, ThesisSchema, type Thesis } from "@/lib/schemas/thesis";
 import { DriverValidationResultSchema } from "@/lib/schemas/validation";
+import { getModelFor } from "@/lib/data/agent-models";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,20 +68,23 @@ export async function POST(req: Request) {
       );
     }
 
+    const bullModel = getModelFor("bull_researcher");
+    const bearModel = getModelFor("bear_researcher");
+
     await supabase.from("pipeline_events").insert([
       {
         thesis_id,
         stage: "validate",
         agent: "bull_researcher",
         event_type: "start",
-        payload: { driver_id },
+        payload: { driver_id, model: bullModel },
       },
       {
         thesis_id,
         stage: "validate",
         agent: "bear_researcher",
         event_type: "start",
-        payload: { driver_id },
+        payload: { driver_id, model: bearModel },
       },
     ]);
 
@@ -128,14 +132,24 @@ export async function POST(req: Request) {
         stage: "validate",
         agent: "bull_researcher",
         event_type: "complete",
-        payload: { driver_id, count: bull.evidence.length, usage: bull.usage },
+        payload: {
+          driver_id,
+          count: bull.evidence.length,
+          usage: bull.usage,
+          model: bull.model,
+        },
       },
       {
         thesis_id,
         stage: "validate",
         agent: "bear_researcher",
         event_type: "complete",
-        payload: { driver_id, count: bear.evidence.length, usage: bear.usage },
+        payload: {
+          driver_id,
+          count: bear.evidence.length,
+          usage: bear.usage,
+          model: bear.model,
+        },
       },
     ]);
 
