@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChatBubble, ChatThread } from "@/components/chat-bubble";
+import { ChatInputAction } from "@/components/chat-input";
 import { PerTickerTable } from "@/components/per-ticker-table";
 import { ScanChart, type WindowKey } from "@/components/scan-chart";
 import type { ScanResults } from "@/lib/schemas/scan";
@@ -63,27 +65,24 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
 
   if (scan === null) {
     return (
-      <div
-        className="flex flex-col gap-3 rounded-md p-4"
-        style={{ border: "1px dashed #E5E5E5" }}
-      >
-        <p className="text-sm" style={{ color: "#585858" }}>
-          No scan has been run for this thesis yet.
-        </p>
-        <button
-          type="button"
-          onClick={handleRun}
-          disabled={running}
-          className="btn btn-secondary self-start"
-        >
-          {running ? "Running..." : "Run scan"}
-        </button>
-        {error ? (
-          <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
-            {error}
-          </p>
-        ) : null}
-      </div>
+      <ChatThread>
+        <ChatBubble from="app">
+          No scan has been run for this thesis yet. Want me to run one?
+        </ChatBubble>
+        <div className="pl-12">
+          <ChatInputAction
+            label="Run scan"
+            loadingLabel="Running..."
+            loading={running}
+            onAction={handleRun}
+          />
+          {error ? (
+            <p className="mt-2 text-sm" role="alert" style={{ color: "#a30000" }}>
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </ChatThread>
     );
   }
 

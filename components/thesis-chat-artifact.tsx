@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, type FormEvent, type ReactNode } from "react";
+import React, { useState, type ReactNode } from "react";
 import { ChatBubble, ChatThread } from "@/components/chat-bubble";
+import { ChatInputText } from "@/components/chat-input";
 import { thesisBubbles } from "@/lib/thesis-bubbles";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { ThesisDiff } from "@/lib/diff/thesis-diff";
@@ -79,8 +80,7 @@ export function ThesisChatArtifact({
     refining || applying || previewing || instruction.trim().length === 0;
   const confirmDisabled = !diff || isDiffEmpty(diff) || applying;
 
-  async function onRefineSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function onRefineSubmit(submittedValue: string) {
     if (submitDisabled) return;
     setStatus("refining");
     setErrorMessage(null);
@@ -88,7 +88,7 @@ export function ThesisChatArtifact({
       const res = await fetch("/api/thesis/refine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ thesis_id: thesis.id, instruction }),
+        body: JSON.stringify({ thesis_id: thesis.id, instruction: submittedValue }),
       });
       const body = (await res.json().catch(() => null)) as
         | (RefineResponse & { error?: string; detail?: string })
@@ -261,31 +261,17 @@ export function ThesisChatArtifact({
           </div>
         </>
       ) : (
-        <form
-          onSubmit={onRefineSubmit}
-          className="flex flex-col gap-3 pl-12"
-        >
-          <textarea
-            value={instruction}
-            onChange={(e) => setInstruction(e.target.value)}
-            disabled={refining || applying}
+        <div className="pl-12">
+          <ChatInputText
+            multiline
             placeholder="Type a refinement instruction (e.g., add Japan to regions)..."
-            className="min-h-[80px] w-full rounded-md px-3 py-2 text-sm"
-            style={{
-              background: "white",
-              border: "1px solid #E5E5E5",
-            }}
+            value={instruction}
+            onChange={setInstruction}
+            onSubmit={onRefineSubmit}
+            submitLabel={refining ? "Refining..." : "Refine"}
+            disabled={refining || applying}
           />
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={submitDisabled}
-              className="btn btn-primary"
-            >
-              {refining ? "Refining..." : "Refine"}
-            </button>
-          </div>
-        </form>
+        </div>
       )}
 
       {errorMessage ? (
