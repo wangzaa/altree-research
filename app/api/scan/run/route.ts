@@ -13,6 +13,7 @@ import {
 } from "@/lib/schemas/scan";
 import type { Universe } from "@/lib/schemas/universe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getModelFor } from "@/lib/data/agent-models";
 
 const BodySchema = z.object({ thesis_id: ThesisIdSchema });
 
@@ -79,11 +80,14 @@ export async function POST(req: Request) {
     }
     const universe = universeRow.data.universe as Universe;
 
+    const scanModel = getModelFor("scan_runner");
+
     await supabase.from("pipeline_events").insert({
       thesis_id,
       stage: "scan",
+      agent: "scan_runner",
       event_type: "start",
-      payload: { thesis_id, universe_id: universeId },
+      payload: { thesis_id, universe_id: universeId, model: scanModel },
     });
 
     const history_5y: TickerHistory[] = [];
@@ -138,8 +142,9 @@ export async function POST(req: Request) {
       await supabase.from("pipeline_events").insert({
         thesis_id,
         stage: "scan",
+        agent: "scan_runner",
         event_type: "error",
-        payload: { error: agentResult.error },
+        payload: { error: agentResult.error, model: scanModel },
       });
       return NextResponse.json(
         {
@@ -208,8 +213,9 @@ export async function POST(req: Request) {
     await supabase.from("pipeline_events").insert({
       thesis_id,
       stage: "scan",
+      agent: "scan_runner",
       event_type: "complete",
-      payload: validated.data,
+      payload: { ...validated.data, model: scanModel },
     });
 
     return NextResponse.json(
