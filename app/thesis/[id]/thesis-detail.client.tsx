@@ -154,6 +154,8 @@ export function ThesisDetail({
                       driver_claim={driver.claim}
                       bull_evidence={v.bull_evidence}
                       bear_evidence={v.bear_evidence}
+                      bull_synthesis={v.bull_synthesis ?? null}
+                      bear_synthesis={v.bear_synthesis ?? null}
                     />
                   );
                 })}

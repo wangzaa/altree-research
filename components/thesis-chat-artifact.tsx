@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, type FormEvent } from "react";
+import { ChatBubble, ChatThread } from "@/components/chat-bubble";
 import { summariseThesis } from "@/lib/thesis-summary";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { ThesisDiff } from "@/lib/diff/thesis-diff";
@@ -151,22 +152,15 @@ export function ThesisChatArtifact({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <section
-        className="bg-white"
-        style={{
-          borderRadius: 18.75,
-          padding: 30,
-          border: "1px solid #E5E5E5",
-        }}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <h3
-            className="text-sm font-semibold uppercase tracking-wide"
-            style={{ color: "#585858" }}
-          >
-            Current thesis
-          </h3>
+    <ChatThread>
+      <ChatBubble from="app" label="Your thesis">
+        <pre
+          className="whitespace-pre-wrap"
+          style={{ fontFamily: "var(--font-sans)", fontSize: 15 }}
+        >
+          {summary}
+        </pre>
+        <div className="mt-3">
           <button
             type="button"
             onClick={() => setShowJson((v) => !v)}
@@ -176,16 +170,10 @@ export function ThesisChatArtifact({
             {showJson ? "Hide JSON" : "Show JSON"}
           </button>
         </div>
-        <pre
-          className="mt-4 whitespace-pre-wrap text-sm"
-          style={{ fontFamily: "var(--font-sans)", lineHeight: 1.6 }}
-        >
-          {summary}
-        </pre>
         {showJson ? (
           <pre
             data-testid="thesis-json"
-            className="mt-4 overflow-x-auto rounded-md p-3 text-xs"
+            className="mt-3 overflow-x-auto rounded-md p-3 text-xs"
             style={{
               background: "#F5F4F2",
               fontFamily: "var(--font-mono)",
@@ -195,69 +183,21 @@ export function ThesisChatArtifact({
             {JSON.stringify(thesis, null, 2)}
           </pre>
         ) : null}
-      </section>
+      </ChatBubble>
 
-      <section
-        className="bg-white"
-        style={{
-          borderRadius: 18.75,
-          padding: 30,
-          border: "1px solid #E5E5E5",
-        }}
-      >
-        <h3
-          className="text-sm font-semibold uppercase tracking-wide"
-          style={{ color: "#585858" }}
-        >
-          What would you like to change?
-        </h3>
-        <form onSubmit={onRefineSubmit} className="mt-4 flex flex-col gap-3">
-          <textarea
-            value={instruction}
-            onChange={(e) => setInstruction(e.target.value)}
-            disabled={refining || previewing || applying}
-            placeholder="Refinement instruction (e.g., add Japan to regions)..."
-            className="min-h-[100px] w-full rounded-md px-3 py-2 text-sm"
-            style={{
-              background: "white",
-              border: "1px solid #E5E5E5",
-            }}
-          />
-          {!previewing ? (
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={submitDisabled}
-                className="btn btn-primary"
-              >
-                {refining ? "Refining..." : "Refine"}
-              </button>
-            </div>
-          ) : null}
-        </form>
+      <ChatBubble from="app">What would you like to change?</ChatBubble>
 
-        {previewing && diff ? (
-          <div className="mt-4 flex flex-col gap-3">
-            {narrative ? (
-              <div
-                className="rounded-md p-4 text-sm leading-relaxed"
-                style={{
-                  background: "var(--color-pear-cyan-light)",
-                  color: "var(--color-black)",
-                  borderRadius: 18.75,
-                }}
-              >
-                {narrative}
-              </div>
-            ) : (
-              <h4
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: "#585858" }}
-              >
-                Proposed changes
-              </h4>
-            )}
-
+      {previewing ? (
+        <>
+          <ChatBubble from="user">{instruction}</ChatBubble>
+          {narrative ? (
+            <ChatBubble from="app">{narrative}</ChatBubble>
+          ) : (
+            <ChatBubble from="app" label="Proposed changes">
+              {diff ? <DiffLines diff={diff} /> : null}
+            </ChatBubble>
+          )}
+          <div className="flex flex-col gap-2 pl-12">
             {narrative ? (
               <button
                 type="button"
@@ -268,10 +208,8 @@ export function ThesisChatArtifact({
                 {showDetails ? "Hide details" : "Show details"}
               </button>
             ) : null}
-
-            {!narrative || showDetails ? <DiffLines diff={diff} /> : null}
-
-            <div className="flex justify-end gap-2">
+            {narrative && showDetails && diff ? <DiffLines diff={diff} /> : null}
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={onCancel}
@@ -290,14 +228,44 @@ export function ThesisChatArtifact({
               </button>
             </div>
           </div>
-        ) : null}
+        </>
+      ) : (
+        <form
+          onSubmit={onRefineSubmit}
+          className="flex flex-col gap-3 pl-12"
+        >
+          <textarea
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            disabled={refining || applying}
+            placeholder="Type a refinement instruction (e.g., add Japan to regions)..."
+            className="min-h-[80px] w-full rounded-md px-3 py-2 text-sm"
+            style={{
+              background: "white",
+              border: "1px solid #E5E5E5",
+            }}
+          />
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={submitDisabled}
+              className="btn btn-primary"
+            >
+              {refining ? "Refining..." : "Refine"}
+            </button>
+          </div>
+        </form>
+      )}
 
-        {errorMessage ? (
-          <p className="mt-3 text-sm" role="alert" style={{ color: "#a30000" }}>
-            {errorMessage}
-          </p>
-        ) : null}
-      </section>
-    </div>
+      {errorMessage ? (
+        <p
+          className="pl-12 text-sm"
+          role="alert"
+          style={{ color: "#a30000" }}
+        >
+          {errorMessage}
+        </p>
+      ) : null}
+    </ChatThread>
   );
 }
