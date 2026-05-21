@@ -4,17 +4,20 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnchorPicker } from "@/components/anchor-picker";
 import { ScanPanel } from "@/components/scan-panel";
-import { ThesisEditor } from "@/components/thesis-editor";
-import { ThesisJsonView } from "@/components/thesis-json-view";
+import { ThesisChatArtifact } from "@/components/thesis-chat-artifact";
 import { UniverseTable } from "@/components/universe-table";
+import { DriverEvidencePanel } from "@/components/driver-evidence-panel";
+import { PipelineSection } from "@/components/pipeline-layout";
 import type { ScanResults } from "@/lib/schemas/scan";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
+import type { DriverValidationResult } from "@/lib/schemas/validation";
 
 interface ThesisDetailProps {
   initial: Thesis;
   initialUniverse: Universe | null;
   initialScan: ScanResults | null;
+  initialValidation: Record<string, DriverValidationResult> | null;
   seedNames?: Record<string, string>;
 }
 
@@ -27,6 +30,7 @@ export function ThesisDetail({
   initial,
   initialUniverse,
   initialScan,
+  initialValidation,
   seedNames,
 }: ThesisDetailProps) {
   const router = useRouter();
@@ -56,7 +60,9 @@ export function ThesisDetail({
           }
         | null;
       if (!res.ok || !body?.universe) {
-        setBuildError(body?.detail ?? body?.error ?? `Build failed (${res.status})`);
+        setBuildError(
+          body?.detail ?? body?.error ?? `Build failed (${res.status})`,
+        );
         setBuilding(false);
         return;
       }
@@ -65,8 +71,6 @@ export function ThesisDetail({
       setDropped(body.dropped ?? []);
       setPicking(false);
       setBuilding(false);
-      // Re-render the server tree so the left-panel StageList picks up the
-      // new universe_id and lights Stage 2 green.
       router.refresh();
     } catch (err) {
       setBuildError(err instanceof Error ? err.message : "Unexpected error");
@@ -80,61 +84,112 @@ export function ThesisDetail({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <ThesisJsonView thesis={thesis} />
-      <ThesisEditor thesis={thesis} onApplied={setThesis} />
+    <>
+      <PipelineSection id="step-thesis" title="Thesis extraction">
+        <ThesisChatArtifact thesis={thesis} onApplied={setThesis} />
+      </PipelineSection>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
-          Stage 2 — Universe
-        </h2>
-        {picking || universe === null ? (
-          <AnchorPicker
-            tickers_seed={thesis.scope.tickers_seed}
-            tickerNames={seedNames}
-            onSubmit={handleBuild}
-            disabled={building}
-          />
+      <PipelineSection id="step-universe" title="Universe construction">
+        <div className="flex flex-col gap-4">
+          {picking || universe === null ? (
+            <AnchorPicker
+              tickers_seed={thesis.scope.tickers_seed}
+              tickerNames={seedNames}
+              onSubmit={handleBuild}
+              disabled={building}
+            />
+          ) : (
+            <UniverseTable
+              initial={universe}
+              onSaved={setUniverse}
+              onRefresh={handleRefresh}
+            />
+          )}
+          {dropped.length > 0 ? (
+            <details
+              className="rounded-md p-3 text-xs"
+              style={{
+                background: "#F5F4F2",
+                border: "1px solid #E5E5E5",
+                color: "#585858",
+              }}
+            >
+              <summary className="cursor-pointer font-medium">
+                {dropped.length} ticker(s) filtered during build
+              </summary>
+              <ul className="mt-2 list-disc pl-5">
+                {dropped.map((d) => (
+                  <li key={d.ticker}>
+                    <code className="font-mono">{d.ticker}</code> — {d.reason}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+          {buildError ? (
+            <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
+              {buildError}
+            </p>
+          ) : null}
+        </div>
+      </PipelineSection>
+
+      <PipelineSection id="step-insights" title="Gather insights">
+        {universe ? (
+          <div className="flex flex-col gap-8">
+            <ScanPanel
+              thesisId={thesis.id}
+              universeId={universe.id}
+              initial={initialScan}
+            />
+            {initialValidation ? (
+              <div className="flex flex-col gap-6">
+                {thesis.drivers.industry.map((driver) => {
+                  const v = initialValidation[driver.id];
+                  if (!v) return null;
+                  return (
+                    <DriverEvidencePanel
+                      key={driver.id}
+                      driver_id={driver.id}
+                      driver_claim={driver.claim}
+                      bull_evidence={v.bull_evidence}
+                      bear_evidence={v.bear_evidence}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
         ) : (
-          <UniverseTable
-            initial={universe}
-            onSaved={setUniverse}
-            onRefresh={handleRefresh}
-          />
-        )}
-        {dropped.length > 0 ? (
-          <details className="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-700">
-            <summary className="cursor-pointer font-medium">
-              {dropped.length} ticker(s) filtered during build
-            </summary>
-            <ul className="mt-2 list-disc pl-5">
-              {dropped.map((d) => (
-                <li key={d.ticker}>
-                  <code className="font-mono">{d.ticker}</code> — {d.reason}
-                </li>
-              ))}
-            </ul>
-          </details>
-        ) : null}
-        {buildError ? (
-          <p className="text-sm text-red-600" role="alert">
-            {buildError}
+          <p className="text-sm" style={{ color: "#585858" }}>
+            Build the universe to enable insights.
           </p>
-        ) : null}
-      </section>
+        )}
+      </PipelineSection>
 
-      {universe ? (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
-            Stage 3 — Scan
-          </h2>
-          <ScanPanel
-            thesisId={thesis.id}
-            universeId={universe.id}
-            initial={initialScan}
-          />
-        </section>
-      ) : null}
-    </div>
+      <PipelineSection id="step-memo" title="Memo">
+        <div
+          className="bg-white"
+          style={{
+            borderRadius: 18.75,
+            padding: 30,
+            border: "1px solid #E5E5E5",
+          }}
+        >
+          <h3
+            style={{
+              fontFamily: "var(--font-playfair)",
+              fontWeight: 500,
+              fontSize: 24,
+            }}
+          >
+            Memo coming soon
+          </h3>
+          <p className="mt-2 text-sm" style={{ color: "#585858" }}>
+            Once validation completes, the memo fills in here.
+          </p>
+        </div>
+      </PipelineSection>
+    </>
   );
 }
