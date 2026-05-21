@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Pear core palette */
+  --color-black:               #000000;
+  --color-white:               #FFFFFF;
+
+  /* Signature accent */
+  --color-electric-cyan:       #00E5FF;
+  --color-electric-cyan-light: #CCFAFF;
+
+  /* Warm neutrals */
+  --color-off-white:           #F5F4F2;
+  --color-beige:               #E7E3D3;
+  --color-peach:               #FFDBB8;
+
+  /* App surface aliases */
+  --background: var(--color-off-white);
+  --foreground: var(--color-black);
+
+  /* Pear easing — every meaningful transition uses this */
+  --pear-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-pear-cyan:       var(--color-electric-cyan);
+  --color-pear-cyan-light: var(--color-electric-cyan-light);
+  --color-pear-off-white:  var(--color-off-white);
+  --color-pear-beige:      var(--color-beige);
+  --color-pear-peach:      var(--color-peach);
+  --color-pear-black:      var(--color-black);
+
+  --font-sans:  var(--font-inter);
+  --font-serif: var(--font-playfair);
+  --font-mono:  var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
