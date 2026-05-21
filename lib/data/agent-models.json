@@ -1,0 +1,8 @@
+{
+  "thesis_extractor":    "anthropic/claude-sonnet-4-6",
+  "thesis_refiner":      "anthropic/claude-sonnet-4-6",
+  "universe_discoverer": "anthropic/claude-sonnet-4-6",
+  "scan_runner":         "anthropic/claude-sonnet-4-6",
+  "bull_researcher":     "anthropic/claude-opus-4-7",
+  "bear_researcher":     "anthropic/claude-opus-4-7"
+}
