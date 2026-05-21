@@ -16,6 +16,7 @@ interface RefineResponse {
   current: Thesis;
   proposed: Thesis;
   diff: ThesisDiff;
+  narrative: string | null;
 }
 
 function isDiffEmpty(diff: ThesisDiff): boolean {
@@ -63,8 +64,10 @@ export function ThesisChatArtifact({
   const [status, setStatus] = useState<Status>("idle");
   const [proposed, setProposed] = useState<Thesis | null>(null);
   const [diff, setDiff] = useState<ThesisDiff | null>(null);
+  const [narrative, setNarrative] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showJson, setShowJson] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const summary = summariseThesis(thesis);
   const previewing = status === "previewing" && diff !== null;
@@ -98,6 +101,8 @@ export function ThesisChatArtifact({
       }
       setProposed(body.proposed);
       setDiff(body.diff);
+      setNarrative(body.narrative ?? null);
+      setShowDetails(false);
       setStatus("previewing");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Unexpected error");
@@ -126,6 +131,8 @@ export function ThesisChatArtifact({
       onApplied(body.thesis);
       setProposed(null);
       setDiff(null);
+      setNarrative(null);
+      setShowDetails(false);
       setInstruction("");
       setStatus("idle");
     } catch (err) {
@@ -137,6 +144,8 @@ export function ThesisChatArtifact({
   function onCancel() {
     setProposed(null);
     setDiff(null);
+    setNarrative(null);
+    setShowDetails(false);
     setErrorMessage(null);
     setStatus("idle");
   }
@@ -229,13 +238,39 @@ export function ThesisChatArtifact({
 
         {previewing && diff ? (
           <div className="mt-4 flex flex-col gap-3">
-            <h4
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: "#585858" }}
-            >
-              Proposed changes
-            </h4>
-            <DiffLines diff={diff} />
+            {narrative ? (
+              <div
+                className="rounded-md p-4 text-sm leading-relaxed"
+                style={{
+                  background: "var(--color-pear-cyan-light)",
+                  color: "var(--color-black)",
+                  borderRadius: 18.75,
+                }}
+              >
+                {narrative}
+              </div>
+            ) : (
+              <h4
+                className="text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "#585858" }}
+              >
+                Proposed changes
+              </h4>
+            )}
+
+            {narrative ? (
+              <button
+                type="button"
+                onClick={() => setShowDetails((v) => !v)}
+                className="self-start text-xs underline"
+                style={{ color: "#585858" }}
+              >
+                {showDetails ? "Hide details" : "Show details"}
+              </button>
+            ) : null}
+
+            {!narrative || showDetails ? <DiffLines diff={diff} /> : null}
+
             <div className="flex justify-end gap-2">
               <button
                 type="button"

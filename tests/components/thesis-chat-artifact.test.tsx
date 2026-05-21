@@ -34,7 +34,7 @@ describe("<ThesisChatArtifact>", () => {
     expect(screen.getByTestId("thesis-json")).toHaveTextContent(thesis.id);
   });
 
-  it("submits a refinement instruction and shows the diff preview", async () => {
+  it("submits a refinement and shows the conversational narrative", async () => {
     const user = userEvent.setup();
     const thesis = cloneCanonicalThesis();
     const proposed = cloneCanonicalThesis();
@@ -51,6 +51,8 @@ describe("<ThesisChatArtifact>", () => {
           removed: [],
           changed: [],
         },
+        narrative:
+          "OK — I added JAPAN to your scope. This means the universe will now include Japan-listed defense names.",
       }),
     });
 
@@ -62,9 +64,15 @@ describe("<ThesisChatArtifact>", () => {
     await user.click(screen.getByRole("button", { name: /refine/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/JAPAN/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/I added JAPAN to your scope/),
+      ).toBeInTheDocument();
     });
-    expect(screen.getByText(/scope\.regions/)).toBeInTheDocument();
+    // Details (raw diff) hidden by default when narrative is present.
+    expect(screen.queryByText(/scope\.regions/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /show details/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /confirm/i })).toBeEnabled();
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/thesis/refine",
@@ -73,6 +81,83 @@ describe("<ThesisChatArtifact>", () => {
         body: JSON.stringify({ thesis_id: thesis.id, instruction: "add Japan" }),
       }),
     );
+  });
+
+  it("falls back to raw diff lines when narrative is null", async () => {
+    const user = userEvent.setup();
+    const thesis = cloneCanonicalThesis();
+    const proposed = cloneCanonicalThesis();
+    proposed.scope.regions = [...thesis.scope.regions, "JAPAN"];
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        current: thesis,
+        proposed,
+        diff: {
+          added: [{ path: "scope.regions", after: "JAPAN" }],
+          removed: [],
+          changed: [],
+        },
+        narrative: null,
+      }),
+    });
+
+    render(<ThesisChatArtifact thesis={thesis} onApplied={vi.fn()} />);
+    await user.type(
+      screen.getByPlaceholderText(/refinement instruction/i),
+      "add Japan",
+    );
+    await user.click(screen.getByRole("button", { name: /refine/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/scope\.regions/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/JAPAN/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /show details/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Show details toggle reveals/hides the raw diff lines", async () => {
+    const user = userEvent.setup();
+    const thesis = cloneCanonicalThesis();
+    const proposed = cloneCanonicalThesis();
+    proposed.scope.regions = [...thesis.scope.regions, "JAPAN"];
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        current: thesis,
+        proposed,
+        diff: {
+          added: [{ path: "scope.regions", after: "JAPAN" }],
+          removed: [],
+          changed: [],
+        },
+        narrative: "OK — done. This means more regions.",
+      }),
+    });
+
+    render(<ThesisChatArtifact thesis={thesis} onApplied={vi.fn()} />);
+    await user.type(
+      screen.getByPlaceholderText(/refinement instruction/i),
+      "add Japan",
+    );
+    await user.click(screen.getByRole("button", { name: /refine/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /show details/i }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/scope\.regions/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /show details/i }));
+    expect(screen.getByText(/scope\.regions/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /hide details/i }));
+    expect(screen.queryByText(/scope\.regions/)).not.toBeInTheDocument();
   });
 
   it("PATCHes /api/thesis/[id] on Confirm and calls onApplied", async () => {
