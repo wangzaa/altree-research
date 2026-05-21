@@ -10,3 +10,10 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     disconnect() {}
   } as unknown as typeof ResizeObserver;
 }
+
+// LLM client construction reads OPENROUTER_API_KEY at import time. Provide
+// a dummy value in tests; real network calls are mocked at the openai
+// module boundary so this key is never used.
+if (!process.env.OPENROUTER_API_KEY) {
+  process.env.OPENROUTER_API_KEY = "test-key-not-real";
+}
