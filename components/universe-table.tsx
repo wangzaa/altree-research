@@ -44,6 +44,7 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [addingPending, setAddingPending] = useState(false);
+  const [justSavedAt, setJustSavedAt] = useState<Date | null>(null);
 
   const dirty = useMemo(
     () => !ticketsEqual(tickers, initial.tickers),
@@ -51,12 +52,14 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
   );
 
   function updateRow(index: number, patch: Partial<UniverseTicker>) {
+    setJustSavedAt(null);
     setTickers((rows) =>
       rows.map((r, i) => (i === index ? { ...r, ...patch } : r)),
     );
   }
 
   function removeRow(index: number) {
+    setJustSavedAt(null);
     setTickers((rows) => rows.filter((_, i) => i !== index));
   }
 
@@ -98,6 +101,7 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
       exposure_tier: "diversified",
       notes: "",
     };
+    setJustSavedAt(null);
     setTickers((rows) => [...rows, row]);
     setNewRowTicker("");
     setAddingRow(false);
@@ -106,6 +110,7 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
   async function handleSave() {
     setSaveError(null);
     setSaving(true);
+    setJustSavedAt(null);
     const payload: Universe = { ...initial, tickers };
     try {
       const res = await fetch(`/api/universe/${initial.id}`, {
@@ -123,6 +128,7 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
       }
       onSaved(body.universe);
       setSaving(false);
+      setJustSavedAt(new Date());
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Unexpected error");
       setSaving(false);
@@ -277,7 +283,20 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-3">
+        {justSavedAt ? (
+          <span
+            data-testid="universe-saved-indicator"
+            className="text-xs"
+            style={{ color: "#0a7a30" }}
+          >
+            Saved at{" "}
+            {justSavedAt.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        ) : null}
         <button type="button" onClick={onRefresh} className="btn btn-outline">
           Refresh from scope
         </button>

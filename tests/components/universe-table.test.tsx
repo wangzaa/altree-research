@@ -56,6 +56,13 @@ describe("<UniverseTable>", () => {
       `/api/universe/${u.id}`,
       expect.objectContaining({ method: "PATCH" }),
     );
+    // After save, a visible "Saved at HH:MM" indicator appears so the user
+    // gets feedback even when the button re-disables on dirty=false.
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("universe-saved-indicator"),
+      ).toBeInTheDocument();
+    });
   });
 
   it("changing exposure_tier dropdown enables Save", async () => {
