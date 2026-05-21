@@ -1,7 +1,7 @@
 import React, { type ReactNode } from "react";
 import { PipelineHeader } from "@/components/pipeline-header";
 import type { PipelineStep } from "@/lib/pipeline-steps";
-import { LiveLogDrawer } from "@/components/live-log-drawer";
+import { LiveLogPanel } from "@/components/live-log-panel";
 
 export interface PipelineLayoutProps {
   steps: PipelineStep[];
@@ -17,10 +17,12 @@ export function PipelineLayout({
   return (
     <main className="min-h-screen bg-pear-off-white pb-24">
       <PipelineHeader steps={steps} />
-      <div className="container mx-auto px-6 lg:px-12 py-12 space-y-24">
-        {children}
+      <div className="container mx-auto px-6 lg:px-12 py-12">
+        <div className="flex gap-8">
+          <div className="min-w-0 flex-1 space-y-24">{children}</div>
+          <LiveLogPanel thesisId={thesisId} />
+        </div>
       </div>
-      <LiveLogDrawer thesisId={thesisId} />
     </main>
   );
 }
