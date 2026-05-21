@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, type FormEvent } from "react";
+import React, { useState, type FormEvent, type ReactNode } from "react";
 import { ChatBubble, ChatThread } from "@/components/chat-bubble";
-import { summariseThesis } from "@/lib/thesis-summary";
+import { thesisBubbles } from "@/lib/thesis-bubbles";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { ThesisDiff } from "@/lib/diff/thesis-diff";
 
@@ -70,7 +70,7 @@ export function ThesisChatArtifact({
   const [showJson, setShowJson] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
-  const summary = summariseThesis(thesis);
+  const bubbles = thesisBubbles(thesis);
   const previewing = status === "previewing" && diff !== null;
   const refining = status === "refining";
   const applying = status === "applying";
@@ -151,52 +151,83 @@ export function ThesisChatArtifact({
     setStatus("idle");
   }
 
+  // Total stagger index reused for the trailing "Anything to change?" prompt
+  // + the refine flow bubbles so they continue the cascade smoothly.
+  const promptIndex = bubbles.length;
+  let afterIndex = promptIndex + 1;
+
+  function Stagger({
+    index,
+    children,
+  }: {
+    index: number;
+    children: ReactNode;
+  }) {
+    return (
+      <div
+        className="bubble-enter"
+        style={{ ["--bubble-index" as string]: index } as React.CSSProperties}
+      >
+        {children}
+      </div>
+    );
+  }
+
   return (
     <ChatThread>
-      <ChatBubble from="app" label="Your thesis">
-        <pre
-          className="whitespace-pre-wrap"
-          style={{ fontFamily: "var(--font-sans)", fontSize: 15 }}
-        >
-          {summary}
-        </pre>
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => setShowJson((v) => !v)}
-            className="text-xs underline"
-            style={{ color: "#585858" }}
-          >
-            {showJson ? "Hide JSON" : "Show JSON"}
-          </button>
-        </div>
-        {showJson ? (
-          <pre
-            data-testid="thesis-json"
-            className="mt-3 overflow-x-auto rounded-md p-3 text-xs"
-            style={{
-              background: "#F5F4F2",
-              fontFamily: "var(--font-mono)",
-              border: "1px solid #E5E5E5",
-            }}
-          >
-            {JSON.stringify(thesis, null, 2)}
-          </pre>
-        ) : null}
-      </ChatBubble>
+      {bubbles.map((b, i) => (
+        <Stagger key={b.id} index={i}>
+          <ChatBubble from="app" label={b.label}>
+            <div style={{ whiteSpace: "pre-line" }}>{b.body}</div>
+            {b.id === "intro" ? (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowJson((v) => !v)}
+                  className="text-xs underline"
+                  style={{ color: "#585858" }}
+                >
+                  {showJson ? "Hide JSON" : "Show JSON"}
+                </button>
+                {showJson ? (
+                  <pre
+                    data-testid="thesis-json"
+                    className="mt-2 overflow-x-auto rounded-md p-3 text-xs"
+                    style={{
+                      background: "white",
+                      fontFamily: "var(--font-mono)",
+                      border: "1px solid #E5E5E5",
+                    }}
+                  >
+                    {JSON.stringify(thesis, null, 2)}
+                  </pre>
+                ) : null}
+              </div>
+            ) : null}
+          </ChatBubble>
+        </Stagger>
+      ))}
 
-      <ChatBubble from="app">What would you like to change?</ChatBubble>
+      <Stagger index={promptIndex}>
+        <ChatBubble from="app">
+          Anything you&apos;d like to change?
+        </ChatBubble>
+      </Stagger>
 
       {previewing ? (
         <>
-          <ChatBubble from="user">{instruction}</ChatBubble>
-          {narrative ? (
-            <ChatBubble from="app">{narrative}</ChatBubble>
-          ) : (
-            <ChatBubble from="app" label="Proposed changes">
-              {diff ? <DiffLines diff={diff} /> : null}
-            </ChatBubble>
-          )}
+          <Stagger index={afterIndex++}>
+            <ChatBubble from="user">{instruction}</ChatBubble>
+          </Stagger>
+          <Stagger index={afterIndex++}>
+            {narrative ? (
+              <ChatBubble from="app">{narrative}</ChatBubble>
+            ) : (
+              <ChatBubble from="app" label="Proposed changes">
+                {diff ? <DiffLines diff={diff} /> : null}
+              </ChatBubble>
+            )}
+          </Stagger>
           <div className="flex flex-col gap-2 pl-12">
             {narrative ? (
               <button

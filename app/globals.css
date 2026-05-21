@@ -103,3 +103,22 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
 }
+
+/* Sequential bubble reveal — each child of a chat thread fades + lifts in
+   with an index-driven stagger. Use --bubble-index: <n>. */
+.bubble-enter {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: bubbleEnter 0.4s var(--pear-ease) forwards;
+  animation-delay: calc(var(--bubble-index, 0) * 110ms);
+}
+@keyframes bubbleEnter {
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bubble-enter {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
