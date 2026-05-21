@@ -65,7 +65,7 @@ describe("buildLensContext", () => {
       driver: thesis.drivers.industry[0],
       posts: fakePosts,
     });
-    const sysText = req.system.map((b) => b.text).join("\n");
+    const sysText = req.system;
     expect(/\bbear\b/i.test(sysText)).toBe(false);
     expect(/\bdownside\b/i.test(sysText)).toBe(false);
     expect(/counter[- ]evidence/i.test(sysText)).toBe(false);
@@ -80,7 +80,7 @@ describe("buildLensContext", () => {
       driver: thesis.drivers.industry[0],
       posts: fakePosts,
     });
-    const sysText = req.system.map((b) => b.text).join("\n");
+    const sysText = req.system;
     expect(/\bbull\b/i.test(sysText)).toBe(false);
     expect(/\bsupporting evidence\b/i.test(sysText)).toBe(false);
     expect(/\bsupports?\b/i.test(sysText)).toBe(false);
