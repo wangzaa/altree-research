@@ -41,7 +41,7 @@ describe("deriveStepStates", () => {
     expect(steps.map((s) => s.label)).toEqual([
       "Thesis extraction",
       "Universe construction",
-      "Gather insights",
+      "Insights",
       "Memo",
     ]);
   });

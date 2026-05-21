@@ -43,7 +43,7 @@ export function deriveStepStates(
   const labels: Array<{ id: string; label: string }> = [
     { id: "step-thesis", label: "Thesis extraction" },
     { id: "step-universe", label: "Universe construction" },
-    { id: "step-insights", label: "Gather insights" },
+    { id: "step-insights", label: "Insights" },
     { id: "step-memo", label: "Memo" },
   ];
 

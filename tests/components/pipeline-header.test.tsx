@@ -8,7 +8,7 @@ import type { PipelineStep } from "@/lib/pipeline-steps";
 const sampleSteps: PipelineStep[] = [
   { id: "step-thesis", label: "Thesis extraction", state: "completed" },
   { id: "step-universe", label: "Universe construction", state: "active" },
-  { id: "step-insights", label: "Gather insights", state: "pending" },
+  { id: "step-insights", label: "Insights", state: "pending" },
   { id: "step-memo", label: "Memo", state: "pending" },
 ];
 
@@ -17,7 +17,7 @@ describe("<PipelineHeader>", () => {
     render(<PipelineHeader steps={sampleSteps} />);
     expect(screen.getByText("Thesis extraction")).toBeInTheDocument();
     expect(screen.getByText("Universe construction")).toBeInTheDocument();
-    expect(screen.getByText("Gather insights")).toBeInTheDocument();
+    expect(screen.getByText("Insights")).toBeInTheDocument();
     expect(screen.getByText("Memo")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();

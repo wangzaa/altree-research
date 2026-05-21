@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnchorPicker } from "@/components/anchor-picker";
 import { ScanPanel } from "@/components/scan-panel";
@@ -11,7 +11,10 @@ import { PipelineSection } from "@/components/pipeline-layout";
 import type { ScanResults } from "@/lib/schemas/scan";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
-import type { DriverValidationResult } from "@/lib/schemas/validation";
+import type {
+  CorpusEvidence,
+  DriverValidationResult,
+} from "@/lib/schemas/validation";
 
 interface ThesisDetailProps {
   initial: Thesis;
@@ -40,6 +43,83 @@ export function ThesisDetail({
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
   const [dropped, setDropped] = useState<DroppedTicker[]>([]);
+  const [validation, setValidation] = useState<
+    Record<string, DriverValidationResult> | null
+  >(initialValidation);
+  const [validating, setValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const autoValidateFired = useRef(false);
+
+  async function handleValidateAll() {
+    setValidating(true);
+    setValidationError(null);
+    const driversToRun = thesis.drivers.industry;
+
+    type Body = {
+      bull_evidence?: CorpusEvidence[];
+      bear_evidence?: CorpusEvidence[];
+      bull_synthesis?: string | null;
+      bear_synthesis?: string | null;
+      error?: string;
+      detail?: string;
+    };
+
+    const settled = await Promise.allSettled(
+      driversToRun.map(async (driver) => {
+        const res = await fetch("/api/validate/driver", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            thesis_id: thesis.id,
+            driver_id: driver.id,
+          }),
+        });
+        const body = (await res.json().catch(() => null)) as Body | null;
+        if (!res.ok || !body || body.error) {
+          throw new Error(
+            body?.detail ?? body?.error ?? `Validate failed (${res.status})`,
+          );
+        }
+        return { driver_id: driver.id, body };
+      }),
+    );
+
+    const next: Record<string, DriverValidationResult> = { ...(validation ?? {}) };
+    const errors: string[] = [];
+    for (let i = 0; i < settled.length; i++) {
+      const r = settled[i];
+      if (r.status === "fulfilled") {
+        next[r.value.driver_id] = {
+          bull_evidence: r.value.body.bull_evidence ?? [],
+          bear_evidence: r.value.body.bear_evidence ?? [],
+          bull_synthesis: r.value.body.bull_synthesis ?? null,
+          bear_synthesis: r.value.body.bear_synthesis ?? null,
+        };
+      } else {
+        const msg =
+          r.reason instanceof Error ? r.reason.message : String(r.reason);
+        errors.push(`${driversToRun[i].id}: ${msg}`);
+      }
+    }
+    setValidation(Object.keys(next).length > 0 ? next : null);
+    if (errors.length > 0) setValidationError(errors.join(" • "));
+    setValidating(false);
+    router.refresh();
+  }
+
+  // Auto-fire validation the first time we land on the page with a scan but
+  // no validation results. Subsequent re-validation is manual via the
+  // outline button next to the bubbles.
+  useEffect(() => {
+    if (autoValidateFired.current) return;
+    if (!initialScan) return;
+    if (validation !== null) return;
+    if (thesis.drivers.industry.length === 0) return;
+    autoValidateFired.current = true;
+    handleValidateAll();
+    // handleValidateAll is stable for the lifetime of this component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialScan, validation, thesis.drivers.industry.length]);
 
   async function handleBuild(anchor: string) {
     setBuilding(true);
@@ -134,7 +214,7 @@ export function ThesisDetail({
         </div>
       </PipelineSection>
 
-      <PipelineSection id="step-insights" title="Gather insights">
+      <PipelineSection id="step-insights" title="Insights">
         {universe ? (
           <div className="flex flex-col gap-8">
             <ScanPanel
@@ -142,23 +222,44 @@ export function ThesisDetail({
               universeId={universe.id}
               initial={initialScan}
             />
-            {initialValidation ? (
+            {initialScan ? (
               <div className="flex flex-col gap-6">
                 {thesis.drivers.industry.map((driver) => {
-                  const v = initialValidation[driver.id];
-                  if (!v) return null;
+                  const v = validation?.[driver.id];
                   return (
                     <DriverEvidencePanel
                       key={driver.id}
                       driver_id={driver.id}
                       driver_claim={driver.claim}
-                      bull_evidence={v.bull_evidence}
-                      bear_evidence={v.bear_evidence}
-                      bull_synthesis={v.bull_synthesis ?? null}
-                      bear_synthesis={v.bear_synthesis ?? null}
+                      bull_evidence={v?.bull_evidence ?? []}
+                      bear_evidence={v?.bear_evidence ?? []}
+                      bull_synthesis={v?.bull_synthesis ?? null}
+                      bear_synthesis={v?.bear_synthesis ?? null}
+                      loading={validating && !v}
                     />
                   );
                 })}
+                {validation ? (
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={handleValidateAll}
+                      disabled={validating}
+                      className="btn btn-outline"
+                    >
+                      {validating ? "Re-validating..." : "Re-validate drivers"}
+                    </button>
+                  </div>
+                ) : null}
+                {validationError ? (
+                  <p
+                    className="text-sm"
+                    role="alert"
+                    style={{ color: "#a30000" }}
+                  >
+                    {validationError}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>

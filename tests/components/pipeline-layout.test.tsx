@@ -10,7 +10,7 @@ import type { PipelineStep } from "@/lib/pipeline-steps";
 const steps: PipelineStep[] = [
   { id: "step-thesis", label: "Thesis extraction", state: "active" },
   { id: "step-universe", label: "Universe construction", state: "pending" },
-  { id: "step-insights", label: "Gather insights", state: "pending" },
+  { id: "step-insights", label: "Insights", state: "pending" },
   { id: "step-memo", label: "Memo", state: "pending" },
 ];
 

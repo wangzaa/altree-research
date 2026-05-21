@@ -11,6 +11,7 @@ export type DriverEvidencePanelProps = {
   bear_evidence: CorpusEvidence[];
   bull_synthesis?: string | null;
   bear_synthesis?: string | null;
+  loading?: boolean;
 };
 
 function fallbackSynthesis(
@@ -66,24 +67,27 @@ function LensBubble({
   lens,
   synthesis,
   evidence,
+  loading,
 }: {
   lens: "bull" | "bear";
   synthesis: string | null | undefined;
   evidence: CorpusEvidence[];
+  loading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const text =
-    typeof synthesis === "string" && synthesis.length > 0
+  const label = lens === "bull" ? "Bull" : "Bear";
+  const text = loading
+    ? `${label} — here's what they are saying. Reading the corpus...`
+    : typeof synthesis === "string" && synthesis.length > 0
       ? synthesis
       : fallbackSynthesis(lens, evidence);
-  const label = lens === "bull" ? "Bull" : "Bear";
 
   return (
     <div className="flex flex-col gap-2">
       <ChatBubble from="app" label={label}>
         {text}
       </ChatBubble>
-      {evidence.length > 0 ? (
+      {!loading && evidence.length > 0 ? (
         <div className="pl-12">
           <button
             type="button"
@@ -91,9 +95,7 @@ function LensBubble({
             className="text-xs underline"
             style={{ color: "#585858" }}
           >
-            {open
-              ? "Hide sources"
-              : `Show sources (${evidence.length})`}
+            {open ? "Hide sources" : `Show sources (${evidence.length})`}
           </button>
           {open ? (
             <ul className="mt-3 space-y-2">
@@ -122,11 +124,13 @@ export function DriverEvidencePanel(props: DriverEvidencePanelProps) {
           lens="bull"
           synthesis={props.bull_synthesis}
           evidence={props.bull_evidence}
+          loading={props.loading}
         />
         <LensBubble
           lens="bear"
           synthesis={props.bear_synthesis}
           evidence={props.bear_evidence}
+          loading={props.loading}
         />
       </ChatThread>
     </section>

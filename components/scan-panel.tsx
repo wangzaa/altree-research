@@ -55,7 +55,7 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
       setDropped([...(body.dropped ?? []), ...(body.dropped_ratios ?? [])]);
       setRunning(false);
       // Re-render the server tree so the PipelineHeader re-derives its step
-      // state and lights up "Gather insights" once a scan exists.
+      // state and lights up "Insights" once a scan exists.
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected error");
