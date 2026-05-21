@@ -3,17 +3,17 @@ import { cloneCanonicalThesis } from "@/tests/fixtures/thesis";
 
 const createMessageMock = vi.fn();
 
-vi.mock("@/lib/anthropic/client", () => ({
+vi.mock("@/lib/llm/client", () => ({
   createMessage: createMessageMock,
 }));
 
 function mockToolUse(input: unknown) {
   createMessageMock.mockResolvedValueOnce({
-    content: [
-      { type: "tool_use", id: "toolu_1", name: "propose_universe", input },
-    ],
-    stop_reason: "tool_use",
+    text: "",
+    tool_calls: [{ id: "call_1", name: "propose_universe", input }],
     usage: { input_tokens: 100, output_tokens: 50 },
+    model: "anthropic/claude-sonnet-4-6",
+    finish_reason: "tool_calls",
     raw: {},
   });
 }
@@ -94,8 +94,8 @@ describe("discoverUniverse", () => {
     expect(call.tool_choice).toEqual({ type: "tool", name: "propose_universe" });
     expect(call.tools).toHaveLength(1);
     expect(call.tools[0].name).toBe("propose_universe");
-    expect(Array.isArray(call.system)).toBe(true);
-    expect(call.system[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(typeof call.system).toBe("string");
+    expect(call.agent).toBe("universe_discoverer");
     expect(call.messages).toHaveLength(1);
     const content = call.messages[0].content as string;
     expect(content).toContain("Rheinmetall AG");
@@ -113,7 +113,7 @@ describe("discoverUniverse", () => {
       anchor,
     });
     const call = createMessageMock.mock.calls[0][0];
-    const systemText = (call.system[0].text as string).toLowerCase();
+    const systemText = (call.system as string).toLowerCase();
     expect(systemText).toContain("pure_play");
     expect(systemText).toContain("diversified");
     expect(systemText).toContain("etf_proxy");
@@ -123,9 +123,11 @@ describe("discoverUniverse", () => {
 
   it("returns ok:false when no tool_use block exists", async () => {
     createMessageMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: "sorry" }],
-      stop_reason: "end_turn",
+      text: "sorry",
+      tool_calls: [],
       usage: { input_tokens: 1, output_tokens: 1 },
+      model: "anthropic/claude-sonnet-4-6",
+      finish_reason: "stop",
       raw: {},
     });
     const { discoverUniverse } = await import(
@@ -142,16 +144,17 @@ describe("discoverUniverse", () => {
 
   it("returns ok:false when tool_use has the wrong tool name", async () => {
     createMessageMock.mockResolvedValueOnce({
-      content: [
+      text: "",
+      tool_calls: [
         {
-          type: "tool_use",
-          id: "toolu_1",
+          id: "call_1",
           name: "extract_thesis",
           input: validToolInput,
         },
       ],
-      stop_reason: "tool_use",
       usage: { input_tokens: 1, output_tokens: 1 },
+      model: "anthropic/claude-sonnet-4-6",
+      finish_reason: "tool_calls",
       raw: {},
     });
     const { discoverUniverse } = await import(

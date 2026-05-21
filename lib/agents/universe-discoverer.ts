@@ -1,11 +1,5 @@
 import { z } from "zod";
-import {
-  createMessage,
-  type AnthropicContentBlock,
-  type AnthropicTextBlockParam,
-  type AnthropicTool,
-  type AnthropicToolUse,
-} from "@/lib/anthropic/client";
+import { createMessage, type ToolSpec } from "@/lib/llm/client";
 import { ExposureTierSchema } from "@/lib/schemas/universe";
 import type { Thesis } from "@/lib/schemas/thesis";
 
@@ -48,7 +42,7 @@ const ToolInputSchema = z
   })
   .strict();
 
-const proposeUniverseTool: AnthropicTool = {
+const proposeUniverseTool: ToolSpec = {
   name: TOOL_NAME,
   description:
     "Return a 10–25 ticker candidate universe for the supplied thesis anchored on the given company. Only call this tool. Do not return free-text.",
@@ -83,10 +77,7 @@ const proposeUniverseTool: AnthropicTool = {
   },
 };
 
-const systemBlocks: AnthropicTextBlockParam[] = [
-  {
-    type: "text",
-    text: `You are building a comparable-company universe for an investment thesis.
+const SYSTEM_PROMPT = `You are building a comparable-company universe for an investment thesis.
 
 Inputs:
 - The thesis claim and scope (sectors, regions, market_cap_min_usd).
@@ -106,21 +97,7 @@ Yahoo ticker conventions (suffix -> region):
 - US (no suffix). UK: .L. EUROZONE: .DE/.F/.PA/.MI/.MC/.AS/.BR/.LS/.I/.VI/.HE/.AT/.RG/.TL/.VS. NORDICS: .ST/.OL/.CO/.IC. SWITZERLAND: .SW/.VX. CEE: .WA/.BD/.PR/.RO/.IS. JAPAN: .T. KOREA: .KS/.KQ. GREATER_CHINA: .SS/.SZ/.HK/.TW/.TWO. SOUTH_ASIA: .NS/.BO/.KA/.DH/.CM. SEA: .SI/.JK/.KL/.BK/.PS/.VN. ANZ: .AX/.NZ. CANADA: .TO/.V/.NE/.CN. LATAM: .SA/.MX/.SN/.BA/.CL/.LM. MIDDLE_EAST: .TA/.AE/.SR/.QA/.KW. AFRICA: .JO/.CA/.LG/.MA.
 - There is no catch-all region; if a ticker's market doesn't fit any of these, do not include it.
 
-Return the full candidate list via the supplied tool. Do not return free-text.`,
-    cache_control: { type: "ephemeral" },
-  },
-];
-
-function findToolUse(
-  content: AnthropicContentBlock[],
-): AnthropicToolUse | undefined {
-  for (const block of content) {
-    if (block.type === "tool_use" && block.name === TOOL_NAME) {
-      return block;
-    }
-  }
-  return undefined;
-}
+Return the full candidate list via the supplied tool. Do not return free-text.`;
 
 function buildUserMessage(input: DiscoverUniverseInput): string {
   const { thesis, anchor } = input;
@@ -149,37 +126,38 @@ export async function discoverUniverse(
   input: DiscoverUniverseInput,
 ): Promise<DiscoverUniverseResult> {
   const result = await createMessage({
-    system: systemBlocks,
+    agent: "universe_discoverer",
+    system: SYSTEM_PROMPT,
     tools: [proposeUniverseTool],
     tool_choice: { type: "tool", name: TOOL_NAME },
     messages: [{ role: "user", content: buildUserMessage(input) }],
   });
 
-  const toolUse = findToolUse(result.content);
-  if (!toolUse) {
+  const toolCall = result.tool_calls.find((tc) => tc.name === TOOL_NAME);
+  if (!toolCall) {
     return {
       ok: false,
       error: "Model did not produce a propose_universe tool_use block",
     };
   }
   if (
-    typeof toolUse.input !== "object" ||
-    toolUse.input === null ||
-    Array.isArray(toolUse.input)
+    typeof toolCall.input !== "object" ||
+    toolCall.input === null ||
+    Array.isArray(toolCall.input)
   ) {
     return {
       ok: false,
       error: "tool_use.input was not an object",
-      raw: toolUse.input,
+      raw: toolCall.input,
     };
   }
 
-  const parsed = ToolInputSchema.safeParse(toolUse.input);
+  const parsed = ToolInputSchema.safeParse(toolCall.input);
   if (!parsed.success) {
     return {
       ok: false,
       error: parsed.error.message,
-      raw: toolUse.input,
+      raw: toolCall.input,
     };
   }
   return { ok: true, tickers: parsed.data.tickers };
