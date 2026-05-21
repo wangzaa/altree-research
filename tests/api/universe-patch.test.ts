@@ -10,7 +10,11 @@ const selectMock = vi.fn(() => ({ eq: eqSelectMock }));
 const eqUpdateMock = vi.fn();
 const updateMock = vi.fn(() => ({ eq: eqUpdateMock }));
 
-const fromMock = vi.fn(() => ({ select: selectMock, update: updateMock }));
+const pipelineInsertMock = vi.fn();
+const fromMock = vi.fn((table: string) => {
+  if (table === "pipeline_events") return { insert: pipelineInsertMock };
+  return { select: selectMock, update: updateMock };
+});
 const supabaseClient = { from: fromMock };
 
 vi.mock("@/lib/auth/session", () => ({ getCurrentUser: getCurrentUserMock }));
@@ -39,6 +43,8 @@ beforeEach(() => {
   updateMock.mockClear();
   eqUpdateMock.mockReset();
   eqUpdateMock.mockResolvedValue({ error: null });
+  pipelineInsertMock.mockReset();
+  pipelineInsertMock.mockResolvedValue({ error: null });
 });
 
 describe("PATCH /api/universe/[id]", () => {
