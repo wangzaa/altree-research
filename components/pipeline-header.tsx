@@ -15,7 +15,10 @@ const CIRCLE_BASE: React.CSSProperties = {
   fontSize: 20,
   cursor: "pointer",
   transition: "background-color 0.2s var(--pear-ease), box-shadow 0.2s ease",
-  border: "1px solid transparent",
+  borderWidth: 1,
+  borderStyle: "solid",
+  borderColor: "transparent",
+  boxShadow: "none",
 };
 
 function circleStyle(state: PipelineStepState): React.CSSProperties {
