@@ -131,9 +131,16 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="overflow-x-auto rounded-md border border-neutral-200">
+      <div
+        className="overflow-x-auto"
+        style={{
+          background: "white",
+          border: "1px solid #E5E5E5",
+          borderRadius: 18.75,
+        }}
+      >
         <table className="min-w-full divide-y divide-neutral-200 text-sm">
-          <thead className="bg-neutral-50 text-neutral-700">
+          <thead style={{ background: "#F5F4F2", color: "#585858" }}>
             <tr>
               <th className="px-3 py-2 text-left font-medium">Ticker</th>
               <th className="px-3 py-2 text-left font-medium">Name</th>
@@ -161,7 +168,12 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
                         exposure_tier: e.target.value as ExposureTier,
                       })
                     }
-                    className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
+                    className="rounded px-2 py-1 text-xs"
+                    style={{
+                      background: "white",
+                      border: "1px solid #E5E5E5",
+                      color: "var(--color-black)",
+                    }}
                   >
                     {TIER_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
@@ -176,14 +188,24 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
                     value={t.notes ?? ""}
                     placeholder="Notes"
                     onChange={(e) => updateRow(i, { notes: e.target.value })}
-                    className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900 placeholder:text-neutral-400"
+                    className="w-full rounded px-2 py-1 text-xs"
+                    style={{
+                      background: "white",
+                      border: "1px solid #E5E5E5",
+                      color: "var(--color-black)",
+                    }}
                   />
                 </td>
                 <td className="px-3 py-2 text-right">
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
-                    className="rounded border border-neutral-300 bg-white px-2 py-0.5 text-xs text-neutral-700 hover:bg-neutral-100"
+                    className="rounded px-2 py-0.5 text-xs"
+                    style={{
+                      background: "white",
+                      border: "1px solid #E5E5E5",
+                      color: "#585858",
+                    }}
                   >
                     Remove
                   </button>
@@ -195,21 +217,30 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
       </div>
 
       {addingRow ? (
-        <div className="flex flex-col gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+        <div
+          className="flex flex-col gap-2 rounded-md p-3"
+          style={{ background: "#F5F4F2", border: "1px solid #E5E5E5" }}
+        >
           <div className="flex items-center gap-2">
             <input
               type="text"
               value={newRowTicker}
               onChange={(e) => setNewRowTicker(e.target.value)}
               placeholder="New Yahoo ticker (e.g. DASF.PA)"
-              className="flex-1 rounded border border-neutral-300 bg-white px-2 py-1 text-sm"
+              className="flex-1 rounded px-2 py-1 text-sm"
+              style={{
+                background: "white",
+                border: "1px solid #E5E5E5",
+                color: "var(--color-black)",
+              }}
               disabled={addingPending}
             />
             <button
               type="button"
               onClick={handleAddRow}
               disabled={addingPending}
-              className="rounded bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-800 disabled:bg-neutral-400"
+              className="btn btn-secondary"
+              style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
             >
               {addingPending ? "Looking up..." : "Add"}
             </button>
@@ -221,13 +252,14 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
                 setAddError(null);
               }}
               disabled={addingPending}
-              className="rounded border border-neutral-300 bg-white px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-100"
+              className="btn btn-outline"
+              style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
             >
               Cancel
             </button>
           </div>
           {addError ? (
-            <p className="text-xs text-red-600" role="alert">
+            <p className="text-xs" role="alert" style={{ color: "#a30000" }}>
               {addError}
             </p>
           ) : null}
@@ -237,7 +269,8 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
           <button
             type="button"
             onClick={() => setAddingRow(true)}
-            className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+            className="btn btn-outline"
+            style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem" }}
           >
             + Add row
           </button>
@@ -245,25 +278,21 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
       )}
 
       <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-        >
+        <button type="button" onClick={onRefresh} className="btn btn-outline">
           Refresh from scope
         </button>
         <button
           type="button"
           onClick={handleSave}
           disabled={!dirty || saving}
-          className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
+          className="btn btn-primary"
         >
           {saving ? "Saving..." : "Save"}
         </button>
       </div>
 
       {saveError ? (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
           {saveError}
         </p>
       ) : null}

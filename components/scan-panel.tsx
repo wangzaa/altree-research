@@ -63,20 +63,23 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
 
   if (scan === null) {
     return (
-      <div className="flex flex-col gap-3 rounded-md border border-dashed border-neutral-300 p-4">
-        <p className="text-sm text-neutral-600">
+      <div
+        className="flex flex-col gap-3 rounded-md p-4"
+        style={{ border: "1px dashed #E5E5E5" }}
+      >
+        <p className="text-sm" style={{ color: "#585858" }}>
           No scan has been run for this thesis yet.
         </p>
         <button
           type="button"
           onClick={handleRun}
           disabled={running}
-          className="self-start rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
+          className="btn btn-secondary self-start"
         >
           {running ? "Running..." : "Run scan"}
         </button>
         {error ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
             {error}
           </p>
         ) : null}
@@ -95,15 +98,30 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
         snapshots={scan.tickers_snapshot}
         history={scan.history_5y}
       />
-      <article className="whitespace-pre-wrap rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-800">
+      <article
+        className="whitespace-pre-wrap p-4 text-sm"
+        style={{
+          background: "white",
+          border: "1px solid #E5E5E5",
+          color: "var(--color-black)",
+          borderRadius: 18.75,
+        }}
+      >
         {scan.descriptive_markdown}
       </article>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs" style={{ color: "#585858" }}>
         Tickers in history:{" "}
         {scan.history_5y.map((h) => h.ticker).join(", ")}
       </p>
       {dropped.length > 0 ? (
-        <details className="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-700">
+        <details
+          className="rounded-md p-3 text-xs"
+          style={{
+            background: "#F5F4F2",
+            border: "1px solid #E5E5E5",
+            color: "#585858",
+          }}
+        >
           <summary className="cursor-pointer font-medium">
             {dropped.length} ticker(s) filtered during scan
           </summary>
@@ -121,13 +139,13 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
           type="button"
           onClick={handleRun}
           disabled={running}
-          className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:bg-neutral-100"
+          className="btn btn-outline"
         >
           {running ? "Re-running..." : "Re-run scan"}
         </button>
       </div>
       {error ? (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
           {error}
         </p>
       ) : null}

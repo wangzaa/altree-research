@@ -9,10 +9,18 @@ export type DriverEvidencePanelProps = {
 
 function EvidenceChip({ e }: { e: CorpusEvidence }) {
   return (
-    <li className="border rounded-md p-3 space-y-1 text-sm">
+    <li
+      className="space-y-1 text-sm"
+      style={{
+        background: "white",
+        border: "1px solid #E5E5E5",
+        borderRadius: 18.75,
+        padding: 16,
+      }}
+    >
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-medium">{e.expert}</span>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs" style={{ color: "#585858" }}>
           {e.date.slice(0, 10)}
         </span>
       </div>
@@ -21,12 +29,13 @@ function EvidenceChip({ e }: { e: CorpusEvidence }) {
           href={e.post_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="underline hover:text-blue-600"
+          className="underline"
+          style={{ color: "var(--color-electric-cyan)" }}
         >
           {e.post_title}
         </a>
       </div>
-      <blockquote className="italic text-gray-700">
+      <blockquote className="italic" style={{ color: "#585858" }}>
         &ldquo;{e.quote}&rdquo;
       </blockquote>
     </li>
@@ -37,14 +46,16 @@ export function DriverEvidencePanel(props: DriverEvidencePanelProps) {
   return (
     <section className="space-y-4">
       <header>
-        <h3 className="font-semibold text-sm">{props.driver_id}</h3>
-        <p className="text-sm text-gray-600">{props.driver_claim}</p>
+        <h3 className="text-base font-semibold">{props.driver_id}</h3>
+        <p className="text-sm" style={{ color: "#585858" }}>
+          {props.driver_claim}
+        </p>
       </header>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <h4 className="text-sm font-semibold mb-2">Supporting evidence</h4>
           {props.bull_evidence.length === 0 ? (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs" style={{ color: "#585858" }}>
               No supporting evidence found in corpus.
             </p>
           ) : (
@@ -60,7 +71,7 @@ export function DriverEvidencePanel(props: DriverEvidencePanelProps) {
             Threshold-breach evidence
           </h4>
           {props.bear_evidence.length === 0 ? (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs" style={{ color: "#585858" }}>
               No threshold-breach evidence found in corpus.
             </p>
           ) : (
