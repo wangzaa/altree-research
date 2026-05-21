@@ -3,6 +3,7 @@ import { z } from "zod";
 export const AGENT_NAMES = [
   "thesis_extractor",
   "thesis_refiner",
+  "diff_narrator",
   "universe_discoverer",
   "scan_runner",
   "bull_researcher",
@@ -15,6 +16,7 @@ export const AgentModelMapSchema = z
   .object({
     thesis_extractor: z.string().min(1),
     thesis_refiner: z.string().min(1),
+    diff_narrator: z.string().min(1),
     universe_discoverer: z.string().min(1),
     scan_runner: z.string().min(1),
     bull_researcher: z.string().min(1),
