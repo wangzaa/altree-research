@@ -10,6 +10,7 @@ export const AGENT_NAMES = [
   "bear_researcher",
   "bull_synthesiser",
   "bear_synthesiser",
+  "memo_writer",
 ] as const;
 
 export const AgentNameSchema = z.enum(AGENT_NAMES);
@@ -25,6 +26,7 @@ export const AgentModelMapSchema = z
     bear_researcher: z.string().min(1),
     bull_synthesiser: z.string().min(1),
     bear_synthesiser: z.string().min(1),
+    memo_writer: z.string().min(1),
   })
   .strict();
 
