@@ -3,11 +3,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnchorPicker } from "@/components/anchor-picker";
+import { ChatBubble, ChatThread } from "@/components/chat-bubble";
+import { ChatInputAction } from "@/components/chat-input";
 import { ScanPanel } from "@/components/scan-panel";
 import { ThesisChatArtifact } from "@/components/thesis-chat-artifact";
 import { UniverseTable } from "@/components/universe-table";
 import { DriverEvidencePanel } from "@/components/driver-evidence-panel";
 import { PipelineSection } from "@/components/pipeline-layout";
+import type { Memo } from "@/lib/schemas/memo";
 import type { ScanResults } from "@/lib/schemas/scan";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
@@ -49,6 +52,36 @@ export function ThesisDetail({
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const autoValidateFired = useRef(false);
+  const [memo, setMemo] = useState<Memo | null>(null);
+  const [memoLoading, setMemoLoading] = useState(false);
+  const [memoError, setMemoError] = useState<string | null>(null);
+
+  async function handleDraftMemo() {
+    setMemoLoading(true);
+    setMemoError(null);
+    try {
+      const res = await fetch("/api/memo/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ thesis_id: thesis.id }),
+      });
+      const body = (await res.json().catch(() => null)) as
+        | { memo?: Memo; error?: string; detail?: string }
+        | null;
+      if (!res.ok || !body?.memo) {
+        setMemoError(
+          body?.detail ?? body?.error ?? `Draft failed (${res.status})`,
+        );
+        setMemoLoading(false);
+        return;
+      }
+      setMemo(body.memo);
+      setMemoLoading(false);
+    } catch (err) {
+      setMemoError(err instanceof Error ? err.message : "Unexpected error");
+      setMemoLoading(false);
+    }
+  }
 
   async function handleValidateAll() {
     setValidating(true);
@@ -271,27 +304,75 @@ export function ThesisDetail({
       </PipelineSection>
 
       <PipelineSection id="step-memo" title="Memo">
-        <div
-          className="bg-white"
-          style={{
-            borderRadius: 18.75,
-            padding: 30,
-            border: "1px solid #E5E5E5",
-          }}
-        >
-          <h3
-            style={{
-              fontFamily: "var(--font-playfair)",
-              fontWeight: 500,
-              fontSize: 24,
-            }}
-          >
-            Memo coming soon
-          </h3>
-          <p className="mt-2 text-sm" style={{ color: "#585858" }}>
-            Once validation completes, the memo fills in here.
+        {validation ? (
+          memo ? (
+            <ChatThread>
+              <ChatBubble from="app" label={`Verdict: ${memo.verdict}`}>
+                <div style={{ whiteSpace: "pre-line" }}>{memo.recommendation}</div>
+              </ChatBubble>
+              <ChatBubble from="app" label="Bull">
+                <div style={{ whiteSpace: "pre-line" }}>{memo.bull_summary}</div>
+              </ChatBubble>
+              <ChatBubble from="app" label="Bear">
+                <div style={{ whiteSpace: "pre-line" }}>{memo.bear_summary}</div>
+              </ChatBubble>
+              {memo.open_questions.length > 0 ? (
+                <ChatBubble from="app" label="Open questions">
+                  <ul className="list-disc pl-5">
+                    {memo.open_questions.map((q, i) => (
+                      <li key={i}>{q}</li>
+                    ))}
+                  </ul>
+                </ChatBubble>
+              ) : null}
+              <div className="flex items-center justify-end pl-12">
+                <button
+                  type="button"
+                  onClick={handleDraftMemo}
+                  disabled={memoLoading}
+                  className="btn btn-outline"
+                >
+                  {memoLoading ? "Re-drafting..." : "Re-draft memo"}
+                </button>
+              </div>
+              {memoError ? (
+                <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
+                  {memoError}
+                </p>
+              ) : null}
+            </ChatThread>
+          ) : (
+            <ChatThread>
+              <ChatBubble from="app">
+                I can draft a memo from your thesis, scan, and validation
+                {memoLoading ? " — working on it now..." : "."}
+              </ChatBubble>
+              {!memoLoading ? (
+                <div className="pl-12">
+                  <ChatInputAction
+                    label="Draft memo"
+                    loadingLabel="Drafting..."
+                    loading={memoLoading}
+                    onAction={handleDraftMemo}
+                  />
+                </div>
+              ) : null}
+              {memoError ? (
+                <p
+                  className="pl-12 text-sm"
+                  role="alert"
+                  style={{ color: "#a30000" }}
+                >
+                  {memoError}
+                </p>
+              ) : null}
+            </ChatThread>
+          )
+        ) : (
+          <p className="text-sm" style={{ color: "#585858" }}>
+            Validate your drivers first — the memo draws on Bull/Bear evidence.
           </p>
-        </div>
+        )}
       </PipelineSection>
     </>
   );
