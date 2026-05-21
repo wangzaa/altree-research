@@ -1,10 +1,4 @@
-import {
-  createMessage,
-  type AnthropicContentBlock,
-  type AnthropicTextBlockParam,
-  type AnthropicTool,
-  type AnthropicToolUse,
-} from "@/lib/anthropic/client";
+import { createMessage, type ToolSpec } from "@/lib/llm/client";
 import { REGION_VALUES } from "@/lib/data/regions";
 import { ThesisSchema, type Thesis } from "@/lib/schemas/thesis";
 
@@ -19,7 +13,7 @@ export type RefineThesisResult =
 
 const TOOL_NAME = "propose_thesis";
 
-const refineThesisTool: AnthropicTool = {
+const refineThesisTool: ToolSpec = {
   name: TOOL_NAME,
   description:
     "Return a structured investment thesis that incorporates the analyst's instruction. Only call this tool. Do not return free-text.",
@@ -119,10 +113,7 @@ const refineThesisTool: AnthropicTool = {
   },
 };
 
-const systemBlocks: AnthropicTextBlockParam[] = [
-  {
-    type: "text",
-    text: `You are a research analyst refining an existing investment thesis.
+const SYSTEM_PROMPT = `You are a research analyst refining an existing investment thesis.
 
 You receive the current thesis as JSON and an instruction from the analyst. Propose a new thesis that applies ONLY the change the instruction asks for. Leave every other field exactly as it was.
 
@@ -136,10 +127,7 @@ Rules:
 - falsification.primary is required; falsification.secondary is optional.
 - horizon_years should remain in the existing range unless the instruction asks to change it.
 - Per-driver tickers[] is a subset of scope.tickers_seed; preserve it unless the instruction asks to change it (e.g., "add ASML to M1's tickers" or "drop NVDA from M2").
-- Return the full new thesis via the supplied tool. Do not return free-text.`,
-    cache_control: { type: "ephemeral" },
-  },
-];
+- Return the full new thesis via the supplied tool. Do not return free-text.`;
 
 interface ToolDriverInput {
   id: string;
@@ -160,17 +148,6 @@ interface ToolThesisInput {
   universe_id: string;
 }
 
-function findToolUse(
-  content: AnthropicContentBlock[],
-): AnthropicToolUse | undefined {
-  for (const block of content) {
-    if (block.type === "tool_use" && block.name === TOOL_NAME) {
-      return block;
-    }
-  }
-  return undefined;
-}
-
 function buildUserMessage(current: Thesis, instruction: string): string {
   return `Current thesis:
 \`\`\`json
@@ -184,7 +161,8 @@ export async function refineThesis(
   input: RefineThesisInput,
 ): Promise<RefineThesisResult> {
   const result = await createMessage({
-    system: systemBlocks,
+    agent: "thesis_refiner",
+    system: SYSTEM_PROMPT,
     tools: [refineThesisTool],
     tool_choice: { type: "tool", name: TOOL_NAME },
     messages: [
@@ -195,23 +173,26 @@ export async function refineThesis(
     ],
   });
 
-  const toolUse = findToolUse(result.content);
-  if (!toolUse) {
-    return { ok: false, error: "Model did not produce a propose_thesis tool_use block" };
+  const toolCall = result.tool_calls.find((tc) => tc.name === TOOL_NAME);
+  if (!toolCall) {
+    return {
+      ok: false,
+      error: "Model did not produce a propose_thesis tool_use block",
+    };
   }
   if (
-    typeof toolUse.input !== "object" ||
-    toolUse.input === null ||
-    Array.isArray(toolUse.input)
+    typeof toolCall.input !== "object" ||
+    toolCall.input === null ||
+    Array.isArray(toolCall.input)
   ) {
     return {
       ok: false,
       error: "tool_use.input was not an object",
-      raw: toolUse.input,
+      raw: toolCall.input,
     };
   }
 
-  const toolInput = toolUse.input as ToolThesisInput;
+  const toolInput = toolCall.input as ToolThesisInput;
   const driversInput = toolInput.drivers?.industry ?? [];
 
   // Envelope fields are restored from caller's current — defense in depth.
@@ -247,7 +228,7 @@ export async function refineThesis(
     return {
       ok: false,
       error: parsed.error.message,
-      raw: toolUse.input,
+      raw: toolCall.input,
     };
   }
   return { ok: true, thesis: parsed.data };
