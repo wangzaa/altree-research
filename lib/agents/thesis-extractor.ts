@@ -1,10 +1,4 @@
-import {
-  createMessage,
-  type AnthropicContentBlock,
-  type AnthropicTextBlockParam,
-  type AnthropicTool,
-  type AnthropicToolUse,
-} from "@/lib/anthropic/client";
+import { createMessage, type ToolSpec } from "@/lib/llm/client";
 import { REGION_VALUES } from "@/lib/data/regions";
 import { ThesisSchema, type Thesis } from "@/lib/schemas/thesis";
 
@@ -21,7 +15,7 @@ export type ExtractThesisResult =
 
 const TOOL_NAME = "extract_thesis";
 
-const extractThesisTool: AnthropicTool = {
+const extractThesisTool: ToolSpec = {
   name: TOOL_NAME,
   description:
     "Return a structured investment thesis extracted from the supplied prose. Only call this tool. Do not return free-text.",
@@ -119,7 +113,7 @@ const extractThesisTool: AnthropicTool = {
                   items: {
                     type: "string",
                     description:
-                      "Yahoo Finance ticker directly relevant to THIS driver. Subset of scope.tickers_seed. 0-5 entries. Empty array if the driver applies to the whole universe.",
+                      "Yahoo Finance ticker(s) directly relevant to THIS driver (subset of scope.tickers_seed). 0-5 entries. Empty array if the driver applies to the whole universe.",
                   },
                 },
                 classification: { type: "string", enum: ["industry"] },
@@ -162,10 +156,7 @@ const extractThesisTool: AnthropicTool = {
   },
 };
 
-const systemBlocks: AnthropicTextBlockParam[] = [
-  {
-    type: "text",
-    text: `You are a research analyst extracting structured investment theses from prose.
+const SYSTEM_PROMPT = `You are a research analyst extracting structured investment theses from prose.
 
 Rules:
 - Be conservative — only include claims supported by the source text.
@@ -179,10 +170,7 @@ Rules:
 - horizon_years should be 3 to 10 for most theses; up to 30 for very long-cycle (utilities, REITs).
 - macro_premise should state stipulated macro context, not predict outcomes.
 - claim should be a specific, testable assertion (one sentence ideally).
-- For each industry driver, populate driver.tickers with the 0-5 tickers from scope.tickers_seed that the driver most directly applies to. Leave empty if the driver applies to the whole universe.`,
-    cache_control: { type: "ephemeral" },
-  },
-];
+- For each industry driver, populate driver.tickers with the 0-5 tickers from scope.tickers_seed that the driver most directly applies to. Leave empty if the driver applies to the whole universe.`;
 
 interface ToolDriverInput {
   id: string;
@@ -203,50 +191,35 @@ interface ToolThesisInput {
   universe_id: string;
 }
 
-function findToolUse(
-  content: AnthropicContentBlock[],
-): AnthropicToolUse | undefined {
-  for (const block of content) {
-    if (block.type === "tool_use" && block.name === TOOL_NAME) {
-      return block;
-    }
-  }
-  return undefined;
-}
-
 export async function extractThesis(
   input: ExtractThesisInput,
 ): Promise<ExtractThesisResult> {
   const result = await createMessage({
-    system: systemBlocks,
+    agent: "thesis_extractor",
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: input.sourceSnippet }],
     tools: [extractThesisTool],
     tool_choice: { type: "tool", name: TOOL_NAME },
-    messages: [
-      {
-        role: "user",
-        content: input.sourceSnippet,
-      },
-    ],
   });
 
-  const toolUse = findToolUse(result.content);
-  if (!toolUse) {
+  const toolCall = result.tool_calls.find((tc) => tc.name === TOOL_NAME);
+  if (!toolCall) {
     return { ok: false, error: "Model did not produce a tool_use block" };
   }
 
   if (
-    typeof toolUse.input !== "object" ||
-    toolUse.input === null ||
-    Array.isArray(toolUse.input)
+    typeof toolCall.input !== "object" ||
+    toolCall.input === null ||
+    Array.isArray(toolCall.input)
   ) {
     return {
       ok: false,
       error: "tool_use.input was not an object",
-      raw: toolUse.input,
+      raw: toolCall.input,
     };
   }
 
-  const toolInput = toolUse.input as ToolThesisInput;
+  const toolInput = toolCall.input as ToolThesisInput;
   const driversInput = toolInput.drivers?.industry ?? [];
   const merged = {
     id: input.id,
@@ -280,7 +253,7 @@ export async function extractThesis(
     return {
       ok: false,
       error: parsed.error.message,
-      raw: toolUse.input,
+      raw: toolCall.input,
     };
   }
   return { ok: true, thesis: parsed.data };

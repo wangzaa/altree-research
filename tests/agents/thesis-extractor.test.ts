@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const createMessageMock = vi.fn();
 
-vi.mock("@/lib/anthropic/client", () => ({
+vi.mock("@/lib/llm/client", () => ({
   createMessage: createMessageMock,
 }));
 
@@ -41,16 +41,11 @@ const baseToolInput = {
 
 function mockToolUseResponse(input: unknown) {
   createMessageMock.mockResolvedValueOnce({
-    content: [
-      {
-        type: "tool_use",
-        id: "toolu_1",
-        name: "extract_thesis",
-        input,
-      },
-    ],
-    stop_reason: "tool_use",
+    text: "",
+    tool_calls: [{ id: "call_1", name: "extract_thesis", input }],
     usage: { input_tokens: 100, output_tokens: 50 },
+    model: "anthropic/claude-sonnet-4-6",
+    finish_reason: "tool_calls",
     raw: {},
   });
 }
@@ -98,15 +93,17 @@ describe("extractThesis", () => {
     expect(call.messages).toEqual([
       { role: "user", content: callerInput.sourceSnippet },
     ]);
-    expect(Array.isArray(call.system)).toBe(true);
-    expect(call.system[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(typeof call.system).toBe("string");
+    expect(call.agent).toBe("thesis_extractor");
   });
 
   it("returns ok:false when no tool_use block exists", async () => {
     createMessageMock.mockResolvedValueOnce({
-      content: [{ type: "text", text: "sorry, I cannot help" }],
-      stop_reason: "end_turn",
+      text: "sorry, I cannot help",
+      tool_calls: [],
       usage: { input_tokens: 10, output_tokens: 5 },
+      model: "anthropic/claude-sonnet-4-6",
+      finish_reason: "stop",
       raw: {},
     });
     const { extractThesis } = await import("@/lib/agents/thesis-extractor");
@@ -168,16 +165,13 @@ describe("extractThesis", () => {
 
   it("returns ok:false when the tool_use block has the wrong tool name", async () => {
     createMessageMock.mockResolvedValueOnce({
-      content: [
-        {
-          type: "tool_use",
-          id: "toolu_1",
-          name: "extract_thesis_v2",
-          input: baseToolInput,
-        },
+      text: "",
+      tool_calls: [
+        { id: "call_1", name: "extract_thesis_v2", input: baseToolInput },
       ],
-      stop_reason: "tool_use",
       usage: { input_tokens: 100, output_tokens: 50 },
+      model: "anthropic/claude-sonnet-4-6",
+      finish_reason: "tool_calls",
       raw: {},
     });
     const { extractThesis } = await import("@/lib/agents/thesis-extractor");
