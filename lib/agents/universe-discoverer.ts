@@ -23,7 +23,12 @@ export interface ProposedTicker {
 }
 
 export type DiscoverUniverseResult =
-  | { ok: true; tickers: ProposedTicker[] }
+  | {
+      ok: true;
+      tickers: ProposedTicker[];
+      model: string;
+      usage: { input_tokens: number; output_tokens: number };
+    }
   | { ok: false; error: string; raw?: unknown };
 
 const TOOL_NAME = "propose_universe";
@@ -160,5 +165,10 @@ export async function discoverUniverse(
       raw: toolCall.input,
     };
   }
-  return { ok: true, tickers: parsed.data.tickers };
+  return {
+    ok: true,
+    tickers: parsed.data.tickers,
+    model: result.model,
+    usage: result.usage,
+  };
 }
