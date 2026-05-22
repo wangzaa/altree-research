@@ -254,6 +254,7 @@ export function ThesisDetail({
               thesisId={thesis.id}
               universeId={universe.id}
               initial={initialScan}
+              universe={universe}
             />
             {initialScan ? (
               <div className="flex flex-col gap-6">

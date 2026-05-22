@@ -5,13 +5,20 @@ import { useRouter } from "next/navigation";
 import { ChatBubble, ChatThread } from "@/components/chat-bubble";
 import { ChatInputAction } from "@/components/chat-input";
 import { PerTickerTable } from "@/components/per-ticker-table";
-import { ScanChart, type WindowKey } from "@/components/scan-chart";
+import {
+  ScanChart,
+  monthsFor,
+  rankTickersByWindow,
+  type WindowKey,
+} from "@/components/scan-chart";
 import type { ScanResults } from "@/lib/schemas/scan";
+import type { Universe } from "@/lib/schemas/universe";
 
 interface ScanPanelProps {
   thesisId: string;
   universeId: string;
   initial: ScanResults | null;
+  universe: Universe | null;
 }
 
 interface Dropped {
@@ -19,13 +26,17 @@ interface Dropped {
   reason: string;
 }
 
-export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
+export function ScanPanel({
+  thesisId,
+  initial,
+  universe,
+}: ScanPanelProps) {
   const router = useRouter();
   const [scan, setScan] = useState<ScanResults | null>(initial);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dropped, setDropped] = useState<Dropped[]>([]);
-  const [windowKey, setWindowKey] = useState<WindowKey>("5y");
+  const [windowKey, setWindowKey] = useState<WindowKey>("6mth");
 
   async function handleRun() {
     setRunning(true);
@@ -86,6 +97,17 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
     );
   }
 
+  const { best: bestTicker, worst: worstTicker } = rankTickersByWindow(
+    scan.history_5y,
+    monthsFor(windowKey),
+  );
+  const marketCapByTicker: Record<string, number> = {};
+  if (universe) {
+    for (const t of universe.tickers) {
+      marketCapByTicker[t.ticker] = t.market_cap_usd_b;
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <ScanChart
@@ -96,6 +118,9 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
       <PerTickerTable
         snapshots={scan.tickers_snapshot}
         history={scan.history_5y}
+        marketCapByTicker={marketCapByTicker}
+        bestTicker={bestTicker}
+        worstTicker={worstTicker}
       />
       <article
         className="whitespace-pre-wrap p-4 text-sm"

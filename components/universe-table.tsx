@@ -33,7 +33,9 @@ function SortHeader({
   onToggle: (key: SortKey) => void;
   align?: "left" | "right";
 }) {
-  const arrow = !active ? "" : dir === "asc" ? " ↑" : " ↓";
+  // Inactive arrow is grey so the column visibly advertises sortability.
+  const arrowChar = active ? (dir === "asc" ? "↑" : "↓") : "↕";
+  const arrowColor = active ? "var(--color-black)" : "#B5B5B5";
   return (
     <th
       className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"} font-medium`}
@@ -43,9 +45,10 @@ function SortHeader({
         onClick={() => onToggle(columnKey)}
         className="inline-flex items-center gap-1 hover:underline"
         style={{ color: active ? "var(--color-black)" : "#585858" }}
+        title="Sort"
       >
         {label}
-        {arrow}
+        <span style={{ color: arrowColor, fontSize: 11 }}>{arrowChar}</span>
       </button>
     </th>
   );

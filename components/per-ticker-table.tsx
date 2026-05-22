@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 import type {
   TickerHistory,
   TickerSnapshot,
@@ -10,6 +10,9 @@ import type {
 interface PerTickerTableProps {
   snapshots: TickerSnapshot[];
   history: TickerHistory[];
+  marketCapByTicker?: Record<string, number>;
+  bestTicker?: string | null;
+  worstTicker?: string | null;
 }
 
 // Sum of the 4 most recent quarterly EPS actuals. Returns null when fewer
@@ -75,6 +78,7 @@ export function computePe(
 interface ComputedRow {
   ticker: string;
   name: string;
+  market_cap_usd_b: number | null;
   pe: number | null;
   revenue_growth_yoy: number | null;
   ebitda: number | null;
@@ -85,11 +89,13 @@ interface ComputedRow {
 export function computeRows(
   snapshots: TickerSnapshot[],
   history: TickerHistory[],
+  marketCapByTicker?: Record<string, number>,
 ): ComputedRow[] {
   const historyByTicker = new Map(history.map((h) => [h.ticker, h]));
   return snapshots.map((s) => ({
     ticker: s.ticker,
     name: s.name,
+    market_cap_usd_b: marketCapByTicker?.[s.ticker] ?? null,
     pe: computePe(s, historyByTicker.get(s.ticker)),
     revenue_growth_yoy: s.revenue_growth_yoy,
     ebitda: s.ebitda,
@@ -104,6 +110,10 @@ function fmtRatio(v: number | null): string {
 
 function fmtPct(v: number | null): string {
   return v === null ? "—" : `${(v * 100).toFixed(1)}%`;
+}
+
+function fmtMcap(v: number | null): string {
+  return v === null ? "—" : Math.round(v).toLocaleString();
 }
 
 export function fmtEbitda(value: number | null, currency: string | null): string {
@@ -130,11 +140,95 @@ export function fmtEbitda(value: number | null, currency: string | null): string
   return `${num}${suffix}`;
 }
 
-export function PerTickerTable({ snapshots, history }: PerTickerTableProps) {
-  const rows = React.useMemo(
-    () => computeRows(snapshots, history),
-    [snapshots, history],
+type SortKey =
+  | "ticker"
+  | "name"
+  | "market_cap_usd_b"
+  | "pe"
+  | "revenue_growth_yoy"
+  | "ebitda"
+  | "ebitda_margin";
+type SortDir = "asc" | "desc";
+
+function SortHeader({
+  label,
+  columnKey,
+  active,
+  dir,
+  onToggle,
+  align = "left",
+}: {
+  label: string;
+  columnKey: SortKey;
+  active: boolean;
+  dir: SortDir;
+  onToggle: (key: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  // Always reserve space for the arrow so the header doesn't reflow on
+  // click; the inactive arrow is rendered in a muted grey to advertise that
+  // the column is sortable.
+  const arrowChar = active ? (dir === "asc" ? "↑" : "↓") : "↕";
+  const arrowColor = active ? "var(--color-black)" : "#B5B5B5";
+  return (
+    <th
+      className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"} font-medium`}
+    >
+      <button
+        type="button"
+        onClick={() => onToggle(columnKey)}
+        className="inline-flex items-center gap-1 hover:underline"
+        style={{ color: active ? "var(--color-black)" : "#585858" }}
+        title="Sort"
+      >
+        {label}
+        <span style={{ color: arrowColor, fontSize: 11 }}>{arrowChar}</span>
+      </button>
+    </th>
   );
+}
+
+export function PerTickerTable({
+  snapshots,
+  history,
+  marketCapByTicker,
+  bestTicker,
+  worstTicker,
+}: PerTickerTableProps) {
+  const rows = useMemo(
+    () => computeRows(snapshots, history, marketCapByTicker),
+    [snapshots, history, marketCapByTicker],
+  );
+
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  const sortedRows = useMemo(() => {
+    if (sortKey === null) return rows;
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      // null sorts last regardless of direction so missing values don't
+      // crowd the top of an asc sort.
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      if (typeof av === "number" && typeof bv === "number") {
+        return (av - bv) * dir;
+      }
+      return String(av).localeCompare(String(bv)) * dir;
+    });
+  }, [rows, sortKey, sortDir]);
 
   if (rows.length === 0) {
     return (
@@ -144,38 +238,103 @@ export function PerTickerTable({ snapshots, history }: PerTickerTableProps) {
     );
   }
 
+  function rowColor(ticker: string): string | undefined {
+    if (ticker === bestTicker) return "#0a7a30";
+    if (ticker === worstTicker) return "#a30000";
+    return undefined;
+  }
+
   return (
-    <section className="overflow-x-auto rounded-md border border-neutral-200 bg-white">
+    <section
+      className="overflow-x-auto bg-white"
+      style={{ border: "1px solid #E5E5E5", borderRadius: 18.75 }}
+    >
       <table className="min-w-full divide-y divide-neutral-200 text-xs">
-        <thead className="bg-neutral-50 text-neutral-600">
+        <thead style={{ background: "#F5F4F2", color: "#585858" }}>
           <tr>
-            <th className="px-3 py-2 text-left font-medium">Ticker</th>
-            <th className="px-3 py-2 text-left font-medium">Name</th>
-            <th className="px-3 py-2 text-right font-medium">P/E</th>
-            <th className="px-3 py-2 text-right font-medium">Rev YoY</th>
-            <th className="px-3 py-2 text-right font-medium">EBITDA</th>
-            <th className="px-3 py-2 text-right font-medium">EBITDA %</th>
+            <SortHeader
+              label="Ticker"
+              columnKey="ticker"
+              active={sortKey === "ticker"}
+              dir={sortDir}
+              onToggle={toggleSort}
+            />
+            <SortHeader
+              label="Name"
+              columnKey="name"
+              active={sortKey === "name"}
+              dir={sortDir}
+              onToggle={toggleSort}
+            />
+            <SortHeader
+              label="Mcap (USD B)"
+              columnKey="market_cap_usd_b"
+              active={sortKey === "market_cap_usd_b"}
+              dir={sortDir}
+              onToggle={toggleSort}
+              align="right"
+            />
+            <SortHeader
+              label="P/E"
+              columnKey="pe"
+              active={sortKey === "pe"}
+              dir={sortDir}
+              onToggle={toggleSort}
+              align="right"
+            />
+            <SortHeader
+              label="Rev YoY"
+              columnKey="revenue_growth_yoy"
+              active={sortKey === "revenue_growth_yoy"}
+              dir={sortDir}
+              onToggle={toggleSort}
+              align="right"
+            />
+            <SortHeader
+              label="EBITDA"
+              columnKey="ebitda"
+              active={sortKey === "ebitda"}
+              dir={sortDir}
+              onToggle={toggleSort}
+              align="right"
+            />
+            <SortHeader
+              label="EBITDA %"
+              columnKey="ebitda_margin"
+              active={sortKey === "ebitda_margin"}
+              dir={sortDir}
+              onToggle={toggleSort}
+              align="right"
+            />
           </tr>
         </thead>
-        <tbody className="divide-y divide-neutral-100 text-neutral-900">
-          {rows.map((r) => (
-            <tr key={r.ticker}>
-              <td className="px-3 py-2 font-mono">{r.ticker}</td>
-              <td className="px-3 py-2">{r.name}</td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmtRatio(r.pe)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmtPct(r.revenue_growth_yoy)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmtEbitda(r.ebitda, r.currency)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmtPct(r.ebitda_margin)}
-              </td>
-            </tr>
-          ))}
+        <tbody className="divide-y divide-neutral-100">
+          {sortedRows.map((r) => {
+            const color = rowColor(r.ticker);
+            const weight =
+              color !== undefined ? 600 : undefined;
+            return (
+              <tr key={r.ticker} style={{ color, fontWeight: weight }}>
+                <td className="px-3 py-2 font-mono">{r.ticker}</td>
+                <td className="px-3 py-2">{r.name}</td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {fmtMcap(r.market_cap_usd_b)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {fmtRatio(r.pe)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {fmtPct(r.revenue_growth_yoy)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {fmtEbitda(r.ebitda, r.currency)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {fmtPct(r.ebitda_margin)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </section>
