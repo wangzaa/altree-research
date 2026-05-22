@@ -87,17 +87,40 @@ export default async function ThesisViewerPage({
     }
   }
 
-  const seedNames: Record<string, string> = {};
-  if (!initialUniverse && thesis.scope.tickers_seed.length > 0) {
+  // Build a single ticker -> company name map for everything the page
+  // surfaces. Universe takes precedence (already enriched), then fall back
+  // to live Yahoo lookups for any seed or per-driver ticker that's not in
+  // the universe yet. Used by the chat-style thesis playback so every
+  // ticker can render as `Company (TICKER)` per the tone-of-voice rules.
+  const tickerNames: Record<string, string> = {};
+  if (initialUniverse) {
+    for (const t of initialUniverse.tickers) {
+      tickerNames[t.ticker] = t.name;
+    }
+  }
+  const allReferencedTickers = new Set<string>([
+    ...thesis.scope.tickers_seed,
+    ...thesis.drivers.industry.flatMap((d) => d.tickers ?? []),
+  ]);
+  const missing = Array.from(allReferencedTickers).filter(
+    (t) => !tickerNames[t],
+  );
+  if (missing.length > 0) {
     const results = await Promise.all(
-      thesis.scope.tickers_seed.map(async (t) => {
+      missing.map(async (t) => {
         const quote = await getQuote(t);
         return [t, quote?.name ?? null] as const;
       }),
     );
     for (const [ticker, name] of results) {
-      if (name) seedNames[ticker] = name;
+      if (name) tickerNames[ticker] = name;
     }
+  }
+  // The AnchorPicker still expects a seed-only subset; build it from the
+  // larger map so we don't double-fetch.
+  const seedNames: Record<string, string> = {};
+  for (const t of thesis.scope.tickers_seed) {
+    if (tickerNames[t]) seedNames[t] = tickerNames[t];
   }
 
   const steps = deriveStepStates({
@@ -115,6 +138,7 @@ export default async function ThesisViewerPage({
         initialScan={initialScan}
         initialValidation={initialValidation}
         seedNames={seedNames}
+        tickerNames={tickerNames}
       />
     </PipelineLayout>
   );

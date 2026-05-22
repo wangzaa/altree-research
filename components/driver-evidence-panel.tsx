@@ -7,6 +7,12 @@ import type { CorpusEvidence } from "@/lib/schemas/validation";
 export type DriverEvidencePanelProps = {
   driver_id: string;
   driver_claim: string;
+  /** 1-indexed position of this driver within the thesis. Used to label
+   * the section as "Thesis 1", "Thesis 2", etc. */
+  thesisIndex: number;
+  /** Total drivers in the parent thesis. When 1, the header drops the
+   * number ("Thesis (anchor)" rather than "Thesis 1 (anchor)"). */
+  thesisCount: number;
   bull_evidence: CorpusEvidence[];
   bear_evidence: CorpusEvidence[];
   bull_synthesis?: string | null;
@@ -14,18 +20,24 @@ export type DriverEvidencePanelProps = {
   loading?: boolean;
 };
 
-function fallbackSynthesis(
-  lens: "bull" | "bear",
-  evidence: CorpusEvidence[],
-): string {
-  if (evidence.length === 0) {
-    return lens === "bull"
-      ? "Bull says — no supporting evidence found in the corpus yet."
-      : "Bear says — no threshold-breach evidence found in the corpus yet.";
-  }
-  return lens === "bull"
-    ? `Bull says — ${evidence.length} supporting note${evidence.length === 1 ? "" : "s"} in the corpus. Open sources to read the quotes.`
-    : `Bear says — ${evidence.length} threshold-breach note${evidence.length === 1 ? "" : "s"} in the corpus. Open sources to read the quotes.`;
+function thesisAnchor(driverId: string): string {
+  const id = driverId.toLowerCase();
+  if (id.includes("memory")) return "memory";
+  if (id.includes("cpu")) return "CPUs";
+  if (id.includes("gpu")) return "GPUs";
+  if (id.includes("backlog")) return "backlog";
+  if (id.includes("margin")) return "margins";
+  if (id.includes("supply")) return "supply";
+  if (id.includes("demand")) return "demand";
+  if (id.includes("pricing")) return "pricing";
+  if (id.includes("capacity")) return "capacity";
+  if (id.includes("hbm")) return "HBM";
+  if (id.includes("dram")) return "DRAM";
+  if (id.includes("nand")) return "NAND";
+  if (id.includes("foundry")) return "foundry";
+  if (id.includes("packaging")) return "packaging";
+  if (id.includes("ai")) return "AI";
+  return driverId.replace(/_/g, " ").toLowerCase();
 }
 
 function SourceChip({ e }: { e: CorpusEvidence }) {
@@ -63,6 +75,71 @@ function SourceChip({ e }: { e: CorpusEvidence }) {
   );
 }
 
+/** Parses inline **bold** spans + leading `- ` bullets so the synthesiser
+ * can emit multi-claim cases that render as a real bulleted list. */
+function SynthesisBody({ text }: { text: string }) {
+  const lines = text.split(/\n/);
+  const bulletLines = lines.filter((l) => /^\s*-\s+/.test(l));
+  const hasBullets = bulletLines.length >= 2;
+
+  function inlineBold(s: string, keyPrefix: string): React.ReactNode[] {
+    const parts = s.split(/\*\*([^*]+)\*\*/g);
+    return parts.map((segment, i) =>
+      i % 2 === 1 ? (
+        <strong key={`${keyPrefix}-${i}`}>{segment}</strong>
+      ) : (
+        <React.Fragment key={`${keyPrefix}-${i}`}>{segment}</React.Fragment>
+      ),
+    );
+  }
+
+  if (hasBullets) {
+    // Group: pre-bullet prose, bullets, post-bullet prose.
+    const pre: string[] = [];
+    const post: string[] = [];
+    const bullets: string[] = [];
+    let phase: "pre" | "bullets" | "post" = "pre";
+    for (const l of lines) {
+      if (/^\s*-\s+/.test(l)) {
+        phase = "bullets";
+        bullets.push(l.replace(/^\s*-\s+/, ""));
+      } else if (l.trim().length === 0) {
+        if (phase === "bullets") phase = "post";
+      } else {
+        if (phase === "pre") pre.push(l);
+        else post.push(l);
+      }
+    }
+    return (
+      <div>
+        {pre.length > 0 ? (
+          <p className="mb-2">{inlineBold(pre.join(" "), "pre")}</p>
+        ) : null}
+        <ul className="list-disc pl-5 space-y-1">
+          {bullets.map((b, i) => (
+            <li key={`b-${i}`}>{inlineBold(b, `bullet-${i}`)}</li>
+          ))}
+        </ul>
+        {post.length > 0 ? (
+          <p className="mt-2 italic" style={{ color: "#585858" }}>
+            {inlineBold(post.join(" "), "post")}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ whiteSpace: "pre-line" }}>{inlineBold(text, "single")}</div>
+  );
+}
+
+function emptyBody(lens: "bull" | "bear"): string {
+  return lens === "bull"
+    ? "No evidence found in the corpus to support this claim."
+    : "No evidence found in the corpus to challenge this claim.";
+}
+
 function LensBubble({
   lens,
   synthesis,
@@ -75,17 +152,19 @@ function LensBubble({
   loading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const label = lens === "bull" ? "Bull" : "Bear";
+  const label = lens === "bull" ? "Bull case" : "Bear case";
+  const hasSynthesis =
+    typeof synthesis === "string" && synthesis.trim().length > 0;
   const text = loading
-    ? `${label} — here's what they are saying. Reading the corpus...`
-    : typeof synthesis === "string" && synthesis.length > 0
-      ? synthesis
-      : fallbackSynthesis(lens, evidence);
+    ? "Reading the corpus..."
+    : hasSynthesis
+      ? synthesis!
+      : emptyBody(lens);
 
   return (
     <div className="flex flex-col gap-2">
       <ChatBubble from="app" label={label}>
-        {text}
+        <SynthesisBody text={text} />
       </ChatBubble>
       {!loading && evidence.length > 0 ? (
         <div className="pl-12">
@@ -111,28 +190,57 @@ function LensBubble({
 }
 
 export function DriverEvidencePanel(props: DriverEvidencePanelProps) {
+  const anchor = thesisAnchor(props.driver_id);
+  const heading =
+    props.thesisCount === 1
+      ? `Thesis (${anchor})`
+      : `Thesis ${props.thesisIndex + 1} (${anchor})`;
+  // When both sides are empty we render a single offer block instead of
+  // theatrical empty bubbles. Per tone v3: empty results are interpretive,
+  // not status messages.
+  const bothEmpty =
+    !props.loading &&
+    (!props.bull_synthesis || props.bull_synthesis.trim().length === 0) &&
+    (!props.bear_synthesis || props.bear_synthesis.trim().length === 0) &&
+    props.bull_evidence.length === 0 &&
+    props.bear_evidence.length === 0;
+
   return (
     <section className="flex flex-col gap-4">
       <header>
-        <h3 className="text-base font-semibold">{props.driver_id}</h3>
+        <h3 className="text-base font-semibold">{heading}</h3>
         <p className="text-sm" style={{ color: "#585858" }}>
           {props.driver_claim}
         </p>
       </header>
-      <ChatThread>
-        <LensBubble
-          lens="bull"
-          synthesis={props.bull_synthesis}
-          evidence={props.bull_evidence}
-          loading={props.loading}
-        />
-        <LensBubble
-          lens="bear"
-          synthesis={props.bear_synthesis}
-          evidence={props.bear_evidence}
-          loading={props.loading}
-        />
-      </ChatThread>
+      {bothEmpty ? (
+        <ChatBubble from="app">
+          <div>
+            <p>
+              No evidence found in the corpus, on either side.
+            </p>
+            <p className="mt-2" style={{ color: "#585858" }}>
+              Add sources, tighten the claim, or accept this thesis
+              unvalidated?
+            </p>
+          </div>
+        </ChatBubble>
+      ) : (
+        <ChatThread>
+          <LensBubble
+            lens="bull"
+            synthesis={props.bull_synthesis}
+            evidence={props.bull_evidence}
+            loading={props.loading}
+          />
+          <LensBubble
+            lens="bear"
+            synthesis={props.bear_synthesis}
+            evidence={props.bear_evidence}
+            loading={props.loading}
+          />
+        </ChatThread>
+      )}
     </section>
   );
 }

@@ -25,6 +25,10 @@ interface ThesisDetailProps {
   initialScan: ScanResults | null;
   initialValidation: Record<string, DriverValidationResult> | null;
   seedNames?: Record<string, string>;
+  /** Ticker -> company name map. Sourced from universe + Yahoo for any
+   * referenced ticker the universe doesn't cover yet. Used by the chat
+   * artifact so every ticker can render as `Company (TICKER)`. */
+  tickerNames?: Record<string, string>;
 }
 
 interface DroppedTicker {
@@ -38,6 +42,7 @@ export function ThesisDetail({
   initialScan,
   initialValidation,
   seedNames,
+  tickerNames,
 }: ThesisDetailProps) {
   const router = useRouter();
   const [thesis, setThesis] = useState<Thesis>(initial);
@@ -199,7 +204,11 @@ export function ThesisDetail({
   return (
     <>
       <PipelineSection id="step-thesis" title="Thesis extraction">
-        <ThesisChatArtifact thesis={thesis} onApplied={setThesis} />
+        <ThesisChatArtifact
+          thesis={thesis}
+          onApplied={setThesis}
+          tickerNames={tickerNames}
+        />
       </PipelineSection>
 
       <PipelineSection id="step-universe" title="Universe construction">
@@ -258,13 +267,15 @@ export function ThesisDetail({
             />
             {initialScan ? (
               <div className="flex flex-col gap-6">
-                {thesis.drivers.industry.map((driver) => {
+                {thesis.drivers.industry.map((driver, idx) => {
                   const v = validation?.[driver.id];
                   return (
                     <DriverEvidencePanel
                       key={driver.id}
                       driver_id={driver.id}
                       driver_claim={driver.claim}
+                      thesisIndex={idx}
+                      thesisCount={thesis.drivers.industry.length}
                       bull_evidence={v?.bull_evidence ?? []}
                       bear_evidence={v?.bear_evidence ?? []}
                       bull_synthesis={v?.bull_synthesis ?? null}

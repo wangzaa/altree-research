@@ -10,6 +10,9 @@ import type { ThesisDiff } from "@/lib/diff/thesis-diff";
 export interface ThesisChatArtifactProps {
   thesis: Thesis;
   onApplied: (next: Thesis) => void;
+  /** Ticker -> company name lookup so the chat artifact can render every
+   * ticker as `Company (TICKER)` per docs/tone/conversational-thesis. */
+  tickerNames?: Record<string, string>;
 }
 
 type Status = "idle" | "refining" | "previewing" | "applying" | "error";
@@ -105,6 +108,7 @@ function DiffLines({ diff }: { diff: ThesisDiff }) {
 export function ThesisChatArtifact({
   thesis,
   onApplied,
+  tickerNames,
 }: ThesisChatArtifactProps) {
   const [instruction, setInstruction] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -116,7 +120,7 @@ export function ThesisChatArtifact({
   const [showDetails, setShowDetails] = useState(false);
   const [history, setHistory] = useState<RefineTurn[]>([]);
 
-  const bubbles = thesisBubbles(thesis);
+  const bubbles = thesisBubbles(thesis, { tickerNames });
   const previewing = status === "previewing" && diff !== null;
   const refining = status === "refining";
   const applying = status === "applying";
