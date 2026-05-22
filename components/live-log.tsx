@@ -123,18 +123,20 @@ export function LiveLog({ thesisId }: LiveLogProps) {
                 {formatTime(e.created_at)}
               </span>
               <span className="font-semibold">{e.agent ?? e.stage ?? "?"}</span>
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
               <span className="text-neutral-500">{e.event_type}</span>
-              {model && (
-                <span className="ml-auto inline-block font-mono text-[10px] uppercase tracking-wide bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded">
+              {model ? (
+                <span className="font-mono text-[10px] uppercase tracking-wide bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded break-all">
                   {model}
                 </span>
-              )}
+              ) : null}
             </div>
-            {summarisePayload(e.payload) && (
+            {summarisePayload(e.payload) ? (
               <div className="mt-1 text-neutral-600">
                 {summarisePayload(e.payload)}
               </div>
-            )}
+            ) : null}
           </li>
         );
       })}
