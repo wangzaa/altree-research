@@ -29,4 +29,15 @@ describe("expert registry", () => {
     const semis = getActiveExpertsForSectors(["semis"]);
     expect(semis.every((e) => e.active !== false)).toBe(true);
   });
+
+  it("every expert's sectors[] entry references a declared sector key", () => {
+    const reg = loadRegistry();
+    const declared = new Set(Object.keys(reg.sectors));
+    const offenders: { slug: string; bad: string[] }[] = [];
+    for (const e of reg.experts) {
+      const bad = e.sectors.filter((s) => !declared.has(s));
+      if (bad.length) offenders.push({ slug: e.slug, bad });
+    }
+    expect(offenders, JSON.stringify(offenders)).toEqual([]);
+  });
 });
