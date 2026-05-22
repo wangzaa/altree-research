@@ -46,6 +46,24 @@ function Stagger({
   );
 }
 
+// Renders a string with **bold** spans. Keeps line breaks via the wrapping
+// pre-line container. Anything else (italic, links) is intentionally not
+// supported — the bubbles only need a soft anchor on the leg handle.
+function ProseBody({ text }: { text: string }) {
+  const parts = text.split(/\*\*([^*]+)\*\*/g);
+  return (
+    <div style={{ whiteSpace: "pre-line" }}>
+      {parts.map((segment, i) =>
+        i % 2 === 1 ? (
+          <strong key={i}>{segment}</strong>
+        ) : (
+          <React.Fragment key={i}>{segment}</React.Fragment>
+        ),
+      )}
+    </div>
+  );
+}
+
 function DiffLines({ diff }: { diff: ThesisDiff }) {
   if (isDiffEmpty(diff)) {
     return (
@@ -168,51 +186,43 @@ export function ThesisChatArtifact({
     setStatus("idle");
   }
 
-  // Total stagger index reused for the trailing "Anything to change?" prompt
-  // + the refine flow bubbles so they continue the cascade smoothly.
-  const promptIndex = bubbles.length;
-  let afterIndex = promptIndex + 1;
+  // The refine-flow bubbles (echo + narrator) continue the cascade index
+  // from where the thesis playback bubbles left off.
+  let afterIndex = bubbles.length;
 
   return (
     <ChatThread>
       {bubbles.map((b, i) => (
         <Stagger key={b.id} index={i}>
-          <ChatBubble from="app" label={b.label}>
-            <div style={{ whiteSpace: "pre-line" }}>{b.body}</div>
-            {b.id === "intro" ? (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowJson((v) => !v)}
-                  className="text-xs underline"
-                  style={{ color: "#585858" }}
-                >
-                  {showJson ? "Hide JSON" : "Show JSON"}
-                </button>
-                {showJson ? (
-                  <pre
-                    data-testid="thesis-json"
-                    className="mt-2 overflow-x-auto rounded-md p-3 text-xs"
-                    style={{
-                      background: "white",
-                      fontFamily: "var(--font-mono)",
-                      border: "1px solid #E5E5E5",
-                    }}
-                  >
-                    {JSON.stringify(thesis, null, 2)}
-                  </pre>
-                ) : null}
-              </div>
-            ) : null}
+          <ChatBubble from="app">
+            <ProseBody text={b.body} />
           </ChatBubble>
         </Stagger>
       ))}
 
-      <Stagger index={promptIndex}>
-        <ChatBubble from="app">
-          Anything you&apos;d like to change?
-        </ChatBubble>
-      </Stagger>
+      <div className="pl-12">
+        <button
+          type="button"
+          onClick={() => setShowJson((v) => !v)}
+          className="text-xs underline"
+          style={{ color: "#585858" }}
+        >
+          {showJson ? "Hide JSON" : "Show JSON"}
+        </button>
+        {showJson ? (
+          <pre
+            data-testid="thesis-json"
+            className="mt-2 overflow-x-auto rounded-md p-3 text-xs"
+            style={{
+              background: "white",
+              fontFamily: "var(--font-mono)",
+              border: "1px solid #E5E5E5",
+            }}
+          >
+            {JSON.stringify(thesis, null, 2)}
+          </pre>
+        ) : null}
+      </div>
 
       {previewing ? (
         <>
@@ -221,9 +231,11 @@ export function ThesisChatArtifact({
           </Stagger>
           <Stagger index={afterIndex++}>
             {narrative ? (
-              <ChatBubble from="app">{narrative}</ChatBubble>
+              <ChatBubble from="app">
+                <ProseBody text={narrative} />
+              </ChatBubble>
             ) : (
-              <ChatBubble from="app" label="Proposed changes">
+              <ChatBubble from="app">
                 {diff ? <DiffLines diff={diff} /> : null}
               </ChatBubble>
             )}

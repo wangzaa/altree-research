@@ -13,15 +13,23 @@ beforeEach(() => {
 });
 
 describe("<ThesisChatArtifact>", () => {
-  it("renders the prose summary of the current thesis", () => {
+  it("renders the conversational playback (opener + setup + leg + kill + close)", () => {
     const thesis = cloneCanonicalThesis();
     render(<ThesisChatArtifact thesis={thesis} onApplied={vi.fn()} />);
+    expect(screen.getByText(/play this back/i)).toBeInTheDocument();
+    // Setup paragraph carries the claim, horizon as prose, friendly region.
     expect(
       screen.getByText(
         /EU defense capex cycle benefits primes with multi-year backlog visibility/,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Horizon: 5 years/)).toBeInTheDocument();
+    expect(screen.getByText(/over the next 5 years/i)).toBeInTheDocument();
+    expect(screen.getByText(/the Eurozone/i)).toBeInTheDocument();
+    // "What would kill it" bubble, not "Negate: Primary:".
+    expect(screen.getByText(/What would kill it/i)).toBeInTheDocument();
+    // Targeted close, not the generic catch-all.
+    expect(screen.getByText(/pressure-test/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^Anything you'd like to change\?$/i)).not.toBeInTheDocument();
   });
 
   it("does not show the JSON view until Show JSON is clicked", async () => {
