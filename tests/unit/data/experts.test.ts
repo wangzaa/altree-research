@@ -14,8 +14,11 @@ describe("expert registry", () => {
   it("filters active experts by sector intersection", () => {
     const semis = getActiveExpertsForSectors(["semis"]);
     const slugs = semis.map((e) => e.slug).sort();
+    // chinatalk is intentionally cross-tagged with `semis` to surface
+    // US-China export-controls coverage for semi theses.
     expect(slugs).toEqual([
       "asianometry",
+      "chinatalk",
       "fabricated_knowledge",
       "semianalysis",
     ]);

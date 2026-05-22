@@ -37,7 +37,7 @@
       "url": "https://newsletter.doomberg.com",
       "feed_url": "https://newsletter.doomberg.com/feed",
       "sectors": ["energy", "materials", "macro"],
-      "active": false,
+      "active": true,
       "notes": "Energy, commodities, geopolitics. Mostly paid with free previews — audit RSS yield carefully."
     },
     {
@@ -48,7 +48,7 @@
       "feed_url": "https://themacrocompass.substack.com/feed",
       "sectors": ["macro", "financials"],
       "active": false,
-      "notes": "Credit cycles, liquidity, central-bank plumbing. Free + paid."
+      "notes": "Deferred 2026-05-22: no items in last 90d (most recent 2026-02-10). See docs/superpowers/audits/2026-05-22-substack-roster-audit-results.md."
     },
     {
       "slug": "apricitas",
@@ -57,7 +57,7 @@
       "url": "https://www.apricitas.io",
       "feed_url": "https://www.apricitas.io/feed",
       "sectors": ["macro"],
-      "active": false,
+      "active": true,
       "notes": "Data-driven economics, US labor / manufacturing / trade. Chart-forward."
     },
     {
@@ -68,7 +68,7 @@
       "feed_url": "https://concoda.substack.com/feed",
       "sectors": ["macro", "financials"],
       "active": false,
-      "notes": "Money-market plumbing (repo, Eurodollar, Fed)."
+      "notes": "Deferred 2026-05-22: RSS avg_content_chars 1563 — likely summary-only. See docs/superpowers/audits/2026-05-22-substack-roster-audit-results.md."
     },
     {
       "slug": "net_interest",
@@ -77,7 +77,7 @@
       "url": "https://www.netinterest.co",
       "feed_url": "https://www.netinterest.co/feed",
       "sectors": ["financials"],
-      "active": false,
+      "active": true,
       "notes": "Banks, asset managers, exchanges, fintech."
     },
     {
@@ -88,7 +88,7 @@
       "feed_url": "https://www.thediff.co/feed",
       "sectors": ["macro", "tech_platforms", "financials"],
       "active": false,
-      "notes": "Inflections in finance and tech; cross-cutting daily."
+      "notes": "Deferred 2026-05-22: feed at thediff.co/feed is stale (last post 2022-11-14); pub moved off Substack. Locate current RSS endpoint before re-audit. See docs/superpowers/audits/2026-05-22-substack-roster-audit-results.md."
     },
     {
       "slug": "yet_another_value",
@@ -97,7 +97,7 @@
       "url": "https://www.yetanothervalueblog.com",
       "feed_url": "https://www.yetanothervalueblog.com/feed",
       "sectors": ["value_quality"],
-      "active": false,
+      "active": true,
       "notes": "Quirky special situations; media / sports / telecom lean."
     },
     {
@@ -107,7 +107,7 @@
       "url": "https://www.speedwellmemos.com",
       "feed_url": "https://www.speedwellmemos.com/feed",
       "sectors": ["value_quality"],
-      "active": false,
+      "active": true,
       "notes": "Long-form business-quality memos."
     },
     {
@@ -117,7 +117,7 @@
       "url": "https://www.compoundingquality.net",
       "feed_url": "https://www.compoundingquality.net/feed",
       "sectors": ["value_quality"],
-      "active": false,
+      "active": true,
       "notes": "Quality-bias long-duration."
     },
     {
@@ -127,7 +127,7 @@
       "url": "https://thebearcave.substack.com",
       "feed_url": "https://thebearcave.substack.com/feed",
       "sectors": ["short_forensic"],
-      "active": false,
+      "active": true,
       "notes": "Weekly 'Problems at...' short-biased forensic pieces."
     },
     {
@@ -137,7 +137,7 @@
       "url": "https://www.citriniresearch.com",
       "feed_url": "https://www.citriniresearch.com/feed",
       "sectors": ["macro", "tech_platforms"],
-      "active": false,
+      "active": true,
       "notes": "Thematic cross-asset; AI / industrial policy / fiscal frameworks. Paid-only — audit RSS carefully."
     },
     {
@@ -147,7 +147,7 @@
       "url": "https://sinocism.com",
       "feed_url": "https://sinocism.com/feed",
       "sectors": ["china_asia", "macro"],
-      "active": false,
+      "active": true,
       "notes": "China politics + policy daily."
     },
     {
@@ -157,7 +157,7 @@
       "url": "https://www.sinicapodcast.com",
       "feed_url": "https://www.sinicapodcast.com/feed",
       "sectors": ["china_asia"],
-      "active": false,
+      "active": true,
       "notes": "Free podcast tier of Trivium China; institutional product at triviumchina.com."
     },
     {
@@ -167,7 +167,7 @@
       "url": "https://www.chinatalk.media",
       "feed_url": "https://www.chinatalk.media/feed",
       "sectors": ["china_asia", "tech_platforms", "semis"],
-      "active": false,
+      "active": true,
       "notes": "US-China tech / industrial policy / export controls; cross-tagged semis intentionally."
     }
   ],
