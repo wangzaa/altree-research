@@ -134,23 +134,13 @@ function setupBody(t: Thesis): string {
     .replace(/\.$/, "")}.`;
 }
 
-function closeBody(t: Thesis): string {
-  const drivers = t.drivers.industry;
-  const handles = drivers.map((d, i) => {
-    const h = legLabel(d, i, drivers.length);
-    const central = formatEstimate(
-      d.central_estimate.value,
-      d.central_estimate.unit,
-    );
-    return `the ${central} on ${h}`;
-  });
-  if (handles.length === 1) {
-    return `Does that match the shape of what you're seeing? ${handles[0]
-      .replace(/^./, (c) => c.toUpperCase())} is the most load-bearing number — want to pressure-test it, or stretch the horizon, before we move on?`;
-  }
-  return `Does that match the shape of what you're seeing? ${joinList(
-    handles,
-  )} are the load-bearing numbers — want to pressure-test either, or stretch the horizon, before we move on?`;
+function closeBody(_t: Thesis): string {
+  // Scoping-phase close per docs/tone/conversational-thesis. Invites the
+  // kinds of edits the system can actually act on right now (regions,
+  // angles, names, thresholds, horizon). Validation-register vocabulary
+  // like "pressure-test" / "load-bearing" / "stress" is reserved for the
+  // Insights/validation phase, where the system can deliver on it.
+  return `Does that match the shape of what you're seeing? Anything you'd want to widen — another region, another angle, more names — or tighten before we move on?`;
 }
 
 export function thesisBubbles(t: Thesis): ThesisBubble[] {

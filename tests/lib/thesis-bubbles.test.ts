@@ -73,14 +73,19 @@ describe("thesisBubbles", () => {
     expect(kill.body).not.toContain("undefined");
   });
 
-  it("closes with a targeted question naming the load-bearing numbers", () => {
+  it("closes with a scoping-phase invitation, not validation-register vocabulary", () => {
     const out = thesisBubbles(cloneCanonicalThesis());
     const close = out.find((b) => b.id === "close")!;
-    // For a single driver we point at THE number; for two we list both.
     expect(close.body).toMatch(/Does that match the shape/);
-    expect(close.body).toMatch(/pressure-test/);
-    expect(close.body).toMatch(/load-bearing/);
-    // Never the generic catch-all.
+    // Scoping vocabulary the system can deliver on now.
+    expect(close.body).toMatch(/widen/);
+    expect(close.body).toMatch(/tighten/);
+    expect(close.body).toMatch(/another region|another angle|more names/);
+    // Never validation-register words during scoping.
+    expect(close.body).not.toMatch(/pressure-test/i);
+    expect(close.body).not.toMatch(/load-bearing/i);
+    expect(close.body).not.toMatch(/stress/i);
+    // Never the generic catch-all either.
     expect(close.body).not.toMatch(/Anything you'd like to change\?/i);
   });
 
