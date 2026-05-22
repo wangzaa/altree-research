@@ -1007,4 +1007,133 @@ These were settled at the level of approach but not concrete spec:
 
 ---
 
+## 15. Cycle 3 — Open-question resolver
+
+**Status:** speced, not implemented. Builds on the memo-writer's
+`open_questions` output landed in cycle 2.
+
+### Why
+
+The memo step already produces high-signal open questions per thesis (e.g.
+"Does the forward P/E spread between Korean memory and US/EU peers exceed
+10%?", "What share of SK Hynix revenue is HBM-derived?", "Is Huawei's
+indigenous DRAM program on a credible timeline?"). Today they're left as
+text — the analyst has to leave the app to chase down each answer. Cycle 3
+wires answers back into the same chat thread.
+
+### The routing problem
+
+Different questions need different data sources. A generic research agent
+that hits the web for every question is wasteful and slow when ~30% of
+typical memo questions are answerable from data already in the universe
++ scan tables. The cycle 3 design is a question classifier that bins each
+question into one of five categories, plus a focused resolver per bin.
+
+| Category | What it means | Resolver |
+|---|---|---|
+| `derivable` | Solvable from scan + universe data already in hand. Spread questions, valuation discounts vs peers, growth rank within the universe. | Deterministic compute over local data, no LLM call for the answer itself. Format the result + cite which tickers were used. |
+| `fundamentals_extra` | Yahoo has it, we just didn't pull it. Segment revenue breakdowns, share counts, balance-sheet items. | One-shot Yahoo `quoteSummary` extension per question. Cheap. |
+| `corpus` | Answerable from the expert substack corpus already ingested for bull/bear (`expert_posts` table). | Re-use the bull/bear researcher retrieval, scoped to the specific entity/claim in the question. |
+| `web` | External research needed. Industry-analyst views, forward roadmap claims, recent regulatory developments. | Search through a credibility-filtered provider; see §15.3 below. |
+| `needs_analyst` | Proprietary intel (sell-side numbers, internal forecasts), or unanswerable from any feed the system has access to. | Tag for human; never auto-answer. |
+
+### Architecture
+
+```
+memo_writer (cycle 2)
+   ↓ produces open_questions[]
+question_classifier (new, Haiku)
+   ↓ tags each question with { category, hint, confidence }
+   ↓
+   ├── derivable    → lib/resolvers/derivable.ts (pure functions)
+   ├── fundamentals_extra → lib/resolvers/yahoo-extra.ts (Yahoo + Haiku summarize)
+   ├── corpus       → lib/agents/question-corpus.ts (reuse retrieval)
+   ├── web          → lib/agents/question-web.ts (allowlist + LLM judge)
+   └── needs_analyst → no-op, surface tag in UI
+
+Result → /api/question/resolve (POST) → app bubble below the question
+                                         + sources chips
+```
+
+### Credibility filter for the `web` path
+
+Three layers stacked:
+
+1. **Hard allowlist** of finance/research domains: SEC filings, company IR,
+   Reuters, Bloomberg, WSJ, FT, Nikkei Asia, IEEE Spectrum, semianalysis,
+   TrendForce, IDC, Gartner, government statistical agencies. Lives in
+   `lib/data/credible-sources.ts`, version-controlled. Anything outside the
+   list is excluded by default.
+2. **Tiering inside the allowlist**: tier 1 = primary source (10-K, IR
+   release), tier 2 = mainstream financial press, tier 3 = analyst/blog
+   inside the list. Surfaced on each fact as a coloured chip so the analyst
+   sees provenance at a glance.
+3. **LLM-as-judge gate**: even allowlisted results pass through a Haiku
+   check that rejects dateless pages, opinion editorials, and anything
+   contradicted by the other top results. The judge's rationale is stored
+   alongside the answer for audit.
+
+### Phased rollout
+
+1. **Phase 1:** classifier + `derivable` resolver. Free LLM cost for the
+   ~30% of questions that are pure computations over local data. Validates
+   the routing pattern end-to-end.
+2. **Phase 2:** `corpus` resolver. Already 80% built — reuses the
+   bull/bear researcher's retrieval logic with a different query shape.
+3. **Phase 3:** `web` resolver with allowlist + LLM judge.
+4. **Out of scope for cycle 3:** `fundamentals_extra`. The Yahoo segment
+   data is inconsistent across regions and ADRs; defer until we have a
+   clearer story on which fields are reliable per region.
+
+### Non-obvious tradeoffs
+
+- **Mis-routing.** Even a good classifier will pick the wrong bin ~5–10% of
+  the time. Plan for a manual override: small dropdown next to "Resolve"
+  letting the analyst force a different resolver.
+- **Allowlist as moat AND constraint.** Tight allowlist means high-trust
+  answers but lots of "I can't answer this credibly" replies. The analyst
+  will eventually want to add their favourite niche substack — make the
+  allowlist editable from the UI rather than buried in code, with an audit
+  trail of what was added when and by whom.
+- **Bus factor on the corpus.** Cycle 2's expert corpus is fed by a small
+  number of Substacks. The `corpus` resolver inherits the same blind spots
+  — if the question asks about a topic no expert in the corpus has covered,
+  the answer is empty and the system should say so rather than reaching to
+  the web by default. Falling back to `web` automatically is tempting and
+  wrong: it lets corpus gaps go undetected. Surface the empty result first;
+  let the analyst request the web upgrade explicitly.
+
+### UI surface
+
+In the memo bubble's "Open questions" list, each bullet gets:
+
+- A small category tag chip (e.g. "from scan data", "from corpus",
+  "needs web", "needs analyst")
+- A "Resolve" button (disabled for `needs_analyst`)
+- An optional category-override dropdown for power users
+
+On click, the resolution appears as a chat bubble below the question
+with source chips. Sources hidden behind a "Show sources (N)" toggle to
+keep the thread tight.
+
+### Acceptance criteria
+
+- [ ] `question_classifier` agent registered in `lib/data/agent-models.json`;
+      classifies each open question with `{ category, hint, confidence }`
+- [ ] `lib/resolvers/derivable.ts` answers spread / valuation-rank questions
+      with zero LLM calls; cites the tickers + scan column used
+- [ ] `lib/agents/question-corpus.ts` reuses corpus retrieval, returns a
+      synthesis + the same `CorpusEvidence[]` shape as bull/bear
+- [ ] `lib/agents/question-web.ts` enforces the allowlist + runs the
+      Haiku judge; rejects anything outside the list
+- [ ] `lib/data/credible-sources.ts` version-controlled allowlist + tier map
+- [ ] `/api/question/resolve` POST route with `pipeline_events` writes for
+      classifier + resolver per question
+- [ ] Memo UI renders category tag chip + Resolve button per open question
+- [ ] Resolved answers render as chat bubbles with source chips; "Show
+      sources (N)" toggle reveals the underlying evidence
+- [ ] Empty corpus result is surfaced honestly — no auto-fallback to web
+
+---
+
 **End of handoff.**
