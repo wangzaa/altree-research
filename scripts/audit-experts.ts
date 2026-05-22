@@ -1,5 +1,9 @@
+import fs from "node:fs";
+import path from "node:path";
+import Parser from "rss-parser";
 import { htmlToText, extractTickers } from "@/lib/ingest/html";
 import { detectPaywall } from "@/lib/ingest/paywall-markers";
+import { loadRegistry } from "@/lib/data/experts";
 import type { Expert } from "@/lib/schemas/experts";
 
 export type Flags = {
@@ -212,4 +216,98 @@ export function formatAuditTable(rows: AuditRow[], runDate: Date): string {
   }
   lines.push("");
   return lines.join("\n") + "\n";
+}
+
+const FETCH_TIMEOUT_MS = 15_000;
+
+export function auditResultsPath(now: Date): string {
+  return path.join(
+    process.cwd(),
+    "docs",
+    "superpowers",
+    "audits",
+    `${isoDay(now)}-substack-roster-audit-results.md`,
+  );
+}
+
+type FetchFeed = (url: string) => Promise<ParsedFeed>;
+
+function makeRealFetcher(): FetchFeed {
+  const parser = new Parser({
+    customFields: { item: [["content:encoded", "contentEncoded"]] },
+    timeout: FETCH_TIMEOUT_MS,
+  });
+  return async (url) => (await parser.parseURL(url)) as unknown as ParsedFeed;
+}
+
+export async function auditCandidates(
+  fetchFeed: FetchFeed = makeRealFetcher(),
+  now: Date = new Date(),
+): Promise<AuditRow[]> {
+  const registry = loadRegistry();
+  const candidates = registry.experts.filter((e) => e.active === false);
+  const out: AuditRow[] = [];
+  for (const expert of candidates) {
+    try {
+      const feed = await fetchFeed(expert.feed_url);
+      out.push(auditFeed(expert, feed, now));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const flags: Flags = {
+        ALIVE: false,
+        RECENT: false,
+        SUBSTANTIVE: false,
+        LOW_PAYWALL: false,
+      };
+      out.push({
+        slug: expert.slug,
+        name: expert.name,
+        feed_url: expert.feed_url,
+        fetch_status: `error:${msg}`,
+        total_items: 0,
+        items_last_90d: 0,
+        items_last_30d: 0,
+        most_recent: null,
+        avg_content_chars: 0,
+        paywall_hit_rate: 0,
+        ticker_yield: 0,
+        date_quality: "ok",
+        flags,
+        verdict: deriveVerdict(`error:${msg}`, 0, flags),
+      });
+    }
+  }
+  return out;
+}
+
+function writeAuditDoc(filePath: string, markdown: string): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  if (fs.existsSync(filePath)) {
+    fs.appendFileSync(
+      filePath,
+      `\n\n<!-- additional run @ ${new Date().toISOString()} -->\n\n` +
+        markdown,
+    );
+  } else {
+    fs.writeFileSync(filePath, markdown);
+  }
+}
+
+async function main(): Promise<void> {
+  const now = new Date();
+  const rows = await auditCandidates(undefined, now);
+  const md = formatAuditTable(rows, now);
+  process.stdout.write(md);
+  const outPath = auditResultsPath(now);
+  writeAuditDoc(outPath, md);
+  process.stdout.write(
+    `\nWrote ${path.relative(process.cwd(), outPath)}\n`,
+  );
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
 }
