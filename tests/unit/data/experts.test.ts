@@ -14,8 +14,11 @@ describe("expert registry", () => {
   it("filters active experts by sector intersection", () => {
     const semis = getActiveExpertsForSectors(["semis"]);
     const slugs = semis.map((e) => e.slug).sort();
+    // chinatalk is intentionally cross-tagged with `semis` to surface
+    // US-China export-controls coverage for semi theses.
     expect(slugs).toEqual([
       "asianometry",
+      "chinatalk",
       "fabricated_knowledge",
       "semianalysis",
     ]);
@@ -28,5 +31,16 @@ describe("expert registry", () => {
   it("excludes inactive experts", () => {
     const semis = getActiveExpertsForSectors(["semis"]);
     expect(semis.every((e) => e.active !== false)).toBe(true);
+  });
+
+  it("every expert's sectors[] entry references a declared sector key", () => {
+    const reg = loadRegistry();
+    const declared = new Set(Object.keys(reg.sectors));
+    const offenders: { slug: string; bad: string[] }[] = [];
+    for (const e of reg.experts) {
+      const bad = e.sectors.filter((s) => !declared.has(s));
+      if (bad.length) offenders.push({ slug: e.slug, bad });
+    }
+    expect(offenders, JSON.stringify(offenders)).toEqual([]);
   });
 });
