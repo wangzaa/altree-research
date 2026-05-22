@@ -218,6 +218,61 @@ describe("<ThesisChatArtifact>", () => {
     );
   });
 
+  it("keeps the user instruction + narrator reply visible after Confirm (multi-turn history)", async () => {
+    const user = userEvent.setup();
+    const thesis = cloneCanonicalThesis();
+    const proposed = cloneCanonicalThesis();
+    proposed.scope.regions = [...thesis.scope.regions, "JAPAN"];
+    const onApplied = vi.fn();
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        current: thesis,
+        proposed,
+        diff: {
+          added: [{ path: "scope.regions", after: "JAPAN" }],
+          removed: [],
+          changed: [],
+        },
+        narrative: "Added JAPAN to the scope. The seed list now reaches Tokyo Electron.",
+      }),
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: thesis.id, thesis: proposed, version: 2 }),
+    });
+
+    render(<ThesisChatArtifact thesis={thesis} onApplied={onApplied} />);
+    await user.type(
+      screen.getByPlaceholderText(/refinement instruction/i),
+      "add japan",
+    );
+    await user.click(screen.getByRole("button", { name: /refine/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /confirm/i })).toBeEnabled();
+    });
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
+
+    // After confirm: the user echo + narrator reply remain visible.
+    await waitFor(() => {
+      expect(screen.getByText("add japan")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/Added JAPAN to the scope/),
+    ).toBeInTheDocument();
+    // And a fresh refinement textbox is offered below.
+    expect(
+      screen.getByPlaceholderText(/refinement instruction/i),
+    ).toBeEnabled();
+    // No Confirm/Cancel left — those belong to a live preview, not history.
+    expect(
+      screen.queryByRole("button", { name: /confirm/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("Cancel discards the proposed diff and re-enables the input", async () => {
     const user = userEvent.setup();
     const thesis = cloneCanonicalThesis();

@@ -21,6 +21,15 @@ interface RefineResponse {
   narrative: string | null;
 }
 
+/** A committed refine turn — kept in client-side history so the thread
+ * survives across multiple refinements within a session. Persistence to a
+ * thesis_messages table is still out of scope (see cycle 2 spec). */
+interface RefineTurn {
+  instruction: string;
+  narrative: string | null;
+  diff: ThesisDiff;
+}
+
 function isDiffEmpty(diff: ThesisDiff): boolean {
   return (
     diff.added.length === 0 &&
@@ -105,6 +114,7 @@ export function ThesisChatArtifact({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showJson, setShowJson] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [history, setHistory] = useState<RefineTurn[]>([]);
 
   const bubbles = thesisBubbles(thesis);
   const previewing = status === "previewing" && diff !== null;
@@ -163,6 +173,15 @@ export function ThesisChatArtifact({
         setErrorMessage(body?.error ?? `Apply failed (${res.status})`);
         setStatus("error");
         return;
+      }
+      // Push the committed turn into history so the user echo + narrator
+      // reply persist as the visible record of what was changed. The next
+      // textbox renders below, fresh.
+      if (diff) {
+        setHistory((h) => [
+          ...h,
+          { instruction, narrative, diff },
+        ]);
       }
       onApplied(body.thesis);
       setProposed(null);
@@ -223,6 +242,23 @@ export function ThesisChatArtifact({
           </pre>
         ) : null}
       </div>
+
+      {/* Committed refinement turns: each turn keeps the user instruction
+       * + narrator confirmation as the visible record of what changed. */}
+      {history.map((turn, idx) => (
+        <React.Fragment key={`turn-${idx}`}>
+          <ChatBubble from="user">{turn.instruction}</ChatBubble>
+          {turn.narrative ? (
+            <ChatBubble from="app">
+              <ProseBody text={turn.narrative} />
+            </ChatBubble>
+          ) : (
+            <ChatBubble from="app">
+              <DiffLines diff={turn.diff} />
+            </ChatBubble>
+          )}
+        </React.Fragment>
+      ))}
 
       {previewing ? (
         <>
