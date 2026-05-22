@@ -3,6 +3,7 @@ import {
   auditFeed,
   deriveFlags,
   deriveVerdict,
+  formatAuditTable,
 } from "@/scripts/audit-experts";
 import type { Expert } from "@/lib/schemas/experts";
 
@@ -284,5 +285,49 @@ describe("deriveVerdict", () => {
     expect(deriveVerdict("ok", 10, { ...allTrue, LOW_PAYWALL: false })).toBe(
       "review",
     );
+  });
+});
+
+describe("formatAuditTable", () => {
+  const baseRow = {
+    slug: "test_pub",
+    name: "Test Pub",
+    feed_url: "https://example.com/feed",
+    fetch_status: "ok",
+    total_items: 20,
+    items_last_90d: 12,
+    items_last_30d: 4,
+    most_recent: "2026-05-20T10:00:00.000Z",
+    avg_content_chars: 8500,
+    paywall_hit_rate: 0.1,
+    ticker_yield: 0.6,
+    date_quality: "ok" as const,
+    flags: { ALIVE: true, RECENT: true, SUBSTANTIVE: true, LOW_PAYWALL: true },
+    verdict: "promote_candidate" as const,
+  };
+
+  it("renders a markdown table with one row per audit row", () => {
+    const md = formatAuditTable([baseRow], new Date("2026-05-22T00:00:00Z"));
+    expect(md).toContain("# Substack roster audit — 2026-05-22");
+    expect(md).toContain(
+      "| slug | name | items_90d | items_30d | most_recent | avg_chars | paywall % | ticker % | flags | verdict_auto | verdict_final | notes |",
+    );
+    expect(md).toContain("test_pub");
+    expect(md).toContain("promote_candidate");
+    expect(md).toContain("ALIVE,RECENT,SUBSTANTIVE,LOW_PAYWALL");
+  });
+
+  it("renders an empty-section message when no rows", () => {
+    const md = formatAuditTable([], new Date("2026-05-22T00:00:00Z"));
+    expect(md).toContain("# Substack roster audit — 2026-05-22");
+    expect(md).toContain("No candidates audited");
+  });
+
+  it("includes the threshold legend", () => {
+    const md = formatAuditTable([baseRow], new Date("2026-05-22T00:00:00Z"));
+    expect(md).toContain("ALIVE = items_last_90d >= 3");
+    expect(md).toContain("RECENT = most_recent within 30 days");
+    expect(md).toContain("SUBSTANTIVE = avg_content_chars >= 2000");
+    expect(md).toContain("LOW_PAYWALL = paywall_hit_rate < 0.5");
   });
 });

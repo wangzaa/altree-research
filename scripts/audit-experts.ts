@@ -152,3 +152,64 @@ export function auditFeed(
     verdict,
   };
 }
+
+function isoDay(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function flagsList(f: Flags): string {
+  return (Object.entries(f) as [keyof Flags, boolean][])
+    .filter(([, on]) => on)
+    .map(([k]) => k)
+    .join(",");
+}
+
+function pct(n: number): string {
+  return `${Math.round(n * 100)}%`;
+}
+
+export function formatAuditTable(rows: AuditRow[], runDate: Date): string {
+  const lines: string[] = [];
+  lines.push(`# Substack roster audit — ${isoDay(runDate)}`);
+  lines.push("");
+  lines.push(`**Candidates audited:** ${rows.length}`);
+  lines.push("");
+  lines.push("**Thresholds:**");
+  lines.push("- ALIVE = items_last_90d >= 3");
+  lines.push("- RECENT = most_recent within 30 days");
+  lines.push("- SUBSTANTIVE = avg_content_chars >= 2000");
+  lines.push("- LOW_PAYWALL = paywall_hit_rate < 0.5");
+  lines.push("");
+  lines.push("**Verdict guidance (auto):**");
+  lines.push("- `reject` — fetch failed");
+  lines.push("- `defer` — feed empty or ALIVE false");
+  lines.push("- `promote_candidate` — all four flags pass");
+  lines.push(
+    "- `review` — alive but at least one of RECENT / SUBSTANTIVE / LOW_PAYWALL failed",
+  );
+  lines.push("");
+  lines.push(
+    "Set `verdict_final` by hand after review. Use `notes` for the one-line reason.",
+  );
+  lines.push("");
+
+  if (rows.length === 0) {
+    lines.push(
+      "_No candidates audited (registry has no `active: false` entries)._",
+    );
+    return lines.join("\n") + "\n";
+  }
+
+  lines.push(
+    "| slug | name | items_90d | items_30d | most_recent | avg_chars | paywall % | ticker % | flags | verdict_auto | verdict_final | notes |",
+  );
+  lines.push("|---|---|---:|---:|---|---:|---:|---:|---|---|---|---|");
+  for (const r of rows) {
+    const recent = r.most_recent ? r.most_recent.slice(0, 10) : "—";
+    lines.push(
+      `| ${r.slug} | ${r.name} | ${r.items_last_90d} | ${r.items_last_30d} | ${recent} | ${r.avg_content_chars} | ${pct(r.paywall_hit_rate)} | ${pct(r.ticker_yield)} | ${flagsList(r.flags) || "—"} | ${r.verdict} | | |`,
+    );
+  }
+  lines.push("");
+  return lines.join("\n") + "\n";
+}
