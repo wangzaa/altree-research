@@ -10,7 +10,12 @@ export interface ExtractThesisInput {
 }
 
 export type ExtractThesisResult =
-  | { ok: true; thesis: Thesis }
+  | {
+      ok: true;
+      thesis: Thesis;
+      model: string;
+      usage: { input_tokens: number; output_tokens: number };
+    }
   | { ok: false; error: string; raw?: unknown };
 
 const TOOL_NAME = "extract_thesis";
@@ -256,5 +261,10 @@ export async function extractThesis(
       raw: toolCall.input,
     };
   }
-  return { ok: true, thesis: parsed.data };
+  return {
+    ok: true,
+    thesis: parsed.data,
+    model: result.model,
+    usage: result.usage,
+  };
 }

@@ -54,7 +54,12 @@ export function AnchorPicker({
           onChange={(e) => setTicker(e.target.value)}
           disabled={disabled}
           placeholder="Yahoo ticker (e.g. RHM.DE)"
-          className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none disabled:bg-neutral-100"
+          className="w-full rounded-md px-3 py-2 text-sm"
+          style={{
+            background: "white",
+            border: "1px solid #E5E5E5",
+            color: "var(--color-black)",
+          }}
         />
       </label>
 
@@ -70,7 +75,12 @@ export function AnchorPicker({
                 onClick={() => handleChipClick(t)}
                 disabled={disabled}
                 title={name ? `${t} — ${name}` : t}
-                className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  background: "var(--color-pear-cyan-light)",
+                  border: "1px solid #E5E5E5",
+                  color: "var(--color-black)",
+                }}
               >
                 <span className="font-mono">{t}</span>
                 {name ? (
@@ -86,7 +96,7 @@ export function AnchorPicker({
         <button
           type="submit"
           disabled={submitDisabled}
-          className="inline-flex items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
+          className="btn btn-primary"
         >
           Build universe →
         </button>

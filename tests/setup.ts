@@ -17,3 +17,9 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 if (!process.env.OPENROUTER_API_KEY) {
   process.env.OPENROUTER_API_KEY = "test-key-not-real";
 }
+
+// jsdom doesn't implement Element.prototype.scrollIntoView. PipelineHeader
+// click-to-scroll relies on it; the no-op stub lets handler tests run.
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function () {};
+}

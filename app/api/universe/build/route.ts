@@ -3,6 +3,7 @@ import { z } from "zod";
 import { discoverUniverse } from "@/lib/agents/universe-discoverer";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getQuote, getFundamentals } from "@/lib/data/yahoo";
+import { toUsd } from "@/lib/data/fx";
 import { getRegionForTicker } from "@/lib/data/regions";
 import { ThesisIdSchema, type Thesis } from "@/lib/schemas/thesis";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/lib/schemas/universe";
 import { generateUniverseId } from "@/lib/schemas/universe-id";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getModelFor } from "@/lib/data/agent-models";
 
 const BodySchema = z.object({
   thesis_id: ThesisIdSchema,
@@ -20,7 +22,11 @@ const BodySchema = z.object({
 
 interface DroppedTicker {
   ticker: string;
-  reason: "unknown_suffix" | "yahoo_lookup_failed" | "below_market_cap_floor";
+  reason:
+    | "unknown_suffix"
+    | "yahoo_lookup_failed"
+    | "unknown_currency"
+    | "below_market_cap_floor";
 }
 
 const MIN_SURVIVORS = 5;
@@ -81,6 +87,17 @@ export async function POST(req: Request) {
     }
     const anchorFundamentals = (await getFundamentals(anchor_ticker)) ?? {};
 
+    const discovererModel = getModelFor("universe_discoverer");
+    await supabase.from("pipeline_events").insert({
+      thesis_id,
+      stage: "universe",
+      agent: "universe_discoverer",
+      event_type: "start",
+      payload: { anchor: anchor_ticker, model: discovererModel },
+    });
+
+    const anchorMcapUsd = toUsd(anchorQuote.market_cap_local, anchorQuote.currency);
+
     let discovery;
     try {
       discovery = await discoverUniverse({
@@ -90,18 +107,32 @@ export async function POST(req: Request) {
           name: anchorQuote.name,
           sector: anchorFundamentals.sector,
           industry: anchorFundamentals.industry,
-          market_cap_usd: anchorQuote.market_cap_usd,
+          market_cap_usd: anchorMcapUsd,
         },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[/api/universe/build] discover_failed:", message);
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "universe",
+        agent: "universe_discoverer",
+        event_type: "error",
+        payload: { error: message, model: discovererModel },
+      });
       return NextResponse.json(
         { error: "discovery_failed", detail: message },
         { status: 422 },
       );
     }
     if (!discovery.ok) {
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "universe",
+        agent: "universe_discoverer",
+        event_type: "error",
+        payload: { error: discovery.error, model: discovererModel },
+      });
       return NextResponse.json(
         {
           error: "discovery_failed",
@@ -112,6 +143,18 @@ export async function POST(req: Request) {
       );
     }
 
+    await supabase.from("pipeline_events").insert({
+      thesis_id,
+      stage: "universe",
+      agent: "universe_discoverer",
+      event_type: "complete",
+      payload: {
+        model: discovery.model,
+        usage: discovery.usage,
+        proposed: discovery.tickers.length,
+      },
+    });
+
     const tickers: UniverseTicker[] = [];
     const dropped: DroppedTicker[] = [];
 
@@ -120,7 +163,7 @@ export async function POST(req: Request) {
       ticker: anchor_ticker,
       name: anchorQuote.name,
       region: anchorRegion,
-      market_cap_usd_b: (anchorQuote.market_cap_usd ?? 0) / 1e9,
+      market_cap_usd_b: (anchorMcapUsd ?? 0) / 1e9,
       exposure_tier: "pure_play",
       notes: "Anchor",
     };
@@ -138,10 +181,12 @@ export async function POST(req: Request) {
         dropped.push({ ticker: proposed.ticker, reason: "yahoo_lookup_failed" });
         continue;
       }
-      if (
-        quote.market_cap_usd === null ||
-        quote.market_cap_usd < thesis.scope.market_cap_min_usd
-      ) {
+      const mcapUsd = toUsd(quote.market_cap_local, quote.currency);
+      if (mcapUsd === null) {
+        dropped.push({ ticker: proposed.ticker, reason: "unknown_currency" });
+        continue;
+      }
+      if (mcapUsd < thesis.scope.market_cap_min_usd) {
         dropped.push({
           ticker: proposed.ticker,
           reason: "below_market_cap_floor",
@@ -152,11 +197,27 @@ export async function POST(req: Request) {
         ticker: proposed.ticker,
         name: quote.name,
         region,
-        market_cap_usd_b: quote.market_cap_usd / 1e9,
+        market_cap_usd_b: mcapUsd / 1e9,
         exposure_tier: proposed.exposure_tier,
+        exposure_rationale: proposed.exposure_rationale || undefined,
         notes: proposed.notes,
       });
     }
+
+    await supabase.from("pipeline_events").insert({
+      thesis_id,
+      stage: "universe",
+      agent: "yahoo_filter",
+      event_type: "complete",
+      payload: {
+        survivors: tickers.length,
+        dropped: dropped.length,
+        dropped_reasons: dropped.reduce<Record<string, number>>((acc, d) => {
+          acc[d.reason] = (acc[d.reason] ?? 0) + 1;
+          return acc;
+        }, {}),
+      },
+    });
 
     if (tickers.length < MIN_SURVIVORS) {
       return NextResponse.json(

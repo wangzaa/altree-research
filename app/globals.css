@@ -1,26 +1,124 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Pear core palette */
+  --color-black:               #000000;
+  --color-white:               #FFFFFF;
+
+  /* Signature accent */
+  --color-electric-cyan:       #00E5FF;
+  --color-electric-cyan-light: #CCFAFF;
+
+  /* Warm neutrals */
+  --color-off-white:           #F5F4F2;
+  --color-beige:               #E7E3D3;
+  --color-peach:               #FFDBB8;
+
+  /* App surface aliases */
+  --background: var(--color-off-white);
+  --foreground: var(--color-black);
+
+  /* Pear easing — every meaningful transition uses this */
+  --pear-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-pear-cyan:       var(--color-electric-cyan);
+  --color-pear-cyan-light: var(--color-electric-cyan-light);
+  --color-pear-off-white:  var(--color-off-white);
+  --color-pear-beige:      var(--color-beige);
+  --color-pear-peach:      var(--color-peach);
+  --color-pear-black:      var(--color-black);
+
+  --font-sans:  var(--font-inter);
+  --font-serif: var(--font-playfair);
+  --font-mono:  var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Pear buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.2s var(--pear-ease),
+              color 0.2s var(--pear-ease),
+              transform 0.2s ease,
+              box-shadow 0.2s ease;
+}
+.btn:hover  { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.btn:active { transform: translateY(0) scale(0.98); box-shadow: none; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-primary           { background: var(--color-electric-cyan); color: var(--color-black); }
+.btn-primary:hover     { background: var(--color-black); color: var(--color-white); }
+
+.btn-secondary         { background: var(--color-black); color: var(--color-white); }
+.btn-secondary:hover   { background: var(--color-electric-cyan); color: var(--color-black); }
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--color-black);
+  color: var(--color-black);
+}
+.btn-outline:hover {
+  background: var(--color-electric-cyan);
+  color: var(--color-black);
+  border-color: var(--color-electric-cyan);
+}
+
+.btn-outline-white {
+  background: transparent;
+  border: 1px solid var(--color-white);
+  color: var(--color-white);
+}
+.btn-outline-white:hover { background: var(--color-white); color: var(--color-black); }
+
+/* Scroll reveal — used by hero/section bands */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s var(--pear-ease), transform 0.8s var(--pear-ease);
+  transition-delay: calc(var(--delay, 0) * 0.1s);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* Sequential bubble reveal — each child of a chat thread fades + lifts in
+   with an index-driven stagger. Use --bubble-index: <n>. */
+.bubble-enter {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: bubbleEnter 0.4s var(--pear-ease) forwards;
+  animation-delay: calc(var(--bubble-index, 0) * 110ms);
+}
+@keyframes bubbleEnter {
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bubble-enter {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
 }

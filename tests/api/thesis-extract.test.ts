@@ -7,10 +7,11 @@ const generateThesisIdMock = vi.fn();
 const likeLimitMock = vi.fn();
 const selectMock = vi.fn(() => ({ like: () => ({ limit: likeLimitMock }) }));
 const insertMock = vi.fn();
-const fromMock = vi.fn(() => ({
-  select: selectMock,
-  insert: insertMock,
-}));
+const pipelineInsertMock = vi.fn();
+const fromMock = vi.fn((table: string) => {
+  if (table === "pipeline_events") return { insert: pipelineInsertMock };
+  return { select: selectMock, insert: insertMock };
+});
 const supabaseClient = { from: fromMock };
 
 vi.mock("@/lib/auth/session", () => ({
@@ -108,6 +109,8 @@ describe("POST /api/thesis/extract", () => {
 
     likeLimitMock.mockResolvedValue({ data: [], error: null });
     insertMock.mockResolvedValue({ error: null });
+    pipelineInsertMock.mockReset();
+    pipelineInsertMock.mockResolvedValue({ error: null });
     generateThesisIdMock.mockReturnValue(canonicalThesis.id);
   });
 
@@ -174,6 +177,8 @@ describe("POST /api/thesis/extract", () => {
       last_validated_at: null,
     });
     expect(inserted.thesis).toEqual(canonicalThesis);
+    // Two pipeline_events writes: extractor start + complete.
+    expect(pipelineInsertMock).toHaveBeenCalledTimes(2);
   });
 
   it("returns 422 when extractor returns ok: false", async () => {
@@ -191,6 +196,8 @@ describe("POST /api/thesis/extract", () => {
     expect(body.error).toBe("tool_use.input was not an object");
     expect(body.raw).toBe("not an object");
     expect(insertMock).not.toHaveBeenCalled();
+    // pipeline_events: extractor start + error.
+    expect(pipelineInsertMock).toHaveBeenCalledTimes(2);
   });
 
   it("returns 500 when Supabase insert errors", async () => {

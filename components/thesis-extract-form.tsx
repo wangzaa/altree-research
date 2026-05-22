@@ -42,27 +42,28 @@ export function ThesisExtractForm() {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-neutral-700">
+        <span className="text-sm font-medium" style={{ color: "#585858" }}>
           Paste thesis prose
         </span>
         <textarea
           value={snippet}
           onChange={(e) => setSnippet(e.target.value)}
           disabled={submitting}
-          className="min-h-[200px] w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none disabled:bg-neutral-100"
+          className="min-h-[200px] w-full rounded-md px-3 py-2 text-sm"
+          style={{
+            background: "white",
+            border: "1px solid #E5E5E5",
+            color: "var(--color-black)",
+          }}
           placeholder="Paste the investment thesis prose here (minimum 20 characters)..."
         />
       </label>
 
       <div className="flex items-center justify-between">
-        <span className="text-xs text-neutral-500">
+        <span className="text-xs" style={{ color: "#585858" }}>
           {snippet.trim().length} chars
         </span>
-        <button
-          type="submit"
-          disabled={disabled}
-          className="inline-flex items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
-        >
+        <button type="submit" disabled={disabled} className="btn btn-primary">
           {submitting ? "Extracting..." : "Extract thesis"}
         </button>
       </div>

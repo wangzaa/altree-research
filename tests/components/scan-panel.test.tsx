@@ -72,8 +72,8 @@ describe("<ScanPanel>", () => {
       "/api/scan/run",
       expect.objectContaining({ method: "POST" }),
     );
-    // router.refresh re-renders the server tree so the left-panel StageList
-    // picks up the new scan_runs row.
+    // router.refresh re-renders the server tree so the PipelineHeader
+    // re-derives its step state and reflects the new scan_runs row.
     expect(routerRefreshMock).toHaveBeenCalledTimes(1);
   });
 

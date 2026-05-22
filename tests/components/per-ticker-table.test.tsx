@@ -202,12 +202,29 @@ describe("computeRows", () => {
     expect(rows[0]).toEqual({
       ticker: "FOO",
       name: "Foo Co",
+      market_cap_usd_b: null,
       pe: 40.0, // 80 / 2.0
       revenue_growth_yoy: 0.18,
       ebitda: 1e9,
       ebitda_margin: 0.15,
       currency: "USD",
     });
+  });
+
+  it("attaches market_cap_usd_b from the supplied lookup map when provided", () => {
+    const snapshots: TickerSnapshot[] = [
+      {
+        ticker: "FOO",
+        name: "Foo Co",
+        ebitda: null,
+        ebitda_margin: null,
+        revenue_growth_yoy: null,
+        currency: null,
+        quarterly_eps: [],
+      },
+    ];
+    const rows = computeRows(snapshots, [], { FOO: 42.3 });
+    expect(rows[0].market_cap_usd_b).toBe(42.3);
   });
 });
 
@@ -230,8 +247,59 @@ describe("<PerTickerTable>", () => {
     expect(screen.getByText("Test Industries")).toBeInTheDocument();
     expect(screen.getByText("$1.5B")).toBeInTheDocument();
     expect(screen.getByText("22.0%")).toBeInTheDocument();
-    // P/E shows em-dash because the snapshot has no quarterly_eps.
-    expect(screen.getByRole("columnheader", { name: /^p\/e$/i })).toBeInTheDocument();
+    // P/E shows em-dash because the snapshot has no quarterly_eps. Header is
+    // a sortable button so we match by role+text (the inactive arrow glyph
+    // ↕ lives in a child span).
+    expect(screen.getByRole("button", { name: /P\/E/ })).toBeInTheDocument();
+  });
+
+  it("colours the best-performing row green and the worst red", () => {
+    const twoSnapshots: TickerSnapshot[] = [
+      {
+        ticker: "WIN",
+        name: "Winner Co",
+        ebitda: null,
+        ebitda_margin: null,
+        revenue_growth_yoy: null,
+        currency: null,
+        quarterly_eps: [],
+      },
+      {
+        ticker: "LOSE",
+        name: "Loser Co",
+        ebitda: null,
+        ebitda_margin: null,
+        revenue_growth_yoy: null,
+        currency: null,
+        quarterly_eps: [],
+      },
+    ];
+    render(
+      <PerTickerTable
+        snapshots={twoSnapshots}
+        history={[]}
+        bestTicker="WIN"
+        worstTicker="LOSE"
+      />,
+    );
+    const winRow = screen.getByText("WIN").closest("tr")!;
+    const loseRow = screen.getByText("LOSE").closest("tr")!;
+    expect(winRow.style.color).toMatch(/0a7a30|rgb\(10, 122, 48\)/);
+    expect(loseRow.style.color).toMatch(/a30000|rgb\(163, 0, 0\)/);
+  });
+
+  it("renders a Mcap (USD B) column from marketCapByTicker", () => {
+    render(
+      <PerTickerTable
+        snapshots={snapshots}
+        history={[]}
+        marketCapByTicker={{ TEST: 1378 }}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: /Mcap \(USD B\)/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1,378")).toBeInTheDocument();
   });
 
   it("renders an empty-state message when no snapshots are present", () => {

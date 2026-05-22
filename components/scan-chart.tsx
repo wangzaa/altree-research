@@ -190,6 +190,73 @@ function indexedRebase(
   return rows;
 }
 
+/** Returns each ticker's last-bucket indexed value (base 100) within the
+ * given trailing window. Used to mark the best- and worst-performing rows
+ * in the per-ticker table. Tickers with no in-window data are omitted. */
+export function tickerEndValues(
+  history: TickerHistory[],
+  windowMonths: number,
+): Map<string, number> {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - windowMonths);
+  const cutoffMs = cutoff.getTime();
+
+  const out = new Map<string, number>();
+  for (const h of history) {
+    const bucketed = new Map<string, number>();
+    for (const p of h.points) {
+      const ms = new Date(p.date).getTime();
+      if (
+        !Number.isFinite(ms) ||
+        ms < cutoffMs ||
+        !Number.isFinite(p.close) ||
+        p.close <= 0
+      ) {
+        continue;
+      }
+      const bucket = monthBucket(p.date);
+      if (!bucket) continue;
+      bucketed.set(bucket, p.close);
+    }
+    if (bucketed.size === 0) continue;
+    const buckets = Array.from(bucketed.keys()).sort();
+    const base = bucketed.get(buckets[0]);
+    const last = bucketed.get(buckets[buckets.length - 1]);
+    if (
+      typeof base !== "number" ||
+      !Number.isFinite(base) ||
+      base <= 0 ||
+      typeof last !== "number" ||
+      !Number.isFinite(last)
+    ) {
+      continue;
+    }
+    out.set(h.ticker, (last / base) * 100);
+  }
+  return out;
+}
+
+/** Returns the best- and worst-performing ticker over the trailing window,
+ * by ending indexed value. Returns nulls when the universe has fewer than
+ * two in-window tickers (can't meaningfully rank). */
+export function rankTickersByWindow(
+  history: TickerHistory[],
+  windowMonths: number,
+): { best: string | null; worst: string | null } {
+  const ends = tickerEndValues(history, windowMonths);
+  if (ends.size < 2) return { best: null, worst: null };
+  let best: { ticker: string; value: number } | null = null;
+  let worst: { ticker: string; value: number } | null = null;
+  for (const [ticker, value] of ends) {
+    if (best === null || value > best.value) best = { ticker, value };
+    if (worst === null || value < worst.value) worst = { ticker, value };
+  }
+  return {
+    best: best?.ticker ?? null,
+    worst: worst?.ticker ?? null,
+  };
+}
+
 export function ScanChart({
   history,
   windowKey,

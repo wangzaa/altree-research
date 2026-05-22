@@ -4,9 +4,13 @@ import { getQuote } from "@/lib/data/yahoo";
 import { ScanResultsSchema, type ScanResults } from "@/lib/schemas/scan";
 import { ThesisIdSchema, type Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
+import {
+  DriverValidationResultSchema,
+  type DriverValidationResult,
+} from "@/lib/schemas/validation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { ThreePanelLayout } from "@/components/three-panel-layout";
-import type { Stage } from "@/components/stage-list";
+import { PipelineLayout } from "@/components/pipeline-layout";
+import { deriveStepStates } from "@/lib/pipeline-steps";
 import { ThesisDetail } from "./thesis-detail.client";
 
 export default async function ThesisViewerPage({
@@ -35,7 +39,6 @@ export default async function ThesisViewerPage({
 
   const thesis = data.thesis as unknown as Thesis;
 
-  // Pre-load the universe if one is attached (owner-scoped via created_by).
   let initialUniverse: Universe | null = null;
   if (thesis.universe_id) {
     const { data: uRow } = await supabase
@@ -48,8 +51,6 @@ export default async function ThesisViewerPage({
     }
   }
 
-  // Pre-load the most recent scan_runs row for this thesis (owner-scoped via
-  // thesis ownership). null when no scan has been run.
   let initialScan: ScanResults | null = null;
   {
     const { data: sRows } = await supabase
@@ -65,49 +66,80 @@ export default async function ThesisViewerPage({
     }
   }
 
-  // Pre-fetch names for each seed ticker so the AnchorPicker chips can show
-  // "TICKER — Name" instead of just the symbol. Parallel; Yahoo errors absorbed
-  // silently (chip just shows the symbol if the lookup fails).
-  const seedNames: Record<string, string> = {};
-  if (!initialUniverse && thesis.scope.tickers_seed.length > 0) {
+  let initialValidation: Record<string, DriverValidationResult> | null = null;
+  {
+    const { data: vRows } = await supabase
+      .from("validation_runs")
+      .select("results")
+      .eq("thesis_id", id)
+      .order("run_at", { ascending: false })
+      .limit(1);
+    const raw = vRows?.[0]?.results;
+    if (raw && typeof raw === "object") {
+      const acc: Record<string, DriverValidationResult> = {};
+      for (const [driverId, value] of Object.entries(
+        raw as Record<string, unknown>,
+      )) {
+        const parsed = DriverValidationResultSchema.safeParse(value);
+        if (parsed.success) acc[driverId] = parsed.data;
+      }
+      initialValidation = Object.keys(acc).length > 0 ? acc : null;
+    }
+  }
+
+  // Build a single ticker -> company name map for everything the page
+  // surfaces. Universe takes precedence (already enriched), then fall back
+  // to live Yahoo lookups for any seed or per-driver ticker that's not in
+  // the universe yet. Used by the chat-style thesis playback so every
+  // ticker can render as `Company (TICKER)` per the tone-of-voice rules.
+  const tickerNames: Record<string, string> = {};
+  if (initialUniverse) {
+    for (const t of initialUniverse.tickers) {
+      tickerNames[t.ticker] = t.name;
+    }
+  }
+  const allReferencedTickers = new Set<string>([
+    ...thesis.scope.tickers_seed,
+    ...thesis.drivers.industry.flatMap((d) => d.tickers ?? []),
+  ]);
+  const missing = Array.from(allReferencedTickers).filter(
+    (t) => !tickerNames[t],
+  );
+  if (missing.length > 0) {
     const results = await Promise.all(
-      thesis.scope.tickers_seed.map(async (t) => {
+      missing.map(async (t) => {
         const quote = await getQuote(t);
         return [t, quote?.name ?? null] as const;
       }),
     );
     for (const [ticker, name] of results) {
-      if (name) seedNames[ticker] = name;
+      if (name) tickerNames[ticker] = name;
     }
   }
+  // The AnchorPicker still expects a seed-only subset; build it from the
+  // larger map so we don't double-fetch.
+  const seedNames: Record<string, string> = {};
+  for (const t of thesis.scope.tickers_seed) {
+    if (tickerNames[t]) seedNames[t] = tickerNames[t];
+  }
 
-  const stages: Stage[] = [
-    { name: "Thesis extraction", status: "completed" },
-    {
-      name: "Universe construction",
-      status: initialUniverse ? "completed" : "pending",
-    },
-    { name: "Screener", status: "pending" },
-    {
-      name: "Scanner",
-      status: initialScan ? "completed" : "pending",
-    },
-    { name: "Validator", status: "pending" },
-    { name: "Memo", status: "pending" },
-  ];
+  const steps = deriveStepStates({
+    thesis,
+    universe: initialUniverse,
+    scan: initialScan,
+    validationResults: initialValidation,
+  });
 
   return (
-    <ThreePanelLayout
-      stages={stages}
-      thesisId={thesis.id}
-      artifact={
-        <ThesisDetail
-          initial={thesis}
-          initialUniverse={initialUniverse}
-          initialScan={initialScan}
-          seedNames={seedNames}
-        />
-      }
-    />
+    <PipelineLayout steps={steps} thesisId={thesis.id}>
+      <ThesisDetail
+        initial={thesis}
+        initialUniverse={initialUniverse}
+        initialScan={initialScan}
+        initialValidation={initialValidation}
+        seedNames={seedNames}
+        tickerNames={tickerNames}
+      />
+    </PipelineLayout>
   );
 }

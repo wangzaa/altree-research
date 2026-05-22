@@ -52,3 +52,8 @@ coverage
 
 # prototype scratch data
 prototypes/**/data/
+
+# local-only docs: working notes, brainstorm specs, handoff. Anything that
+# should NOT travel with the repo lives here or in HANDOFF.md.
+local/
+HANDOFF.md

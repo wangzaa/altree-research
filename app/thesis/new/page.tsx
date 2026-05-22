@@ -5,16 +5,33 @@ export default async function NewThesisPage() {
   await requireUser();
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 p-6">
-      <div className="w-full max-w-2xl rounded-lg border border-neutral-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-neutral-900">New thesis</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Paste a thesis snippet and we will extract the structured Stage 1
-          object.
-        </p>
-
-        <div className="mt-6">
-          <ThesisExtractForm />
+    <main className="min-h-screen bg-pear-off-white py-16">
+      <div className="container mx-auto px-6 lg:px-12">
+        <div className="max-w-2xl mx-auto">
+          <h1
+            style={{
+              fontFamily: "var(--font-playfair)",
+              fontWeight: 500,
+              fontSize: "clamp(2rem, 4vw, 2.5rem)",
+              lineHeight: 1.15,
+            }}
+          >
+            New thesis
+          </h1>
+          <p className="mt-3 text-base" style={{ color: "#585858" }}>
+            Paste a thesis snippet — we&apos;ll extract the structured object
+            and let you refine it from there.
+          </p>
+          <div
+            className="mt-8 bg-white"
+            style={{
+              borderRadius: 18.75,
+              padding: 30,
+              border: "1px solid #E5E5E5",
+            }}
+          >
+            <ThesisExtractForm />
+          </div>
         </div>
       </div>
     </main>

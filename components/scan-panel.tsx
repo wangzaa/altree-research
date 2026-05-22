@@ -2,14 +2,23 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChatBubble, ChatThread } from "@/components/chat-bubble";
+import { ChatInputAction } from "@/components/chat-input";
 import { PerTickerTable } from "@/components/per-ticker-table";
-import { ScanChart, type WindowKey } from "@/components/scan-chart";
+import {
+  ScanChart,
+  monthsFor,
+  rankTickersByWindow,
+  type WindowKey,
+} from "@/components/scan-chart";
 import type { ScanResults } from "@/lib/schemas/scan";
+import type { Universe } from "@/lib/schemas/universe";
 
 interface ScanPanelProps {
   thesisId: string;
   universeId: string;
   initial: ScanResults | null;
+  universe: Universe | null;
 }
 
 interface Dropped {
@@ -17,13 +26,17 @@ interface Dropped {
   reason: string;
 }
 
-export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
+export function ScanPanel({
+  thesisId,
+  initial,
+  universe,
+}: ScanPanelProps) {
   const router = useRouter();
   const [scan, setScan] = useState<ScanResults | null>(initial);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dropped, setDropped] = useState<Dropped[]>([]);
-  const [windowKey, setWindowKey] = useState<WindowKey>("5y");
+  const [windowKey, setWindowKey] = useState<WindowKey>("6mth");
 
   async function handleRun() {
     setRunning(true);
@@ -52,8 +65,8 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
       setScan(body.scan);
       setDropped([...(body.dropped ?? []), ...(body.dropped_ratios ?? [])]);
       setRunning(false);
-      // Re-render the server tree so the left-panel StageList picks up the
-      // new scan_runs row and flips Scanner from pending to completed.
+      // Re-render the server tree so the PipelineHeader re-derives its step
+      // state and lights up "Insights" once a scan exists.
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected error");
@@ -63,25 +76,36 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
 
   if (scan === null) {
     return (
-      <div className="flex flex-col gap-3 rounded-md border border-dashed border-neutral-300 p-4">
-        <p className="text-sm text-neutral-600">
-          No scan has been run for this thesis yet.
-        </p>
-        <button
-          type="button"
-          onClick={handleRun}
-          disabled={running}
-          className="self-start rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
-        >
-          {running ? "Running..." : "Run scan"}
-        </button>
-        {error ? (
-          <p className="text-sm text-red-600" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </div>
+      <ChatThread>
+        <ChatBubble from="app">
+          No scan has been run for this thesis yet. Want me to run one?
+        </ChatBubble>
+        <div className="pl-12">
+          <ChatInputAction
+            label="Run scan"
+            loadingLabel="Running..."
+            loading={running}
+            onAction={handleRun}
+          />
+          {error ? (
+            <p className="mt-2 text-sm" role="alert" style={{ color: "#a30000" }}>
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </ChatThread>
     );
+  }
+
+  const { best: bestTicker, worst: worstTicker } = rankTickersByWindow(
+    scan.history_5y,
+    monthsFor(windowKey),
+  );
+  const marketCapByTicker: Record<string, number> = {};
+  if (universe) {
+    for (const t of universe.tickers) {
+      marketCapByTicker[t.ticker] = t.market_cap_usd_b;
+    }
   }
 
   return (
@@ -94,16 +118,34 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
       <PerTickerTable
         snapshots={scan.tickers_snapshot}
         history={scan.history_5y}
+        marketCapByTicker={marketCapByTicker}
+        bestTicker={bestTicker}
+        worstTicker={worstTicker}
       />
-      <article className="whitespace-pre-wrap rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-800">
+      <article
+        className="whitespace-pre-wrap p-4 text-sm"
+        style={{
+          background: "white",
+          border: "1px solid #E5E5E5",
+          color: "var(--color-black)",
+          borderRadius: 18.75,
+        }}
+      >
         {scan.descriptive_markdown}
       </article>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs" style={{ color: "#585858" }}>
         Tickers in history:{" "}
         {scan.history_5y.map((h) => h.ticker).join(", ")}
       </p>
       {dropped.length > 0 ? (
-        <details className="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-700">
+        <details
+          className="rounded-md p-3 text-xs"
+          style={{
+            background: "#F5F4F2",
+            border: "1px solid #E5E5E5",
+            color: "#585858",
+          }}
+        >
           <summary className="cursor-pointer font-medium">
             {dropped.length} ticker(s) filtered during scan
           </summary>
@@ -121,13 +163,13 @@ export function ScanPanel({ thesisId, initial }: ScanPanelProps) {
           type="button"
           onClick={handleRun}
           disabled={running}
-          className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:bg-neutral-100"
+          className="btn btn-outline"
         >
           {running ? "Re-running..." : "Re-run scan"}
         </button>
       </div>
       {error ? (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
           {error}
         </p>
       ) : null}

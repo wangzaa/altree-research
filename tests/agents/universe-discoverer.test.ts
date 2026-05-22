@@ -24,26 +24,31 @@ const validToolInput = {
       ticker: "RHM.DE",
       exposure_tier: "pure_play",
       notes: "anchor",
+      exposure_rationale: "Defence revenue >90% of group",
     },
     {
       ticker: "BA.L",
       exposure_tier: "pure_play",
       notes: "UK defence prime",
+      exposure_rationale: "Pure UK defence prime",
     },
     {
       ticker: "LDO.MI",
       exposure_tier: "pure_play",
       notes: "Italian defence",
+      exposure_rationale: "Italian defence single-segment",
     },
     {
       ticker: "SAAB-B.ST",
       exposure_tier: "pure_play",
       notes: "Swedish defence",
+      exposure_rationale: "Swedish defence pure-play",
     },
     {
       ticker: "ITA",
       exposure_tier: "etf_proxy",
       notes: "US A&D ETF",
+      exposure_rationale: "Tracks US Aerospace & Defense index",
     },
   ],
 };
@@ -77,6 +82,7 @@ describe("discoverUniverse", () => {
       ticker: "RHM.DE",
       exposure_tier: "pure_play",
       notes: "anchor",
+      exposure_rationale: "Defence revenue >90% of group",
     });
   });
 

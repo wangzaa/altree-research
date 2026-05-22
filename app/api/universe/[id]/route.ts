@@ -1,7 +1,28 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { UniverseSchema } from "@/lib/schemas/universe";
+import {
+  UniverseSchema,
+  type UniverseTicker,
+} from "@/lib/schemas/universe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+
+function thesisIdFromUniverseId(universeId: string): string | null {
+  const match = universeId.match(/^(.+)_universe_\d{2}$/);
+  return match ? match[1] : null;
+}
+
+function diffTickerCounts(
+  before: UniverseTicker[] | null,
+  after: UniverseTicker[],
+) {
+  const beforeKeys = new Set((before ?? []).map((t) => t.ticker));
+  const afterKeys = new Set(after.map((t) => t.ticker));
+  let added = 0;
+  let removed = 0;
+  for (const k of afterKeys) if (!beforeKeys.has(k)) added += 1;
+  for (const k of beforeKeys) if (!afterKeys.has(k)) removed += 1;
+  return { added, removed, total: after.length };
+}
 
 export async function GET(
   _req: Request,
@@ -83,6 +104,15 @@ export async function PATCH(
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
+    const priorUniverse = fetched.data.universe as {
+      tickers?: UniverseTicker[];
+    } | null;
+    const counts = diffTickerCounts(
+      priorUniverse?.tickers ?? null,
+      universe.tickers,
+    );
+    const thesisId = thesisIdFromUniverseId(id);
+
     const refreshedAt = new Date().toISOString();
     const update = await supabase
       .from("universes")
@@ -90,10 +120,34 @@ export async function PATCH(
       .eq("id", id);
     if (update.error) {
       console.error("[/api/universe/[id]:PATCH] persist_failed:", update.error);
+      if (thesisId) {
+        await supabase.from("pipeline_events").insert({
+          thesis_id: thesisId,
+          stage: "universe",
+          agent: "universe_persistor",
+          event_type: "error",
+          payload: { universe_id: id, error: update.error.message },
+        });
+      }
       return NextResponse.json(
         { error: "persist_failed", details: update.error.message },
         { status: 500 },
       );
+    }
+
+    if (thesisId) {
+      await supabase.from("pipeline_events").insert({
+        thesis_id: thesisId,
+        stage: "universe",
+        agent: "universe_persistor",
+        event_type: "complete",
+        payload: {
+          universe_id: id,
+          tickers_total: counts.total,
+          tickers_added: counts.added,
+          tickers_removed: counts.removed,
+        },
+      });
     }
 
     return NextResponse.json({ universe }, { status: 200 });
