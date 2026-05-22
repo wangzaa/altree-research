@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { auditFeed } from "@/scripts/audit-experts";
+import {
+  auditFeed,
+  deriveFlags,
+  deriveVerdict,
+} from "@/scripts/audit-experts";
 import type { Expert } from "@/lib/schemas/experts";
 
 const EXPERT: Expert = {
@@ -118,5 +122,167 @@ describe("auditFeed metrics", () => {
     };
     const row = auditFeed(EXPERT, feed, NOW);
     expect(row.date_quality).toBe("degraded");
+  });
+});
+
+describe("deriveFlags boundary behavior", () => {
+  const ago = (days: number) =>
+    new Date(NOW.getTime() - days * 24 * 60 * 60 * 1000);
+
+  it("ALIVE fires at exactly 3 items in last 90d, not 2", () => {
+    expect(
+      deriveFlags(
+        {
+          items_last_90d: 3,
+          most_recent: ago(1),
+          avg_content_chars: 9999,
+          paywall_hit_rate: 0,
+        },
+        NOW,
+      ).ALIVE,
+    ).toBe(true);
+    expect(
+      deriveFlags(
+        {
+          items_last_90d: 2,
+          most_recent: ago(1),
+          avg_content_chars: 9999,
+          paywall_hit_rate: 0,
+        },
+        NOW,
+      ).ALIVE,
+    ).toBe(false);
+  });
+
+  it("RECENT fires at exactly 30 days, not 31", () => {
+    expect(
+      deriveFlags(
+        {
+          items_last_90d: 5,
+          most_recent: ago(30),
+          avg_content_chars: 9999,
+          paywall_hit_rate: 0,
+        },
+        NOW,
+      ).RECENT,
+    ).toBe(true);
+    expect(
+      deriveFlags(
+        {
+          items_last_90d: 5,
+          most_recent: ago(31),
+          avg_content_chars: 9999,
+          paywall_hit_rate: 0,
+        },
+        NOW,
+      ).RECENT,
+    ).toBe(false);
+  });
+
+  it("SUBSTANTIVE fires at exactly 2000 avg chars, not 1999", () => {
+    expect(
+      deriveFlags(
+        {
+          items_last_90d: 5,
+          most_recent: ago(1),
+          avg_content_chars: 2000,
+          paywall_hit_rate: 0,
+        },
+        NOW,
+      ).SUBSTANTIVE,
+    ).toBe(true);
+    expect(
+      deriveFlags(
+        {
+          items_last_90d: 5,
+          most_recent: ago(1),
+          avg_content_chars: 1999,
+          paywall_hit_rate: 0,
+        },
+        NOW,
+      ).SUBSTANTIVE,
+    ).toBe(false);
+  });
+
+  it("LOW_PAYWALL fires when rate is strictly less than 0.5", () => {
+    expect(
+      deriveFlags(
+        {
+          items_last_90d: 5,
+          most_recent: ago(1),
+          avg_content_chars: 9999,
+          paywall_hit_rate: 0.49,
+        },
+        NOW,
+      ).LOW_PAYWALL,
+    ).toBe(true);
+    expect(
+      deriveFlags(
+        {
+          items_last_90d: 5,
+          most_recent: ago(1),
+          avg_content_chars: 9999,
+          paywall_hit_rate: 0.5,
+        },
+        NOW,
+      ).LOW_PAYWALL,
+    ).toBe(false);
+  });
+
+  it("RECENT is false when most_recent is null", () => {
+    expect(
+      deriveFlags(
+        {
+          items_last_90d: 0,
+          most_recent: null,
+          avg_content_chars: 0,
+          paywall_hit_rate: 0,
+        },
+        NOW,
+      ).RECENT,
+    ).toBe(false);
+  });
+});
+
+describe("deriveVerdict", () => {
+  const allTrue: import("@/scripts/audit-experts").Flags = {
+    ALIVE: true,
+    RECENT: true,
+    SUBSTANTIVE: true,
+    LOW_PAYWALL: true,
+  };
+  const allFalse: import("@/scripts/audit-experts").Flags = {
+    ALIVE: false,
+    RECENT: false,
+    SUBSTANTIVE: false,
+    LOW_PAYWALL: false,
+  };
+
+  it("returns reject on fetch failure regardless of metrics", () => {
+    expect(deriveVerdict("error:timeout", 0, allFalse)).toBe("reject");
+    expect(deriveVerdict("error:dns", 10, allTrue)).toBe("reject");
+  });
+
+  it("returns defer when total_items is 0 or ALIVE is false", () => {
+    expect(deriveVerdict("ok", 0, allTrue)).toBe("defer");
+    expect(deriveVerdict("ok", 10, { ...allTrue, ALIVE: false })).toBe(
+      "defer",
+    );
+  });
+
+  it("returns promote_candidate only when all four flags pass", () => {
+    expect(deriveVerdict("ok", 10, allTrue)).toBe("promote_candidate");
+  });
+
+  it("returns review when ALIVE but some other flag fails", () => {
+    expect(deriveVerdict("ok", 10, { ...allTrue, RECENT: false })).toBe(
+      "review",
+    );
+    expect(deriveVerdict("ok", 10, { ...allTrue, SUBSTANTIVE: false })).toBe(
+      "review",
+    );
+    expect(deriveVerdict("ok", 10, { ...allTrue, LOW_PAYWALL: false })).toBe(
+      "review",
+    );
   });
 });
