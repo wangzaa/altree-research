@@ -25,6 +25,10 @@ export const UniverseTickerSchema = z
     region: RegionSchema,
     market_cap_usd_b: z.number().nonnegative(),
     exposure_tier: ExposureTierSchema,
+    /** Optional one-line justification for the exposure_tier classification.
+     * Populated by the universe-discoverer; rendered as a tooltip on the
+     * exposure cell so analysts can verify the call. */
+    exposure_rationale: z.string().optional(),
     transcript_source: TranscriptSourceSchema.optional(),
     transcript_url: z.string().url().optional(),
     notes: z.string().default(""),

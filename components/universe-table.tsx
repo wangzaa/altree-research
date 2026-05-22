@@ -167,26 +167,39 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
                   {Math.round(t.market_cap_usd_b).toLocaleString()}
                 </td>
                 <td className="px-3 py-2">
-                  <select
-                    value={t.exposure_tier}
-                    onChange={(e) =>
-                      updateRow(i, {
-                        exposure_tier: e.target.value as ExposureTier,
-                      })
-                    }
-                    className="rounded px-2 py-1 text-xs"
-                    style={{
-                      background: "white",
-                      border: "1px solid #E5E5E5",
-                      color: "var(--color-black)",
-                    }}
-                  >
-                    {TIER_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={t.exposure_tier}
+                      onChange={(e) =>
+                        updateRow(i, {
+                          exposure_tier: e.target.value as ExposureTier,
+                        })
+                      }
+                      title={t.exposure_rationale ?? undefined}
+                      className="rounded px-2 py-1 text-xs"
+                      style={{
+                        background: "white",
+                        border: "1px solid #E5E5E5",
+                        color: "var(--color-black)",
+                      }}
+                    >
+                      {TIER_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                    {t.exposure_rationale ? (
+                      <span
+                        title={t.exposure_rationale}
+                        aria-label="Exposure rationale"
+                        className="cursor-help text-xs"
+                        style={{ color: "#585858" }}
+                      >
+                        &#9432;
+                      </span>
+                    ) : null}
+                  </div>
                 </td>
                 <td className="px-3 py-2">
                   <input

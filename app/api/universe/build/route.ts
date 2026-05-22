@@ -199,6 +199,7 @@ export async function POST(req: Request) {
         region,
         market_cap_usd_b: mcapUsd / 1e9,
         exposure_tier: proposed.exposure_tier,
+        exposure_rationale: proposed.exposure_rationale || undefined,
         notes: proposed.notes,
       });
     }

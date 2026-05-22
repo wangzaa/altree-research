@@ -20,6 +20,7 @@ export interface ProposedTicker {
   ticker: string;
   exposure_tier: "pure_play" | "diversified" | "etf_proxy";
   notes: string;
+  exposure_rationale: string;
 }
 
 export type DiscoverUniverseResult =
@@ -38,6 +39,7 @@ const ProposedTickerSchema = z
     ticker: z.string().min(1),
     exposure_tier: ExposureTierSchema,
     notes: z.string().default(""),
+    exposure_rationale: z.string().default(""),
   })
   .strict();
 
@@ -71,10 +73,21 @@ const proposeUniverseTool: ToolSpec = {
             },
             notes: {
               type: "string",
-              description: "One-line why this is a peer or what makes it a proxy.",
+              description:
+                "One-line note explaining what makes this ticker a comparable peer to the anchor for THIS thesis. Be specific about the business model overlap. Examples: 'Korean DRAM/NAND maker, direct peer to anchor', 'US analog/embedded semis, secondary exposure to AI capex cycle', 'Broad US semis ETF, sector proxy'. DO NOT echo the company name — that is redundant with the Name column. Keep under 80 chars.",
+            },
+            exposure_rationale: {
+              type: "string",
+              description:
+                "One-line justification for the exposure_tier classification. pure_play means the thesis driver is the company's single dominant business; diversified means the exposure is present but is one of several segments; etf_proxy means a basket. Examples: 'Memory chips are >80% of revenue', 'Strong AI capex exposure but also legacy industrial automation', 'Tracks SOX index'. Keep under 80 chars.",
             },
           },
-          required: ["ticker", "exposure_tier", "notes"],
+          required: [
+            "ticker",
+            "exposure_tier",
+            "notes",
+            "exposure_rationale",
+          ],
         },
       },
     },
