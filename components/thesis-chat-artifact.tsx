@@ -29,6 +29,23 @@ function isDiffEmpty(diff: ThesisDiff): boolean {
   );
 }
 
+function Stagger({
+  index,
+  children,
+}: {
+  index: number;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="bubble-enter"
+      style={{ ["--bubble-index" as string]: index } as React.CSSProperties}
+    >
+      {children}
+    </div>
+  );
+}
+
 function DiffLines({ diff }: { diff: ThesisDiff }) {
   if (isDiffEmpty(diff)) {
     return (
@@ -155,23 +172,6 @@ export function ThesisChatArtifact({
   // + the refine flow bubbles so they continue the cascade smoothly.
   const promptIndex = bubbles.length;
   let afterIndex = promptIndex + 1;
-
-  function Stagger({
-    index,
-    children,
-  }: {
-    index: number;
-    children: ReactNode;
-  }) {
-    return (
-      <div
-        className="bubble-enter"
-        style={{ ["--bubble-index" as string]: index } as React.CSSProperties}
-      >
-        {children}
-      </div>
-    );
-  }
 
   return (
     <ChatThread>

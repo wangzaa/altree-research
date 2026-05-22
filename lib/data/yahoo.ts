@@ -6,7 +6,12 @@ const yahooFinance = new YahooFinance();
 
 export interface Quote {
   name: string;
-  market_cap_usd: number | null;
+  /** Market cap in the LISTING's local reporting currency. Yahoo returns
+   * `marketCap` in the trading currency (KRW for .KS, JPY for .T, etc.).
+   * Callers convert to USD via lib/data/fx#toUsd before persisting. */
+  market_cap_local: number | null;
+  /** ISO-4217 currency of `market_cap_local`. */
+  currency: string | null;
 }
 
 export interface Fundamentals {
@@ -22,11 +27,23 @@ export async function getQuote(ticker: string): Promise<Quote | null> {
       longName?: string;
       shortName?: string;
       marketCap?: number;
+      currency?: string;
+      financialCurrency?: string;
     };
     const name = r.longName ?? r.shortName;
     if (!name) return null;
-    const market_cap_usd = typeof r.marketCap === "number" ? r.marketCap : null;
-    return { name, market_cap_usd };
+    const market_cap_local =
+      typeof r.marketCap === "number" ? r.marketCap : null;
+    // Trading currency is the right one for marketCap; financialCurrency
+    // tracks the reporting currency on the income statement (often the
+    // same, but for ADRs they diverge).
+    const currency =
+      typeof r.currency === "string"
+        ? r.currency
+        : typeof r.financialCurrency === "string"
+          ? r.financialCurrency
+          : null;
+    return { name, market_cap_local, currency };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[lib/data/yahoo] getQuote error for ${ticker}:`, message);

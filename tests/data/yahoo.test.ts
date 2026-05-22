@@ -19,15 +19,20 @@ describe("getQuote", () => {
     quoteMock.mockReset();
   });
 
-  it("returns { name, market_cap_usd } on success", async () => {
+  it("returns { name, market_cap_local, currency } on success", async () => {
     quoteMock.mockResolvedValueOnce({
       longName: "Rheinmetall AG",
       shortName: "Rheinmetall",
       marketCap: 38_000_000_000,
+      currency: "EUR",
     });
     const { getQuote } = await import("@/lib/data/yahoo");
     const result = await getQuote("RHM.DE");
-    expect(result).toEqual({ name: "Rheinmetall AG", market_cap_usd: 38_000_000_000 });
+    expect(result).toEqual({
+      name: "Rheinmetall AG",
+      market_cap_local: 38_000_000_000,
+      currency: "EUR",
+    });
     expect(quoteMock).toHaveBeenCalledWith("RHM.DE");
   });
 
@@ -35,19 +40,36 @@ describe("getQuote", () => {
     quoteMock.mockResolvedValueOnce({
       shortName: "Rheinmetall",
       marketCap: 1_000_000_000,
+      currency: "EUR",
     });
     const { getQuote } = await import("@/lib/data/yahoo");
     const result = await getQuote("RHM.DE");
     expect(result?.name).toBe("Rheinmetall");
   });
 
-  it("returns { name, market_cap_usd: null } when marketCap missing", async () => {
+  it("returns market_cap_local: null when marketCap missing", async () => {
     quoteMock.mockResolvedValueOnce({
       longName: "Some Name",
+      currency: "USD",
     });
     const { getQuote } = await import("@/lib/data/yahoo");
     const result = await getQuote("XYZ");
-    expect(result).toEqual({ name: "Some Name", market_cap_usd: null });
+    expect(result).toEqual({
+      name: "Some Name",
+      market_cap_local: null,
+      currency: "USD",
+    });
+  });
+
+  it("falls back to financialCurrency when currency missing on the quote", async () => {
+    quoteMock.mockResolvedValueOnce({
+      longName: "Korean Listed Co",
+      marketCap: 1_000_000_000_000,
+      financialCurrency: "KRW",
+    });
+    const { getQuote } = await import("@/lib/data/yahoo");
+    const result = await getQuote("000660.KS");
+    expect(result?.currency).toBe("KRW");
   });
 
   it("returns null when the quote throws", async () => {

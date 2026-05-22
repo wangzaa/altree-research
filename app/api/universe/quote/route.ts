@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRegionForTicker } from "@/lib/data/regions";
 import { getQuote } from "@/lib/data/yahoo";
+import { toUsd } from "@/lib/data/fx";
 
 export async function GET(req: Request) {
   const user = await getCurrentUser();
@@ -27,5 +28,9 @@ export async function GET(req: Request) {
   if (!quote) {
     return NextResponse.json({ error: "lookup_failed" }, { status: 502 });
   }
-  return NextResponse.json(quote, { status: 200 });
+  const market_cap_usd = toUsd(quote.market_cap_local, quote.currency);
+  return NextResponse.json(
+    { name: quote.name, market_cap_usd, currency: quote.currency },
+    { status: 200 },
+  );
 }

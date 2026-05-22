@@ -189,7 +189,7 @@ describe("POST /api/universe/build", () => {
       data: { id: thesis.id, user_id: thesis.createdBy, thesis },
       error: null,
     });
-    getQuoteMock.mockResolvedValueOnce({ name: "Rheinmetall AG", market_cap_usd: 38e9 });
+    getQuoteMock.mockResolvedValueOnce({ name: "Rheinmetall AG", market_cap_local: 38e9, currency: "USD" });
     getFundamentalsMock.mockResolvedValueOnce({
       sector: "Industrials",
       industry: "Aerospace & Defense",
@@ -216,7 +216,7 @@ describe("POST /api/universe/build", () => {
       data: { id: thesis.id, user_id: thesis.createdBy, thesis },
       error: null,
     });
-    getQuoteMock.mockResolvedValueOnce({ name: "Rheinmetall AG", market_cap_usd: 38e9 });
+    getQuoteMock.mockResolvedValueOnce({ name: "Rheinmetall AG", market_cap_local: 38e9, currency: "USD" });
     getFundamentalsMock.mockResolvedValueOnce({});
     discoverUniverseMock.mockResolvedValueOnce({
       ok: true,
@@ -226,7 +226,7 @@ describe("POST /api/universe/build", () => {
       ],
     });
     // All peers fall below market_cap_min_usd
-    getQuoteMock.mockResolvedValue({ name: "Tiny Co", market_cap_usd: 100 });
+    getQuoteMock.mockResolvedValue({ name: "Tiny Co", market_cap_local: 100, currency: "USD" });
     const { POST } = await import("@/app/api/universe/build/route");
     const res = await POST(
       makeRequest({ thesis_id: thesis.id, anchor_ticker: "RHM.DE" }),
@@ -253,7 +253,7 @@ describe("POST /api/universe/build", () => {
     // anchor enrichment
     getQuoteMock.mockResolvedValueOnce({
       name: "Rheinmetall AG",
-      market_cap_usd: 38e9,
+      market_cap_local: 38e9, currency: "USD",
     });
     getFundamentalsMock.mockResolvedValueOnce({
       sector: "Industrials",
@@ -273,12 +273,12 @@ describe("POST /api/universe/build", () => {
       ],
     });
     // peer enrichment, in order
-    getQuoteMock.mockResolvedValueOnce({ name: "BAE Systems plc", market_cap_usd: 52e9 });
-    getQuoteMock.mockResolvedValueOnce({ name: "Leonardo S.p.A.", market_cap_usd: 18e9 });
-    getQuoteMock.mockResolvedValueOnce({ name: "Saab AB", market_cap_usd: 14e9 });
-    getQuoteMock.mockResolvedValueOnce({ name: "Dassault Aviation SA", market_cap_usd: 25e9 });
+    getQuoteMock.mockResolvedValueOnce({ name: "BAE Systems plc", market_cap_local: 52e9, currency: "USD" });
+    getQuoteMock.mockResolvedValueOnce({ name: "Leonardo S.p.A.", market_cap_local: 18e9, currency: "USD" });
+    getQuoteMock.mockResolvedValueOnce({ name: "Saab AB", market_cap_local: 14e9, currency: "USD" });
+    getQuoteMock.mockResolvedValueOnce({ name: "Dassault Aviation SA", market_cap_local: 25e9, currency: "USD" });
     // STUB.ZZ never hits getQuote — unknown suffix drops first
-    getQuoteMock.mockResolvedValueOnce({ name: "Tiny Co", market_cap_usd: 100_000 });
+    getQuoteMock.mockResolvedValueOnce({ name: "Tiny Co", market_cap_local: 100_000, currency: "USD" });
     getQuoteMock.mockResolvedValueOnce(null); // DEAD.MI
 
     const { POST } = await import("@/app/api/universe/build/route");

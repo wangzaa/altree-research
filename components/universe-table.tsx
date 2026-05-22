@@ -164,7 +164,7 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
                 <td className="px-3 py-2 text-neutral-900">{t.name}</td>
                 <td className="px-3 py-2 text-xs text-neutral-700">{t.region}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-neutral-900">
-                  {t.market_cap_usd_b.toFixed(1)}
+                  {Math.round(t.market_cap_usd_b).toLocaleString()}
                 </td>
                 <td className="px-3 py-2">
                   <select

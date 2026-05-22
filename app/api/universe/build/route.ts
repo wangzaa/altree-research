@@ -3,6 +3,7 @@ import { z } from "zod";
 import { discoverUniverse } from "@/lib/agents/universe-discoverer";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getQuote, getFundamentals } from "@/lib/data/yahoo";
+import { toUsd } from "@/lib/data/fx";
 import { getRegionForTicker } from "@/lib/data/regions";
 import { ThesisIdSchema, type Thesis } from "@/lib/schemas/thesis";
 import {
@@ -21,7 +22,11 @@ const BodySchema = z.object({
 
 interface DroppedTicker {
   ticker: string;
-  reason: "unknown_suffix" | "yahoo_lookup_failed" | "below_market_cap_floor";
+  reason:
+    | "unknown_suffix"
+    | "yahoo_lookup_failed"
+    | "unknown_currency"
+    | "below_market_cap_floor";
 }
 
 const MIN_SURVIVORS = 5;
@@ -91,6 +96,8 @@ export async function POST(req: Request) {
       payload: { anchor: anchor_ticker, model: discovererModel },
     });
 
+    const anchorMcapUsd = toUsd(anchorQuote.market_cap_local, anchorQuote.currency);
+
     let discovery;
     try {
       discovery = await discoverUniverse({
@@ -100,7 +107,7 @@ export async function POST(req: Request) {
           name: anchorQuote.name,
           sector: anchorFundamentals.sector,
           industry: anchorFundamentals.industry,
-          market_cap_usd: anchorQuote.market_cap_usd,
+          market_cap_usd: anchorMcapUsd,
         },
       });
     } catch (err) {
@@ -156,7 +163,7 @@ export async function POST(req: Request) {
       ticker: anchor_ticker,
       name: anchorQuote.name,
       region: anchorRegion,
-      market_cap_usd_b: (anchorQuote.market_cap_usd ?? 0) / 1e9,
+      market_cap_usd_b: (anchorMcapUsd ?? 0) / 1e9,
       exposure_tier: "pure_play",
       notes: "Anchor",
     };
@@ -174,10 +181,12 @@ export async function POST(req: Request) {
         dropped.push({ ticker: proposed.ticker, reason: "yahoo_lookup_failed" });
         continue;
       }
-      if (
-        quote.market_cap_usd === null ||
-        quote.market_cap_usd < thesis.scope.market_cap_min_usd
-      ) {
+      const mcapUsd = toUsd(quote.market_cap_local, quote.currency);
+      if (mcapUsd === null) {
+        dropped.push({ ticker: proposed.ticker, reason: "unknown_currency" });
+        continue;
+      }
+      if (mcapUsd < thesis.scope.market_cap_min_usd) {
         dropped.push({
           ticker: proposed.ticker,
           reason: "below_market_cap_floor",
@@ -188,7 +197,7 @@ export async function POST(req: Request) {
         ticker: proposed.ticker,
         name: quote.name,
         region,
-        market_cap_usd_b: quote.market_cap_usd / 1e9,
+        market_cap_usd_b: mcapUsd / 1e9,
         exposure_tier: proposed.exposure_tier,
         notes: proposed.notes,
       });
