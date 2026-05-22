@@ -28,6 +28,40 @@ describe("<UniverseTable>", () => {
     expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
   });
 
+  it("sorts rows ascending then descending when the Ticker header is clicked twice", async () => {
+    const user = userEvent.setup();
+    const u = cloneCanonicalUniverse();
+    render(<UniverseTable initial={u} onSaved={vi.fn()} onRefresh={vi.fn()} />);
+    const header = screen.getByRole("button", { name: /^Ticker/i });
+
+    await user.click(header);
+    // Asc: tickers should be lexicographically sorted.
+    const rowsAsc = Array.from(document.querySelectorAll("tbody tr"))
+      .map((r) => r.querySelector("td")?.textContent ?? "");
+    const sortedAsc = [...rowsAsc].sort();
+    expect(rowsAsc).toEqual(sortedAsc);
+
+    await user.click(header);
+    const rowsDesc = Array.from(document.querySelectorAll("tbody tr"))
+      .map((r) => r.querySelector("td")?.textContent ?? "");
+    const sortedDesc = [...rowsAsc].sort().reverse();
+    expect(rowsDesc).toEqual(sortedDesc);
+  });
+
+  it("sorts rows numerically by Mcap when its header is clicked", async () => {
+    const user = userEvent.setup();
+    const u = cloneCanonicalUniverse();
+    render(<UniverseTable initial={u} onSaved={vi.fn()} onRefresh={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /Mcap/i }));
+    const mcapCells = Array.from(document.querySelectorAll("tbody tr"))
+      .map((r) => {
+        const cells = r.querySelectorAll("td");
+        return Number(cells[3]?.textContent?.replace(/,/g, "") ?? "0");
+      });
+    const sortedAsc = [...mcapCells].sort((a, b) => a - b);
+    expect(mcapCells).toEqual(sortedAsc);
+  });
+
   it("editing notes enables Save and PATCHes with the full payload on click", async () => {
     const user = userEvent.setup();
     const u = cloneCanonicalUniverse();

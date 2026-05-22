@@ -15,6 +15,42 @@ interface YahooQuoteResponse {
   market_cap_usd: number | null;
 }
 
+type SortKey = "ticker" | "name" | "region" | "market_cap_usd_b" | "exposure_tier";
+type SortDir = "asc" | "desc";
+
+function SortHeader({
+  label,
+  columnKey,
+  active,
+  dir,
+  onToggle,
+  align = "left",
+}: {
+  label: string;
+  columnKey: SortKey;
+  active: boolean;
+  dir: SortDir;
+  onToggle: (key: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  const arrow = !active ? "" : dir === "asc" ? " ↑" : " ↓";
+  return (
+    <th
+      className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"} font-medium`}
+    >
+      <button
+        type="button"
+        onClick={() => onToggle(columnKey)}
+        className="inline-flex items-center gap-1 hover:underline"
+        style={{ color: active ? "var(--color-black)" : "#585858" }}
+      >
+        {label}
+        {arrow}
+      </button>
+    </th>
+  );
+}
+
 const TIER_OPTIONS: ExposureTier[] = ["pure_play", "diversified", "etf_proxy"];
 
 function ticketsEqual(a: UniverseTicker[], b: UniverseTicker[]): boolean {
@@ -50,6 +86,35 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
     () => !ticketsEqual(tickers, initial.tickers),
     [tickers, initial.tickers],
   );
+
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  // Sort produces a display-only order; edits still go through the original
+  // tickers array via `originalIndex` so row identity stays stable.
+  const displayRows = useMemo(() => {
+    const indexed = tickers.map((t, originalIndex) => ({ t, originalIndex }));
+    if (sortKey === null) return indexed;
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...indexed].sort((a, b) => {
+      const av = a.t[sortKey];
+      const bv = b.t[sortKey];
+      if (typeof av === "number" && typeof bv === "number") {
+        return (av - bv) * dir;
+      }
+      return String(av ?? "").localeCompare(String(bv ?? "")) * dir;
+    });
+  }, [tickers, sortKey, sortDir]);
+
 
   function updateRow(index: number, patch: Partial<UniverseTicker>) {
     setJustSavedAt(null);
@@ -148,17 +213,17 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
         <table className="min-w-full divide-y divide-neutral-200 text-sm">
           <thead style={{ background: "#F5F4F2", color: "#585858" }}>
             <tr>
-              <th className="px-3 py-2 text-left font-medium">Ticker</th>
-              <th className="px-3 py-2 text-left font-medium">Name</th>
-              <th className="px-3 py-2 text-left font-medium">Region</th>
-              <th className="px-3 py-2 text-right font-medium">Mcap (USD bn)</th>
-              <th className="px-3 py-2 text-left font-medium">Exposure</th>
+              <SortHeader label="Ticker" columnKey="ticker" active={sortKey === "ticker"} dir={sortDir} onToggle={toggleSort} />
+              <SortHeader label="Name" columnKey="name" active={sortKey === "name"} dir={sortDir} onToggle={toggleSort} />
+              <SortHeader label="Region" columnKey="region" active={sortKey === "region"} dir={sortDir} onToggle={toggleSort} />
+              <SortHeader label="Mcap (USD B)" columnKey="market_cap_usd_b" active={sortKey === "market_cap_usd_b"} dir={sortDir} onToggle={toggleSort} align="right" />
+              <SortHeader label="Exposure" columnKey="exposure_tier" active={sortKey === "exposure_tier"} dir={sortDir} onToggle={toggleSort} />
               <th className="px-3 py-2 text-left font-medium">Notes</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100 bg-white">
-            {tickers.map((t, i) => (
+            {displayRows.map(({ t, originalIndex: i }) => (
               <tr key={`${t.ticker}-${i}`}>
                 <td className="px-3 py-2 font-mono text-xs text-neutral-900">{t.ticker}</td>
                 <td className="px-3 py-2 text-neutral-900">{t.name}</td>
