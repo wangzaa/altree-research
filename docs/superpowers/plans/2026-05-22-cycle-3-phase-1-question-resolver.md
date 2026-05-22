@@ -98,7 +98,7 @@ describe("DerivableHintSchema", () => {
       metric: "revenue_growth_yoy",
       direction: "desc",
       limit: 5,
-      filter: { exposure_tier: 1 },
+      filter: { exposure_tier: "pure_play" },
     });
     expect(parsed.op).toBe("rank_by_metric");
   });
@@ -113,7 +113,7 @@ describe("DerivableHintSchema", () => {
   it("parses a filter_count hint", () => {
     const parsed = DerivableHintSchema.parse({
       op: "filter_count",
-      filter: { region: "KR" },
+      filter: { region: "KOREA" },
     });
     expect(parsed.op).toBe("filter_count");
   });
@@ -222,6 +222,7 @@ Create `lib/schemas/question.ts`:
 
 ```typescript
 import { z } from "zod";
+import { ExposureTierSchema, RegionSchema } from "@/lib/schemas/universe";
 
 export const QuestionCategorySchema = z.enum([
   "derivable",
@@ -239,10 +240,17 @@ export const ScanMetricSchema = z.enum([
 ]);
 export type ScanMetric = z.infer<typeof ScanMetricSchema>;
 
+export const DerivableOpSchema = z.enum([
+  "rank_by_metric",
+  "aggregate_by_group",
+  "filter_count",
+]);
+export type DerivableOp = z.infer<typeof DerivableOpSchema>;
+
 export const GroupFilterSchema = z
   .object({
-    region: z.string().min(1).optional(),
-    exposure_tier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+    region: RegionSchema.optional(),
+    exposure_tier: ExposureTierSchema.optional(),
   })
   .strict();
 export type GroupFilter = z.infer<typeof GroupFilterSchema>;
@@ -323,8 +331,8 @@ export type ClassifiedQuestion = z.infer<typeof ClassifiedQuestionSchema>;
 export const DerivableSourcesSchema = z
   .object({
     tickers: z.array(z.string().min(1)),
-    scan_column: z.string().min(1),
-    op: z.enum(["rank_by_metric", "aggregate_by_group", "filter_count"]),
+    scan_column: z.union([ScanMetricSchema, z.literal("n/a")]),
+    op: DerivableOpSchema,
   })
   .strict();
 export type DerivableSources = z.infer<typeof DerivableSourcesSchema>;
@@ -459,13 +467,13 @@ import type { DerivableHint } from "@/lib/schemas/question";
 const universe: Universe = {
   id: "u1",
   gics_codes: ["452030"],
-  regions: ["KR", "US"],
+  regions: ["KOREA", "US"],
   market_cap_min_usd: 1_000_000_000,
   tickers: [
-    { ticker: "000660.KS", name: "SK Hynix", region: "KR", market_cap_usd_b: 90, exposure_tier: 1, exposure_rationale: "x", transcript_source: null, notes: null },
-    { ticker: "005930.KS", name: "Samsung",  region: "KR", market_cap_usd_b: 350, exposure_tier: 1, exposure_rationale: "x", transcript_source: null, notes: null },
-    { ticker: "MU",        name: "Micron",   region: "US", market_cap_usd_b: 120, exposure_tier: 2, exposure_rationale: "x", transcript_source: null, notes: null },
-    { ticker: "WDC",       name: "WD",       region: "US", market_cap_usd_b: 20,  exposure_tier: 3, exposure_rationale: "x", transcript_source: null, notes: null },
+    { ticker: "000660.KS", name: "SK Hynix", region: "KOREA", market_cap_usd_b: 90, exposure_tier: "pure_play", exposure_rationale: "x", transcript_source: null, notes: null },
+    { ticker: "005930.KS", name: "Samsung",  region: "KOREA", market_cap_usd_b: 350, exposure_tier: "pure_play", exposure_rationale: "x", transcript_source: null, notes: null },
+    { ticker: "MU",        name: "Micron",   region: "US", market_cap_usd_b: 120, exposure_tier: "diversified", exposure_rationale: "x", transcript_source: null, notes: null },
+    { ticker: "WDC",       name: "WD",       region: "US", market_cap_usd_b: 20,  exposure_tier: "etf_proxy", exposure_rationale: "x", transcript_source: null, notes: null },
   ],
 };
 
@@ -510,7 +518,7 @@ describe("resolveDerivable — rank_by_metric", () => {
       metric: "ebitda_margin",
       direction: "desc",
       limit: 5,
-      filter: { exposure_tier: 1 },
+      filter: { exposure_tier: "pure_play" },
     };
     const result = resolveDerivable(hint, scan, universe);
     expect(result.ok).toBe(true);
@@ -565,7 +573,7 @@ describe("resolveDerivable — aggregate_by_group", () => {
       op: "aggregate_by_group",
       metric: "ebitda_margin",
       aggregator: "mean",
-      filter: { region: "KR" },
+      filter: { region: "KOREA" },
     };
     const result = resolveDerivable(hint, scan, universe);
     expect(result.ok).toBe(true);
@@ -592,7 +600,7 @@ describe("resolveDerivable — filter_count", () => {
   it("counts KR tickers in the universe", () => {
     const hint: DerivableHint = {
       op: "filter_count",
-      filter: { region: "KR" },
+      filter: { region: "KOREA" },
     };
     const result = resolveDerivable(hint, scan, universe);
     expect(result.ok).toBe(true);
@@ -601,9 +609,9 @@ describe("resolveDerivable — filter_count", () => {
     expect(result.answer.sources.tickers).toEqual(["000660.KS", "005930.KS"]);
   });
 
-  it("counts tier-1 tickers", () => {
+  it("counts pure-play tickers", () => {
     const result = resolveDerivable(
-      { op: "filter_count", filter: { exposure_tier: 1 } },
+      { op: "filter_count", filter: { exposure_tier: "pure_play" } },
       scan,
       universe,
     );
@@ -621,7 +629,7 @@ describe("resolveDerivable — edge cases", () => {
         metric: "revenue_growth_yoy",
         direction: "desc",
         limit: 3,
-        filter: { region: "JP" },
+        filter: { region: "JAPAN" },
       },
       scan,
       universe,
@@ -874,7 +882,7 @@ const thesis: Thesis = {
   createdAt: "2026-05-22T00:00:00Z",
   narrative: "Korean memory leaders are mispriced vs US peers.",
   sectors: ["semiconductors"],
-  regions: ["KR", "US"],
+  regions: ["KOREA", "US"],
   drivers: [],
   // Add other required fields as a minimal mock — extend per the real Thesis shape if needed.
 } as unknown as Thesis;
@@ -1011,7 +1019,7 @@ export type ClassifyQuestionsResult =
 const SYSTEM_PROMPT = `You classify analyst open-questions into one of five resolution categories so a downstream system can route each question to the right resolver.
 
 Categories:
-- derivable: answerable purely from scan + universe data already in hand. Use ONLY when the question is about ranking, aggregating, or counting universe tickers on a metric we already have. Supported metrics: revenue_growth_yoy, ebitda_margin, market_cap_usd_b. Supported filters: region (e.g. KR, US, JP), exposure_tier (1, 2, 3). Supported ops: rank_by_metric (top/bottom N), aggregate_by_group (median/mean/max/min), filter_count.
+- derivable: answerable purely from scan + universe data already in hand. Use ONLY when the question is about ranking, aggregating, or counting universe tickers on a metric we already have. Supported metrics: revenue_growth_yoy, ebitda_margin, market_cap_usd_b. Supported filters: region (canonical codes: US, KOREA, JAPAN, GREATER_CHINA, EUROZONE, …), exposure_tier (pure_play, diversified, etf_proxy). Supported ops: rank_by_metric (top/bottom N), aggregate_by_group (median/mean/max/min), filter_count. You MUST use these exact enum values for region and exposure_tier — any other string will be rejected by the schema.
 - fundamentals_extra: a fundamentals field Yahoo could provide that isn't in the current scan (segment revenue, share count, balance-sheet items). Out of scope for now.
 - corpus: answerable from the expert substack corpus (covered analysts, sectors). Anything about analyst commentary, expert outlook, qualitative views from named publications.
 - web: external research needed. Industry analyst reports, regulatory developments, forward roadmap claims, anything requiring fresh public sources.
@@ -1482,8 +1490,8 @@ const UNIVERSE_FIXTURE = {
   regions: ["US"],
   market_cap_min_usd: 1_000_000_000,
   tickers: [
-    { ticker: "AAA", name: "Alpha", region: "US", market_cap_usd_b: 50, exposure_tier: 1, exposure_rationale: "x", transcript_source: null, notes: null },
-    { ticker: "BBB", name: "Beta",  region: "US", market_cap_usd_b: 30, exposure_tier: 1, exposure_rationale: "x", transcript_source: null, notes: null },
+    { ticker: "AAA", name: "Alpha", region: "US", market_cap_usd_b: 50, exposure_tier: "pure_play", exposure_rationale: "x", transcript_source: null, notes: null },
+    { ticker: "BBB", name: "Beta",  region: "US", market_cap_usd_b: 30, exposure_tier: "pure_play", exposure_rationale: "x", transcript_source: null, notes: null },
   ],
 };
 
@@ -1605,7 +1613,7 @@ describe("POST /api/question/resolve", () => {
           metric: "ebitda_margin",
           direction: "desc",
           limit: 3,
-          filter: { region: "JP" },
+          filter: { region: "JAPAN" },
         },
       }),
     );

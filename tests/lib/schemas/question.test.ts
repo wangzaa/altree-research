@@ -34,7 +34,7 @@ describe("DerivableHintSchema", () => {
       metric: "revenue_growth_yoy",
       direction: "desc",
       limit: 5,
-      filter: { exposure_tier: 1 },
+      filter: { exposure_tier: "pure_play" },
     });
     expect(parsed.op).toBe("rank_by_metric");
   });
@@ -49,9 +49,25 @@ describe("DerivableHintSchema", () => {
   it("parses a filter_count hint", () => {
     const parsed = DerivableHintSchema.parse({
       op: "filter_count",
-      filter: { region: "KR" },
+      filter: { region: "KOREA" },
     });
     expect(parsed.op).toBe("filter_count");
+  });
+  it("rejects exposure_tier as a numeric tier", () => {
+    expect(() =>
+      DerivableHintSchema.parse({
+        op: "filter_count",
+        filter: { exposure_tier: 1 },
+      }),
+    ).toThrow();
+  });
+  it("rejects a region code outside the canonical enum", () => {
+    expect(() =>
+      DerivableHintSchema.parse({
+        op: "filter_count",
+        filter: { region: "KR" },
+      }),
+    ).toThrow();
   });
   it("rejects an unknown op", () => {
     expect(() =>

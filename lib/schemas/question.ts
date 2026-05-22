@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ExposureTierSchema, RegionSchema } from "@/lib/schemas/universe";
 
 export const QuestionCategorySchema = z.enum([
   "derivable",
@@ -16,10 +17,17 @@ export const ScanMetricSchema = z.enum([
 ]);
 export type ScanMetric = z.infer<typeof ScanMetricSchema>;
 
+export const DerivableOpSchema = z.enum([
+  "rank_by_metric",
+  "aggregate_by_group",
+  "filter_count",
+]);
+export type DerivableOp = z.infer<typeof DerivableOpSchema>;
+
 export const GroupFilterSchema = z
   .object({
-    region: z.string().min(1).optional(),
-    exposure_tier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+    region: RegionSchema.optional(),
+    exposure_tier: ExposureTierSchema.optional(),
   })
   .strict();
 export type GroupFilter = z.infer<typeof GroupFilterSchema>;
@@ -100,8 +108,8 @@ export type ClassifiedQuestion = z.infer<typeof ClassifiedQuestionSchema>;
 export const DerivableSourcesSchema = z
   .object({
     tickers: z.array(z.string().min(1)),
-    scan_column: z.string().min(1),
-    op: z.enum(["rank_by_metric", "aggregate_by_group", "filter_count"]),
+    scan_column: z.union([ScanMetricSchema, z.literal("n/a")]),
+    op: DerivableOpSchema,
   })
   .strict();
 export type DerivableSources = z.infer<typeof DerivableSourcesSchema>;
