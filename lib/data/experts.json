@@ -29,12 +29,184 @@
       "sectors": ["semis"],
       "active": true,
       "notes": "Heavily paywalled per stated policy, but RSS currently returns full content. Re-check if posts shrink to excerpts later."
+    },
+    {
+      "slug": "doomberg",
+      "name": "Doomberg",
+      "author": "Anonymous team",
+      "url": "https://newsletter.doomberg.com",
+      "feed_url": "https://newsletter.doomberg.com/feed",
+      "sectors": ["energy", "materials", "macro"],
+      "active": false,
+      "notes": "Energy, commodities, geopolitics. Mostly paid with free previews — audit RSS yield carefully."
+    },
+    {
+      "slug": "macro_compass",
+      "name": "The Macro Compass",
+      "author": "Alfonso Peccatiello",
+      "url": "https://themacrocompass.substack.com",
+      "feed_url": "https://themacrocompass.substack.com/feed",
+      "sectors": ["macro", "financials"],
+      "active": false,
+      "notes": "Credit cycles, liquidity, central-bank plumbing. Free + paid."
+    },
+    {
+      "slug": "apricitas",
+      "name": "Apricitas Economics",
+      "author": "Joseph Politano",
+      "url": "https://www.apricitas.io",
+      "feed_url": "https://www.apricitas.io/feed",
+      "sectors": ["macro"],
+      "active": false,
+      "notes": "Data-driven economics, US labor / manufacturing / trade. Chart-forward."
+    },
+    {
+      "slug": "concoda",
+      "name": "Concoda",
+      "author": "Greg Barker",
+      "url": "https://concoda.substack.com",
+      "feed_url": "https://concoda.substack.com/feed",
+      "sectors": ["macro", "financials"],
+      "active": false,
+      "notes": "Money-market plumbing (repo, Eurodollar, Fed)."
+    },
+    {
+      "slug": "net_interest",
+      "name": "Net Interest",
+      "author": "Marc Rubinstein",
+      "url": "https://www.netinterest.co",
+      "feed_url": "https://www.netinterest.co/feed",
+      "sectors": ["financials"],
+      "active": false,
+      "notes": "Banks, asset managers, exchanges, fintech."
+    },
+    {
+      "slug": "the_diff",
+      "name": "The Diff",
+      "author": "Byrne Hobart",
+      "url": "https://www.thediff.co",
+      "feed_url": "https://www.thediff.co/feed",
+      "sectors": ["macro", "tech_platforms", "financials"],
+      "active": false,
+      "notes": "Inflections in finance and tech; cross-cutting daily."
+    },
+    {
+      "slug": "yet_another_value",
+      "name": "Yet Another Value Blog",
+      "author": "Andrew Walker",
+      "url": "https://www.yetanothervalueblog.com",
+      "feed_url": "https://www.yetanothervalueblog.com/feed",
+      "sectors": ["value_quality"],
+      "active": false,
+      "notes": "Quirky special situations; media / sports / telecom lean."
+    },
+    {
+      "slug": "speedwell_memos",
+      "name": "Speedwell Memos",
+      "author": "Speedwell Research",
+      "url": "https://www.speedwellmemos.com",
+      "feed_url": "https://www.speedwellmemos.com/feed",
+      "sectors": ["value_quality"],
+      "active": false,
+      "notes": "Long-form business-quality memos."
+    },
+    {
+      "slug": "compounding_quality",
+      "name": "Compounding Quality",
+      "author": "Pieter Slegers",
+      "url": "https://www.compoundingquality.net",
+      "feed_url": "https://www.compoundingquality.net/feed",
+      "sectors": ["value_quality"],
+      "active": false,
+      "notes": "Quality-bias long-duration."
+    },
+    {
+      "slug": "bear_cave",
+      "name": "The Bear Cave",
+      "author": "Edwin Dorsey",
+      "url": "https://thebearcave.substack.com",
+      "feed_url": "https://thebearcave.substack.com/feed",
+      "sectors": ["short_forensic"],
+      "active": false,
+      "notes": "Weekly 'Problems at...' short-biased forensic pieces."
+    },
+    {
+      "slug": "citrini_research",
+      "name": "Citrini Research",
+      "author": "Citrini (pseudonymous)",
+      "url": "https://www.citriniresearch.com",
+      "feed_url": "https://www.citriniresearch.com/feed",
+      "sectors": ["macro", "tech_platforms"],
+      "active": false,
+      "notes": "Thematic cross-asset; AI / industrial policy / fiscal frameworks. Paid-only — audit RSS carefully."
+    },
+    {
+      "slug": "sinocism",
+      "name": "Sinocism",
+      "author": "Bill Bishop",
+      "url": "https://sinocism.com",
+      "feed_url": "https://sinocism.com/feed",
+      "sectors": ["china_asia", "macro"],
+      "active": false,
+      "notes": "China politics + policy daily."
+    },
+    {
+      "slug": "sinica_trivium",
+      "name": "Sinica (Trivium)",
+      "author": "Kaiser Kuo / Trivium team",
+      "url": "https://www.sinicapodcast.com",
+      "feed_url": "https://www.sinicapodcast.com/feed",
+      "sectors": ["china_asia"],
+      "active": false,
+      "notes": "Free podcast tier of Trivium China; institutional product at triviumchina.com."
+    },
+    {
+      "slug": "chinatalk",
+      "name": "ChinaTalk",
+      "author": "Jordan Schneider",
+      "url": "https://www.chinatalk.media",
+      "feed_url": "https://www.chinatalk.media/feed",
+      "sectors": ["china_asia", "tech_platforms", "semis"],
+      "active": false,
+      "notes": "US-China tech / industrial policy / export controls; cross-tagged semis intentionally."
     }
   ],
   "sectors": {
     "semis": {
       "label": "Semiconductors",
       "gics": ["45301010", "45301020"]
+    },
+    "financials": {
+      "label": "Financials",
+      "gics": ["4030"]
+    },
+    "energy": {
+      "label": "Energy",
+      "gics": ["1010"]
+    },
+    "materials": {
+      "label": "Materials",
+      "gics": ["1510"]
+    },
+    "tech_platforms": {
+      "label": "Tech platforms (software + media)",
+      "gics": ["4510", "4520"]
+    },
+    "macro": {
+      "label": "Macro / cross-asset",
+      "gics": []
+    },
+    "value_quality": {
+      "label": "Value / quality style",
+      "gics": []
+    },
+    "short_forensic": {
+      "label": "Short-biased / forensic style",
+      "gics": []
+    },
+    "china_asia": {
+      "label": "China / Asia regional",
+      "gics": []
     }
   }
 }
