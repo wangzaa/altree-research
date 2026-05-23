@@ -9,6 +9,7 @@ import { ScanPanel } from "@/components/scan-panel";
 import { ThesisChatArtifact } from "@/components/thesis-chat-artifact";
 import { UniverseTable } from "@/components/universe-table";
 import { DriverEvidencePanel } from "@/components/driver-evidence-panel";
+import { OpenQuestionsResolver } from "@/components/open-questions-resolver";
 import { PipelineSection } from "@/components/pipeline-layout";
 import type { Memo } from "@/lib/schemas/memo";
 import type { ScanResults } from "@/lib/schemas/scan";
@@ -330,11 +331,10 @@ export function ThesisDetail({
               </ChatBubble>
               {memo.open_questions.length > 0 ? (
                 <ChatBubble from="app" label="Open questions">
-                  <ul className="list-disc pl-5">
-                    {memo.open_questions.map((q, i) => (
-                      <li key={i}>{q}</li>
-                    ))}
-                  </ul>
+                  <OpenQuestionsResolver
+                    thesisId={thesis.id}
+                    questions={memo.open_questions}
+                  />
                 </ChatBubble>
               ) : null}
               <div className="flex items-center justify-end pl-12">

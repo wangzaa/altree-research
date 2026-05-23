@@ -8,5 +8,6 @@
   "bear_researcher":     "anthropic/claude-opus-4-7",
   "bull_synthesiser":    "anthropic/claude-haiku-4-5",
   "bear_synthesiser":    "anthropic/claude-haiku-4-5",
-  "memo_writer":         "anthropic/claude-sonnet-4-6"
+  "memo_writer":         "anthropic/claude-sonnet-4-6",
+  "question_classifier": "anthropic/claude-haiku-4-5"
 }
