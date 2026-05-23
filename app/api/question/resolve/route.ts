@@ -137,6 +137,17 @@ export async function POST(req: Request) {
     }
     const universeCheck = UniverseSchema.safeParse(universeRow.data.universe);
     if (!universeCheck.success) {
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "question",
+        agent: agentLabel,
+        event_type: "error",
+        payload: {
+          category,
+          message: "invalid_state",
+          detail: universeCheck.error.message,
+        },
+      });
       return NextResponse.json(
         { error: "invalid_state", detail: "stored universe failed validation" },
         { status: 500 },
@@ -165,6 +176,17 @@ export async function POST(req: Request) {
     }
     const scanCheck = ScanResultsSchema.safeParse(scanRows[0].results);
     if (!scanCheck.success) {
+      await supabase.from("pipeline_events").insert({
+        thesis_id,
+        stage: "question",
+        agent: agentLabel,
+        event_type: "error",
+        payload: {
+          category,
+          message: "invalid_state",
+          detail: scanCheck.error.message,
+        },
+      });
       return NextResponse.json(
         { error: "invalid_state", detail: "stored scan failed validation" },
         { status: 500 },

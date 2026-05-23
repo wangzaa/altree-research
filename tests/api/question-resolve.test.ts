@@ -295,6 +295,16 @@ describe("POST /api/question/resolve", () => {
     expect(body.answer.sources.tickers.length).toBeGreaterThan(0);
     // start + complete = 2 events
     expect(pipelineInsertMock).toHaveBeenCalledTimes(2);
+    expect(pipelineInsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: "complete",
+        payload: expect.objectContaining({
+          category: "derivable",
+          status: "resolved",
+          ticker_count: expect.any(Number),
+        }),
+      }),
+    );
   });
 
   it("returns 200 unresolvable when filter matches no tickers", async () => {
@@ -327,6 +337,101 @@ describe("POST /api/question/resolve", () => {
     expect(body.status).toBe("unresolvable");
     expect(body.category).toBe("derivable");
     expect(typeof body.message).toBe("string");
+    expect(pipelineInsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: "complete",
+        payload: expect.objectContaining({
+          category: "derivable",
+          status: "unresolvable",
+          reason: expect.any(String),
+        }),
+      }),
+    );
+  });
+
+  it("returns 500 invalid_state when stored universe fails validation", async () => {
+    const { thesis } = buildFixtures();
+    getCurrentUserMock.mockResolvedValue({ id: thesis.createdBy });
+    thesisMaybeSingleMock.mockResolvedValue({
+      data: { id: thesis.id, user_id: thesis.createdBy, thesis },
+      error: null,
+    });
+    universeMaybeSingleMock.mockResolvedValue({
+      data: {
+        id: "u_corrupt",
+        created_by: thesis.createdBy,
+        universe: { not_a_universe: true },
+      },
+      error: null,
+    });
+    const { POST } = await import("@/app/api/question/resolve/route");
+    const res = await POST(
+      makeRequest({
+        thesis_id: thesis.id,
+        question: "median margin?",
+        category: "derivable",
+        hint: {
+          op: "aggregate_by_group",
+          metric: "ebitda_margin",
+          aggregator: "median",
+        },
+        confidence: 0.85,
+      }),
+    );
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("invalid_state");
+    // start + error = 2 events; the start must be paired with an error.
+    expect(pipelineInsertMock).toHaveBeenCalledTimes(2);
+    expect(pipelineInsertMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        event_type: "error",
+        payload: expect.objectContaining({ message: "invalid_state" }),
+      }),
+    );
+  });
+
+  it("returns 500 invalid_state when stored scan fails validation", async () => {
+    const { thesis, universe } = buildFixtures();
+    getCurrentUserMock.mockResolvedValue({ id: thesis.createdBy });
+    thesisMaybeSingleMock.mockResolvedValue({
+      data: { id: thesis.id, user_id: thesis.createdBy, thesis },
+      error: null,
+    });
+    universeMaybeSingleMock.mockResolvedValue({
+      data: { id: universe.id, created_by: thesis.createdBy, universe },
+      error: null,
+    });
+    scanLimitMock.mockResolvedValue({
+      data: [{ results: { not_a_scan: true } }],
+      error: null,
+    });
+    const { POST } = await import("@/app/api/question/resolve/route");
+    const res = await POST(
+      makeRequest({
+        thesis_id: thesis.id,
+        question: "median margin?",
+        category: "derivable",
+        hint: {
+          op: "aggregate_by_group",
+          metric: "ebitda_margin",
+          aggregator: "median",
+        },
+        confidence: 0.85,
+      }),
+    );
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("invalid_state");
+    expect(pipelineInsertMock).toHaveBeenCalledTimes(2);
+    expect(pipelineInsertMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        event_type: "error",
+        payload: expect.objectContaining({ message: "invalid_state" }),
+      }),
+    );
   });
 
   it("returns 409 missing_data when scan is missing", async () => {
