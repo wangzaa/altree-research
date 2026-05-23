@@ -236,4 +236,136 @@ describe("<OpenQuestionsResolver>", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("does not re-classify or drop resolved bubbles when parent re-renders with same questions content but new array reference", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        classifications: [
+          {
+            question: "q1",
+            category: "derivable",
+            hint: {
+              op: "rank_by_metric",
+              metric: "revenue_growth_yoy",
+              direction: "desc",
+              limit: 3,
+            },
+            confidence: 0.9,
+          },
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: "resolved",
+        category: "derivable",
+        answer: {
+          text: "Resolved answer text",
+          sources: {
+            tickers: ["AAA", "BBB"],
+            scan_column: "revenue_growth_yoy",
+            op: "rank_by_metric",
+          },
+        },
+      }),
+    );
+
+    const { rerender } = render(
+      <OpenQuestionsResolver thesisId="th_1" questions={["q1"]} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/from scan/i)).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /resolve/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Resolved answer text/)).toBeInTheDocument();
+    });
+
+    // Re-render with a fresh array holding the SAME content. Classify must not
+    // re-fire, and the resolved bubble must stay on-screen.
+    rerender(
+      <OpenQuestionsResolver thesisId="th_1" questions={["q1"]} />,
+    );
+
+    // Give any spurious effect a tick to run; it must not.
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(/Resolved answer text/)).toBeInTheDocument();
+  });
+
+  it("re-classifies and rebuilds state without crashing when questions content changes", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        classifications: [
+          {
+            question: "q1",
+            category: "corpus",
+            hint: "x",
+            confidence: 0.7,
+          },
+          {
+            question: "q2",
+            category: "corpus",
+            hint: "y",
+            confidence: 0.7,
+          },
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        classifications: [
+          {
+            question: "q3",
+            category: "derivable",
+            hint: {
+              op: "rank_by_metric",
+              metric: "revenue_growth_yoy",
+              direction: "desc",
+              limit: 3,
+            },
+            confidence: 0.9,
+          },
+        ],
+      }),
+    );
+
+    const { rerender } = render(
+      <OpenQuestionsResolver thesisId="th_1" questions={["q1", "q2"]} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/from corpus/i)).toHaveLength(2);
+    });
+
+    // Re-render with a shorter, different-content list. Must trigger
+    // re-classify (call #2) and must not crash on stale array indices.
+    rerender(
+      <OpenQuestionsResolver thesisId="th_1" questions={["q3"]} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/from scan/i)).toBeInTheDocument();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/question/classify",
+      expect.objectContaining({
+        body: JSON.stringify({
+          thesis_id: "th_1",
+          questions: ["q3"],
+        }),
+      }),
+    );
+    expect(screen.getByText("q3")).toBeInTheDocument();
+    expect(screen.queryByText("q1")).not.toBeInTheDocument();
+    expect(screen.queryByText("q2")).not.toBeInTheDocument();
+  });
 });

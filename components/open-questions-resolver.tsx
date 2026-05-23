@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type {
   ClassifiedQuestion,
   DerivableAnswer,
@@ -30,14 +30,30 @@ export function OpenQuestionsResolver({
 }) {
   const [classifications, setClassifications] = useState<
     (ClassifiedQuestion | undefined)[]
-  >(() => questions.map(() => undefined));
+  >([]);
   const [classifyError, setClassifyError] = useState<string | null>(null);
-  const [resolveStates, setResolveStates] = useState<ResolveState[]>(() =>
-    questions.map(() => ({ status: "idle" })),
+  const [resolveStates, setResolveStates] = useState<ResolveState[]>([]);
+
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
   );
+
+  // Key the classify effect off question CONTENT, not array reference, so a
+  // parent re-render with the same open_questions doesn't nuke resolved bubbles.
+  const questionsKey = questions.join(" ");
 
   useEffect(() => {
     let cancelled = false;
+    // The classify effect is the single source of truth for array
+    // initialization — rebuild both parallel arrays to match the current
+    // questions length so resolveStates[i] is never undefined.
+    setClassifications(questions.map(() => undefined));
+    setResolveStates(questions.map(() => ({ status: "idle" })));
+    setClassifyError(null);
     (async () => {
       try {
         const res = await fetch("/api/question/classify", {
@@ -47,11 +63,11 @@ export function OpenQuestionsResolver({
         });
         if (!res.ok) throw new Error(`status ${res.status}`);
         const body = await res.json();
-        if (cancelled) return;
+        if (cancelled || !mountedRef.current) return;
         const cs: ClassifiedQuestion[] = body.classifications ?? [];
         setClassifications(questions.map((_, i) => cs[i] ?? undefined));
       } catch (err) {
-        if (cancelled) return;
+        if (cancelled || !mountedRef.current) return;
         setClassifyError(
           err instanceof Error ? err.message : "classify failed",
         );
@@ -60,7 +76,8 @@ export function OpenQuestionsResolver({
     return () => {
       cancelled = true;
     };
-  }, [thesisId, questions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thesisId, questionsKey]);
 
   async function resolve(i: number) {
     const c = classifications[i];
@@ -84,6 +101,7 @@ export function OpenQuestionsResolver({
         }),
       });
       const body = await res.json();
+      if (!mountedRef.current) return;
       setResolveStates((prev) => {
         const next = [...prev];
         if (body.status === "resolved") {
@@ -114,6 +132,7 @@ export function OpenQuestionsResolver({
         return next;
       });
     } catch (err) {
+      if (!mountedRef.current) return;
       setResolveStates((prev) => {
         const next = [...prev];
         next[i] = {
@@ -148,7 +167,10 @@ export function OpenQuestionsResolver({
     <ul className="flex flex-col gap-3">
       {questions.map((q, i) => {
         const c = classifications[i];
-        const state = resolveStates[i];
+        // resolveStates may briefly lag questions length when the questions
+        // array changes (effect rebuilds it on next render). Default to idle
+        // so we never crash on `state.status` of an undefined slot.
+        const state: ResolveState = resolveStates[i] ?? { status: "idle" };
         const disabled =
           !c || c.category === "needs_analyst" || state.status === "loading";
         return (
