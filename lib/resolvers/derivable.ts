@@ -32,7 +32,7 @@ function joinScanUniverse(scan: ScanResults, universe: Universe): JoinedRow[] {
 function applyFilter(rows: JoinedRow[], filter?: GroupFilter): JoinedRow[] {
   if (!filter) return rows;
   return rows.filter((r) => {
-    if (filter.region && r.universe.region !== filter.region) return false;
+    if (filter.region != null && r.universe.region !== filter.region) return false;
     if (filter.exposure_tier != null && r.universe.exposure_tier !== filter.exposure_tier) {
       return false;
     }
@@ -66,9 +66,16 @@ function median(xs: number[]): number {
 function describeFilter(filter?: GroupFilter): string {
   if (!filter) return "the universe";
   const parts: string[] = [];
-  if (filter.region) parts.push(`region=${filter.region}`);
+  if (filter.region != null) parts.push(`region=${filter.region}`);
   if (filter.exposure_tier != null) parts.push(`tier=${filter.exposure_tier}`);
   return parts.length ? `tickers where ${parts.join(", ")}` : "the universe";
+}
+
+function describePredicate(filter: GroupFilter): string {
+  const parts: string[] = [];
+  if (filter.region != null) parts.push(`region=${filter.region}`);
+  if (filter.exposure_tier != null) parts.push(`tier=${filter.exposure_tier}`);
+  return parts.length ? parts.join(", ") : "any criteria";
 }
 
 export function resolveDerivable(
@@ -87,7 +94,7 @@ export function resolveDerivable(
     return {
       ok: true,
       answer: {
-        text: `${tickers.length} ticker${tickers.length === 1 ? "" : "s"} match ${describeFilter(hint.filter)}: ${tickers.join(", ")}.`,
+        text: `${tickers.length} ticker${tickers.length === 1 ? "" : "s"} match ${describePredicate(hint.filter)}: ${tickers.join(", ")}.`,
         sources: { tickers, scan_column: "n/a", op: "filter_count" },
       },
     };
@@ -123,29 +130,33 @@ export function resolveDerivable(
     };
   }
 
-  // hint.op === "aggregate_by_group"
-  const values = withValues.map((x) => x.value);
-  const tickers = withValues.map((x) => x.row.ticker);
-  let agg: number;
-  switch (hint.aggregator) {
-    case "median":
-      agg = median(values);
-      break;
-    case "mean":
-      agg = values.reduce((s, v) => s + v, 0) / values.length;
-      break;
-    case "max":
-      agg = Math.max(...values);
-      break;
-    case "min":
-      agg = Math.min(...values);
-      break;
+  if (hint.op === "aggregate_by_group") {
+    const values = withValues.map((x) => x.value);
+    const tickers = withValues.map((x) => x.row.ticker);
+    let agg: number;
+    switch (hint.aggregator) {
+      case "median":
+        agg = median(values);
+        break;
+      case "mean":
+        agg = values.reduce((s, v) => s + v, 0) / values.length;
+        break;
+      case "max":
+        agg = Math.max(...values);
+        break;
+      case "min":
+        agg = Math.min(...values);
+        break;
+    }
+    return {
+      ok: true,
+      answer: {
+        text: `${hint.aggregator} ${hint.metric} across ${describeFilter(hint.filter)} (n=${values.length}): ${formatMetric(hint.metric, agg)}.`,
+        sources: { tickers, scan_column: hint.metric, op: "aggregate_by_group" },
+      },
+    };
   }
-  return {
-    ok: true,
-    answer: {
-      text: `${hint.aggregator} ${hint.metric} across ${describeFilter(hint.filter)} (n=${values.length}): ${formatMetric(hint.metric, agg)}.`,
-      sources: { tickers, scan_column: hint.metric, op: "aggregate_by_group" },
-    },
-  };
+
+  const _exhaustive: never = hint;
+  throw new Error(`unreachable: unhandled op ${JSON.stringify(_exhaustive)}`);
 }

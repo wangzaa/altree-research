@@ -1469,29 +1469,36 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 const SCAN_FIXTURE = {
-  run_at: "2026-05-22T00:00:00Z",
-  fundamentals: {
+  thesis_id: "memory_cycle_26_05_22",
+  universe_id: "u1",
+  ran_at: "2026-05-22T00:00:00Z",
+  history_5y: [
+    { ticker: "AAA", points: [{ date: "2026-05-22", close: 100 }] },
+    { ticker: "BBB", points: [{ date: "2026-05-22", close: 50 }] },
+  ],
+  fundamentals_snapshot: {
     as_of: "2026-05-22",
-    mean_gross_margin: 0.4,
-    median_gross_margin: 0.4,
-    mean_ebit_margin: 0.18,
-    median_ebit_margin: 0.18,
-    per_ticker_used: ["AAA", "BBB"],
+    mean: { gross_margin: 0.4, ebit_margin: 0.18 },
+    median: { gross_margin: 0.4, ebit_margin: 0.18 },
+    per_ticker_used: 2,
   },
   tickers_snapshot: [
     { ticker: "AAA", name: "Alpha", ebitda: 100, ebitda_margin: 0.3, revenue_growth_yoy: 0.2, currency: "USD", quarterly_eps: [] },
     { ticker: "BBB", name: "Beta",  ebitda: 50,  ebitda_margin: 0.2, revenue_growth_yoy: 0.1, currency: "USD", quarterly_eps: [] },
   ],
+  descriptive_markdown: "fixture",
 };
 
 const UNIVERSE_FIXTURE = {
   id: "u1",
+  created_at: "2026-05-22T00:00:00Z",
+  last_refreshed: "2026-05-22T00:00:00Z",
   gics_codes: ["452030"],
   regions: ["US"],
   market_cap_min_usd: 1_000_000_000,
   tickers: [
-    { ticker: "AAA", name: "Alpha", region: "US", market_cap_usd_b: 50, exposure_tier: "pure_play", exposure_rationale: "x", transcript_source: null, notes: null },
-    { ticker: "BBB", name: "Beta",  region: "US", market_cap_usd_b: 30, exposure_tier: "pure_play", exposure_rationale: "x", transcript_source: null, notes: null },
+    { ticker: "AAA", name: "Alpha", region: "US", market_cap_usd_b: 50, exposure_tier: "pure_play", exposure_rationale: "x", notes: "" },
+    { ticker: "BBB", name: "Beta",  region: "US", market_cap_usd_b: 30, exposure_tier: "pure_play", exposure_rationale: "x", notes: "" },
   ],
 };
 

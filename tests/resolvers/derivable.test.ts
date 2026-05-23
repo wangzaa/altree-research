@@ -201,6 +201,19 @@ describe("resolveDerivable — aggregate_by_group", () => {
     if (!result.ok) return;
     expect(result.answer.text).toMatch(/350/);
   });
+
+  it("computes min revenue_growth_yoy", () => {
+    const hint: DerivableHint = {
+      op: "aggregate_by_group",
+      metric: "revenue_growth_yoy",
+      aggregator: "min",
+    };
+    const result = resolveDerivable(hint, scan, universe);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Minimum is 0.05 → 5.0%
+    expect(result.answer.text).toMatch(/5\.0/);
+  });
 });
 
 describe("resolveDerivable — filter_count", () => {
