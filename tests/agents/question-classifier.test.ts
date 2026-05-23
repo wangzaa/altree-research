@@ -145,6 +145,30 @@ describe("classifyQuestions", () => {
     }
   });
 
+  it("returns ok:false when the model reorders or rewrites questions", async () => {
+    mockToolUse({
+      classifications: [
+        threeValidClassifications[0],
+        {
+          ...threeValidClassifications[1],
+          question: "Some entirely different question text",
+        },
+        threeValidClassifications[2],
+      ],
+    });
+    const { classifyQuestions } = await import(
+      "@/lib/agents/question-classifier"
+    );
+    const result = await classifyQuestions({
+      thesis: cloneCanonicalThesis(),
+      questions: threeQuestions,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/reordered|mismatch/i);
+    }
+  });
+
   it("short-circuits with ok:true and no LLM call when questions is empty", async () => {
     const { classifyQuestions } = await import(
       "@/lib/agents/question-classifier"

@@ -1,10 +1,14 @@
 import { createMessage, type ToolSpec } from "@/lib/llm/client";
+import { REGION_VALUES } from "@/lib/data/regions";
 import {
   ClassifiedQuestionSchema,
   type ClassifiedQuestion,
 } from "@/lib/schemas/question";
 import type { Thesis } from "@/lib/schemas/thesis";
+import { ExposureTierSchema } from "@/lib/schemas/universe";
 import { z } from "zod";
+
+const EXPOSURE_TIER_VALUES = ExposureTierSchema.options;
 
 export interface ClassifyQuestionsInput {
   thesis: Thesis;
@@ -45,16 +49,20 @@ const classifierTool: ToolSpec = {
                 "needs_analyst",
               ],
             },
-            hint: {},
+            hint: {
+              anyOf: [
+                { type: "object" },
+                { type: "string" },
+                { type: "null" },
+              ],
+            },
             confidence: { type: "number", minimum: 0, maximum: 1 },
           },
           required: ["question", "category", "hint", "confidence"],
-          additionalProperties: false,
         },
       },
     },
     required: ["classifications"],
-    additionalProperties: false,
   },
 };
 
@@ -65,7 +73,7 @@ const ToolInputSchema = z.object({
 const SYSTEM_PROMPT = `You classify analyst open-questions into one of five resolution categories so a downstream system can route each question to the right resolver.
 
 Categories:
-- derivable: answerable purely from scan + universe data already in hand. Use ONLY when the question is about ranking, aggregating, or counting universe tickers on a metric we already have. Supported metrics: revenue_growth_yoy, ebitda_margin, market_cap_usd_b. Supported filters: region (canonical codes — US, KOREA, JAPAN, GREATER_CHINA, EUROZONE, NORDICS, ANZ, etc.), exposure_tier (pure_play, diversified, etf_proxy). Supported ops: rank_by_metric (top/bottom N), aggregate_by_group (median/mean/max/min), filter_count.
+- derivable: answerable purely from scan + universe data already in hand. Use ONLY when the question is about ranking, aggregating, or counting universe tickers on a metric we already have. Supported metrics: revenue_growth_yoy, ebitda_margin, market_cap_usd_b. Supported filters: region (canonical codes — one of: ${REGION_VALUES.join(", ")}), exposure_tier (one of: ${EXPOSURE_TIER_VALUES.join(", ")}). Supported ops: rank_by_metric (top/bottom N), aggregate_by_group (median/mean/max/min), filter_count.
 - fundamentals_extra: a fundamentals field Yahoo could provide that isn't in the current scan (segment revenue, share count, balance-sheet items). Out of scope for now.
 - corpus: answerable from the expert substack corpus (covered analysts, sectors). Anything about analyst commentary, expert outlook, qualitative views from named publications.
 - web: external research needed. Industry analyst reports, regulatory developments, forward roadmap claims, anything requiring fresh public sources.
@@ -148,7 +156,18 @@ export async function classifyQuestions(
     return {
       ok: false,
       error: `classifier returned ${parsed.data.classifications.length} classifications for ${input.questions.length} questions (length mismatch)`,
+      raw: toolCall.input,
     };
+  }
+
+  for (let i = 0; i < parsed.data.classifications.length; i++) {
+    if (parsed.data.classifications[i].question !== input.questions[i]) {
+      return {
+        ok: false,
+        error: `classifier reordered or rewrote questions (mismatch at index ${i})`,
+        raw: toolCall.input,
+      };
+    }
   }
 
   return {
