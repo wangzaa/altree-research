@@ -7,7 +7,6 @@ import {
   defaultChartSelection,
   ScanChart,
   monthsFor,
-  rankTickersByWindow,
   tickerEndValues,
   WINDOWS,
   type WindowKey,
@@ -141,10 +140,6 @@ export function ScanPanel({
     () => tickerEndValues(visibleHistory, windowMonths),
     [visibleHistory, windowMonths],
   );
-  const { best: bestTicker, worst: worstTicker } = useMemo(
-    () => rankTickersByWindow(visibleHistory, windowMonths),
-    [visibleHistory, windowMonths],
-  );
   const windowLabel =
     WINDOWS.find((w) => w.key === windowKey)?.label ?? windowKey;
   const returnLabel = `${windowLabel} return`;
@@ -241,8 +236,6 @@ export function ScanPanel({
         snapshots={visibleSnapshots}
         history={visibleHistory}
         marketCapByTicker={marketCapByTicker}
-        bestTicker={bestTicker}
-        worstTicker={worstTicker}
         endValuesByTicker={endValuesByTicker}
         returnLabel={returnLabel}
         ratesByCurrency={ratesByCurrency}

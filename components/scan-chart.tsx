@@ -261,27 +261,6 @@ export function tickerEndValues(
   return out;
 }
 
-/** Returns the best- and worst-performing ticker over the trailing window,
- * by ending indexed value. Returns nulls when the universe has fewer than
- * two in-window tickers (can't meaningfully rank). */
-export function rankTickersByWindow(
-  history: TickerHistory[],
-  windowMonths: number,
-): { best: string | null; worst: string | null } {
-  const ends = tickerEndValues(history, windowMonths);
-  if (ends.size < 2) return { best: null, worst: null };
-  let best: { ticker: string; value: number } | null = null;
-  let worst: { ticker: string; value: number } | null = null;
-  for (const [ticker, value] of ends) {
-    if (best === null || value > best.value) best = { ticker, value };
-    if (worst === null || value < worst.value) worst = { ticker, value };
-  }
-  return {
-    best: best?.ticker ?? null,
-    worst: worst?.ticker ?? null,
-  };
-}
-
 /** Default chart selection = top-N tickers by USD market cap (default 4)
  * plus the worst-performing ticker over the supplied window. Order is
  * preserved (top-by-mcap first, worst appended only if not already in the

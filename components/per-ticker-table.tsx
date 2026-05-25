@@ -12,8 +12,6 @@ interface PerTickerTableProps {
   snapshots: TickerSnapshot[];
   history: TickerHistory[];
   marketCapByTicker?: Record<string, number>;
-  bestTicker?: string | null;
-  worstTicker?: string | null;
   /** Indexed (base 100) end-of-window value per ticker, sourced from
    * `tickerEndValues(history, monthsFor(windowKey))`. When provided, a
    * Return column is rendered showing the value − 100 as a signed %. */
@@ -253,8 +251,6 @@ export function PerTickerTable({
   snapshots,
   history,
   marketCapByTicker,
-  bestTicker,
-  worstTicker,
   endValuesByTicker,
   returnLabel,
   ratesByCurrency,
@@ -305,12 +301,6 @@ export function PerTickerTable({
         No per-ticker fundamentals available for this scan.
       </p>
     );
-  }
-
-  function rowColor(ticker: string): string | undefined {
-    if (ticker === bestTicker) return "#0a7a30";
-    if (ticker === worstTicker) return "#a30000";
-    return undefined;
   }
 
   return (
@@ -397,12 +387,9 @@ export function PerTickerTable({
         </thead>
         <tbody className="divide-y divide-neutral-100">
           {sortedRows.map((r) => {
-            const color = rowColor(r.ticker);
-            const weight =
-              color !== undefined ? 600 : undefined;
             const isSelected = selectedTickers?.has(r.ticker) ?? false;
             return (
-              <tr key={r.ticker} style={{ color, fontWeight: weight }}>
+              <tr key={r.ticker}>
                 {showSelectColumn ? (
                   <td className="px-3 py-2 text-center">
                     <input

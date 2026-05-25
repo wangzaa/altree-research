@@ -298,7 +298,7 @@ describe("<PerTickerTable>", () => {
     expect(screen.getByRole("button", { name: /P\/E/ })).toBeInTheDocument();
   });
 
-  it("colours the best-performing row green and the worst red", () => {
+  it("does not bold or recolour rows for any ticker — best/worst highlight removed for visual quiet", () => {
     const twoSnapshots: TickerSnapshot[] = [
       {
         ticker: "WIN",
@@ -319,18 +319,14 @@ describe("<PerTickerTable>", () => {
         quarterly_eps: [],
       },
     ];
-    render(
-      <PerTickerTable
-        snapshots={twoSnapshots}
-        history={[]}
-        bestTicker="WIN"
-        worstTicker="LOSE"
-      />,
-    );
+    render(<PerTickerTable snapshots={twoSnapshots} history={[]} />);
     const winRow = screen.getByText("WIN").closest("tr")!;
     const loseRow = screen.getByText("LOSE").closest("tr")!;
-    expect(winRow.style.color).toMatch(/0a7a30|rgb\(10, 122, 48\)/);
-    expect(loseRow.style.color).toMatch(/a30000|rgb\(163, 0, 0\)/);
+    // Inline color + fontWeight gone; rows render in the table's default style.
+    expect(winRow.style.color).toBe("");
+    expect(winRow.style.fontWeight).toBe("");
+    expect(loseRow.style.color).toBe("");
+    expect(loseRow.style.fontWeight).toBe("");
   });
 
   it("converts EBITDA to USD M using the supplied live rates map", () => {
