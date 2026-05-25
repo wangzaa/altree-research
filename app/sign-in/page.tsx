@@ -97,17 +97,10 @@ export default function SignInPage() {
               className="rounded-md px-3 py-2 text-sm"
               style={{ background: "#CCFAFF", color: "var(--color-black)" }}
             >
-              Magic link sent. Email transport isn’t wired yet — copy the
-              link from the server logs (Vercel function logs in production,
-              local terminal in dev).
+              Check your inbox — the link expires in a few minutes.
             </p>
           ) : null}
         </form>
-
-        <p className="mt-6 text-xs" style={{ color: "#585858" }}>
-          Magic links are written to the server console pending real email
-          transport (Resend / Postmark / …).
-        </p>
       </div>
     </main>
   );
