@@ -15,6 +15,11 @@ type PipelineEvent = {
 
 export type LiveLogProps = {
   thesisId?: string;
+  /** When false, skips the postgres_changes subscription and just renders
+   * a one-shot snapshot — used by the "previous sessions" panel where the
+   * thesis is done, no new events will arrive, and a websocket per
+   * expanded session would be wasteful. Defaults to true (the live case). */
+  realtime?: boolean;
 };
 
 function formatTime(iso: string): string {
@@ -34,7 +39,7 @@ function summarisePayload(p: Record<string, unknown> | null): string {
   return "";
 }
 
-export function LiveLog({ thesisId }: LiveLogProps) {
+export function LiveLog({ thesisId, realtime = true }: LiveLogProps) {
   const [events, setEvents] = useState<PipelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +63,12 @@ export function LiveLog({ thesisId }: LiveLogProps) {
       setEvents((data ?? []) as PipelineEvent[]);
     })();
 
+    if (!realtime) {
+      return () => {
+        active = false;
+      };
+    }
+
     const channel = supabase
       .channel(`pipeline_events:${thesisId}`)
       .on(
@@ -79,7 +90,7 @@ export function LiveLog({ thesisId }: LiveLogProps) {
       active = false;
       supabase.removeChannel(channel);
     };
-  }, [thesisId]);
+  }, [thesisId, realtime]);
 
   if (!thesisId) {
     return (

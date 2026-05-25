@@ -49,12 +49,17 @@ const APP_BUBBLE_STYLE: React.CSSProperties = {
 };
 
 const USER_BUBBLE_STYLE: React.CSSProperties = {
+  // Fully-rounded right side keeps short content like "Yes" from looking
+  // clipped against the round avatar that sits immediately to the right.
+  // (The bottom-right speech-tail variant read as a render bug when the
+  // bubble was narrow.) `minWidth` gives short replies a readable shape.
   background: "var(--color-pear-black)",
   color: "var(--color-white)",
-  borderRadius: "20px 20px 6px 20px",
+  borderRadius: 20,
   padding: "12px 18px",
   fontSize: 15,
   lineHeight: 1.5,
+  minWidth: 48,
   maxWidth: "min(680px, calc(100% - 56px))",
 };
 

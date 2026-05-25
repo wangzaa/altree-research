@@ -8,6 +8,7 @@ import { ChatInputBinary } from "@/components/chat-input";
 import { FundSelectionCards } from "@/components/fund-selection-cards";
 import { RichProse } from "@/components/rich-prose";
 import { ScanPanel } from "@/components/scan-panel";
+import { Spinner } from "@/components/spinner";
 import { ThesisChatArtifact } from "@/components/thesis-chat-artifact";
 import { UniverseTable } from "@/components/universe-table";
 import {
@@ -354,9 +355,16 @@ export function ThesisDetail({
                     type="button"
                     onClick={handleDraftMemo}
                     disabled={memoLoading}
-                    className="btn btn-outline"
+                    className="btn btn-outline inline-flex items-center gap-2"
                   >
-                    {memoLoading ? "Re-drafting..." : "Re-draft"}
+                    {memoLoading ? (
+                      <>
+                        <Spinner size={14} />
+                        Refreshing…
+                      </>
+                    ) : (
+                      "Refresh"
+                    )}
                   </button>
                 </div>
                 {memoError ? (

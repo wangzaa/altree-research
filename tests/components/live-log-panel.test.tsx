@@ -51,4 +51,29 @@ describe("<LiveLogPanel>", () => {
       "collapsed",
     );
   });
+
+  it("renders the Recent sessions section collapsed by default", () => {
+    render(<LiveLogPanel />);
+    const section = screen.getByTestId("recent-sessions-section");
+    expect(section).toHaveAttribute("data-state", "collapsed");
+    expect(
+      screen.getByRole("heading", { name: /recent sessions/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("toggles Recent sessions on click and persists the choice in localStorage", async () => {
+    const user = userEvent.setup();
+    render(<LiveLogPanel />);
+    const toggle = screen.getByRole("button", {
+      name: /expand recent sessions/i,
+    });
+    await user.click(toggle);
+    expect(screen.getByTestId("recent-sessions-section")).toHaveAttribute(
+      "data-state",
+      "expanded",
+    );
+    expect(
+      window.localStorage.getItem("altree:recent-sessions:collapsed"),
+    ).toBe("0");
+  });
 });

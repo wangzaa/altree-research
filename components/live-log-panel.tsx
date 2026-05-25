@@ -2,12 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import { LiveLog } from "@/components/live-log";
+import { RecentSessions } from "@/components/recent-sessions";
 
 export type LiveLogPanelProps = {
   thesisId?: string;
 };
 
 const STORAGE_KEY = "altree:live-log:collapsed";
+const RECENT_STORAGE_KEY = "altree:recent-sessions:collapsed";
 const PANEL_MAX_WIDTH = 320;
 const PANEL_MIN_WIDTH = 240;
 const COLLAPSED_WIDTH = 32;
@@ -38,12 +40,18 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
 export function LiveLogPanel({ thesisId }: LiveLogPanelProps) {
   // Default to expanded; persist any explicit user choice across navigations.
   const [collapsed, setCollapsed] = useState(false);
+  // Recent-sessions section starts collapsed — the user's primary focus is
+  // the current thesis. Opening it pulls /api/thesis/list lazily.
+  const [recentCollapsed, setRecentCollapsed] = useState(true);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (stored === "1") setCollapsed(true);
     if (stored === "0") setCollapsed(false);
+    const recent = window.localStorage.getItem(RECENT_STORAGE_KEY);
+    if (recent === "0") setRecentCollapsed(false);
+    if (recent === "1") setRecentCollapsed(true);
   }, []);
 
   function toggle() {
@@ -51,6 +59,14 @@ export function LiveLogPanel({ thesisId }: LiveLogPanelProps) {
     setCollapsed(next);
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+    }
+  }
+
+  function toggleRecent() {
+    const next = !recentCollapsed;
+    setRecentCollapsed(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(RECENT_STORAGE_KEY, next ? "1" : "0");
     }
   }
 
@@ -115,6 +131,55 @@ export function LiveLogPanel({ thesisId }: LiveLogPanelProps) {
         overflow: "hidden",
       }}
     >
+      <section
+        data-testid="recent-sessions-section"
+        data-state={recentCollapsed ? "collapsed" : "expanded"}
+        className="flex flex-col"
+        style={{ borderBottom: "1px solid #E5E5E5", flexShrink: 0 }}
+      >
+        <button
+          type="button"
+          onClick={toggleRecent}
+          aria-label={
+            recentCollapsed ? "Expand recent sessions" : "Collapse recent sessions"
+          }
+          aria-expanded={!recentCollapsed}
+          className="flex items-center justify-between px-4 py-3"
+          style={{
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "inherit",
+            width: "100%",
+          }}
+        >
+          <h3
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: "#585858" }}
+          >
+            Recent sessions
+          </h3>
+          <span
+            style={{
+              color: "#585858",
+              transform: recentCollapsed ? "rotate(0deg)" : "rotate(90deg)",
+              transition: "transform 0.15s ease",
+              display: "inline-flex",
+            }}
+            aria-hidden="true"
+          >
+            <ChevronIcon direction="right" />
+          </span>
+        </button>
+        {recentCollapsed ? null : (
+          <div
+            className="max-h-72 overflow-y-auto"
+            style={{ borderTop: "1px solid #E5E5E5" }}
+          >
+            <RecentSessions currentThesisId={thesisId} />
+          </div>
+        )}
+      </section>
       <header
         className="flex items-center justify-between px-4 py-3"
         style={{ borderBottom: "1px solid #E5E5E5" }}
