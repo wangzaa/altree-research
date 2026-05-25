@@ -103,6 +103,10 @@ Inputs:
 
 Your job: propose 10–25 ticker candidates that are TRULY comparable to the anchor for the purpose of evaluating this thesis.
 
+Anchor inclusion (required):
+- The anchor ticker MUST appear as the FIRST item in your output, with the same exposure_tier / exposure_rationale / notes fields as every other row.
+- Its rationale should describe what the company is and why it embodies the thesis (e.g. 'Japanese industrial robotics leader, direct factory-automation exposure'). Treat it like any other peer — no special prefix.
+
 Peer-selection rules:
 - Same business model as the anchor (pure-play preferred; diversified conglomerates only when no pure-play exists in a region).
 - Comparable scale (within ~10x of the anchor's market cap; exclude micro-caps below market_cap_min_usd).

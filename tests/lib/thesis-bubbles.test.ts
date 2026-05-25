@@ -24,7 +24,7 @@ describe("thesisBubbles", () => {
     expect(setup.body).not.toMatch(/Horizon:/);
   });
 
-  it("renders one thesis bubble per driver, labelled Thesis N (anchor)", () => {
+  it("renders one thesis bubble per driver, labelled Thesis N (anchor), with no targets or thresholds (v5)", () => {
     const out = thesisBubbles(cloneCanonicalThesis());
     const t1 = out.find((b) => b.id === "thesis-backlog_to_revenue")!;
     expect(t1).toBeDefined();
@@ -34,21 +34,32 @@ describe("thesisBubbles", () => {
     expect(t1.body).not.toMatch(/backlog_to_revenue/);
     expect(t1.body).not.toMatch(/Driver \d/);
     expect(t1.body).not.toMatch(/\bleg\b/);
-    // Numbers in prose, never label:value rows.
-    expect(t1.body).toMatch(/penciling in around 3 years/);
-    expect(t1.body).toMatch(/broken below 1\.5 years/);
+    // Per tone-of-voice v5: target returns and break thresholds stay out
+    // of the readback entirely. They live in JSON / show-details.
+    expect(t1.body).not.toMatch(/penciling in/);
+    expect(t1.body).not.toMatch(/broken below/);
+    expect(t1.body).not.toMatch(/3 years/);
+    expect(t1.body).not.toMatch(/1\.5 years/);
   });
 
-  it("inlines tickers as `Company (TICKER)` when a name map is supplied", () => {
+  it("strips legal suffixes from inlined company names (v5)", () => {
     const t = cloneCanonicalThesis();
-    t.drivers.industry[0].tickers = ["RHM.DE", "BA.L"];
+    t.drivers.industry[0].tickers = ["RHM.DE", "BA.L", "6954.T"];
     const out = thesisBubbles(t, {
-      tickerNames: { "RHM.DE": "Rheinmetall AG", "BA.L": "BAE Systems plc" },
+      tickerNames: {
+        "RHM.DE": "Rheinmetall AG",
+        "BA.L": "BAE Systems plc",
+        "6954.T": "Fanuc Corporation",
+      },
     });
     const thesis = out.find((b) => b.id === "thesis-backlog_to_revenue")!;
-    expect(thesis.body).toContain("Rheinmetall AG (RHM.DE)");
-    expect(thesis.body).toContain("BAE Systems plc (BA.L)");
-    expect(thesis.body).toMatch(/Names expressing this/);
+    expect(thesis.body).toContain("Rheinmetall (RHM.DE)");
+    expect(thesis.body).toContain("BAE Systems (BA.L)");
+    expect(thesis.body).toContain("Fanuc (6954.T)");
+    // Legal suffixes must not bleed into prose.
+    expect(thesis.body).not.toMatch(/Corporation/);
+    expect(thesis.body).not.toMatch(/\bAG\b/);
+    expect(thesis.body).not.toMatch(/\bplc\b/);
   });
 
   it("falls back to bare ticker when no name is available", () => {
@@ -71,23 +82,29 @@ describe("thesisBubbles", () => {
     expect(thesis.body).not.toContain("(IBM)");
   });
 
-  it("uses 'what would kill it' for falsification, never 'Primary:' / 'Negate:'", () => {
+  it("renders 'What would kill it' as a bold header + bullet list (v5)", () => {
     const out = thesisBubbles(cloneCanonicalThesis());
     const kill = out.find((b) => b.id === "kill")!;
-    expect(kill.body).toMatch(/^What would kill it: /);
-    expect(kill.body).toContain("NATO 3% commitment formally rolled back");
-    expect(kill.body).toMatch(/Secondary signal:/);
-    expect(kill.body).not.toMatch(/^Primary:/);
+    // Bold header on its own line, bullets follow.
+    expect(kill.body).toMatch(/^\*\*What would kill it:\*\*\n/);
+    expect(kill.body).toContain("- NATO 3% commitment formally rolled back");
+    expect(kill.body).toContain("- Sector backlog/revenue <1.5y");
+    // Anti-patterns from v4 / earlier formats.
+    expect(kill.body).not.toMatch(/Secondary signal:/);
+    expect(kill.body).not.toMatch(/^Primary:/m);
     expect(kill.body).not.toMatch(/Negate:/);
   });
 
-  it("omits the secondary signal when falsification.secondary is undefined", () => {
+  it("renders a single bullet when falsification.secondary is undefined", () => {
     const t = cloneCanonicalThesis();
     delete t.falsification.secondary;
     const out = thesisBubbles(t);
     const kill = out.find((b) => b.id === "kill")!;
-    expect(kill.body).toMatch(/^What would kill it: /);
-    expect(kill.body).not.toMatch(/Secondary signal:/);
+    expect(kill.body).toMatch(/^\*\*What would kill it:\*\*\n/);
+    const bulletLines = kill.body
+      .split("\n")
+      .filter((l) => /^\s*-\s+/.test(l));
+    expect(bulletLines).toHaveLength(1);
     expect(kill.body).not.toContain("undefined");
   });
 
@@ -104,7 +121,7 @@ describe("thesisBubbles", () => {
     expect(close.body).not.toMatch(/Anything you'd like to change\?/i);
   });
 
-  it("introduces multiple theses with a 'Two theses here' bubble and numbers them", () => {
+  it("introduces multiple theses with a 'Two theses here' bubble and numbers them — no targets in prose (v5)", () => {
     const t = cloneCanonicalThesis();
     t.drivers.industry.push({
       id: "memory_cycle_pricing",
@@ -119,18 +136,25 @@ describe("thesisBubbles", () => {
     expect(out.find((b) => b.id === "theses-intro")?.body).toMatch(/Two theses/);
     const t2 = out.find((b) => b.id === "thesis-memory_cycle_pricing")!;
     expect(t2.body).toMatch(/\*\*Thesis 2 \(memory\):\*\*/);
-    expect(t2.body).toMatch(/around 20%/);
-    expect(t2.body).toMatch(/broken below 5%/);
+    // Numbers stay out of the readback per v5.
+    expect(t2.body).not.toMatch(/around 20%/);
+    expect(t2.body).not.toMatch(/broken below 5%/);
+    expect(t2.body).not.toMatch(/20 pct/);
   });
 
-  it("formats percentage units as N% not 'N pct'", () => {
+  it("strips the drv_ prefix from driver ids in the anchor label (v5)", () => {
     const t = cloneCanonicalThesis();
-    t.drivers.industry[0].central_estimate = { value: 15, unit: "pct" };
-    t.drivers.industry[0].thesis_breaks_below = 5;
+    t.drivers.industry[0] = {
+      ...t.drivers.industry[0],
+      id: "drv_aging_demographics",
+      claim: "Aging demographics drives household robotics demand",
+    };
     const out = thesisBubbles(t);
-    const thesis = out.find((b) => b.id === "thesis-backlog_to_revenue")!;
-    expect(thesis.body).toMatch(/around 15%/);
-    expect(thesis.body).toMatch(/broken below 5%/);
-    expect(thesis.body).not.toMatch(/15 pct/);
+    const thesis = out.find((b) => b.id === "thesis-drv_aging_demographics")!;
+    expect(thesis).toBeDefined();
+    // Anchor label must not contain the raw `drv_` slug prefix.
+    expect(thesis.body).not.toMatch(/\bdrv\b/);
+    expect(thesis.body).not.toMatch(/drv_/);
+    expect(thesis.body).toMatch(/\*\*Thesis \(aging demographics\):\*\*/);
   });
 });

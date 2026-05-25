@@ -158,6 +158,28 @@ describe("buildLensContext", () => {
     ).toThrow(/disallowed/i);
   });
 
+  it("tolerates the word 'support(s)' inside user-supplied claim text on the bear lens", () => {
+    // Regression: a robotics thesis legitimately uses "support" in driver
+    // claims like "government support for industrial automation". The
+    // disallow check exists to catch authoring mistakes in OUR template,
+    // not user-authored input. User substitutions should be redacted
+    // before the check runs.
+    const thesis = makeThesis();
+    thesis.claim =
+      "Demographic tailwinds support household robotics adoption.";
+    thesis.macro_premise = "Government support for automation continues.";
+    thesis.drivers.industry[0].claim =
+      "Government support for industrial robotics sustains capex.";
+    expect(() =>
+      buildLensContext({
+        lens: "bear",
+        thesis,
+        driver: thesis.drivers.industry[0] as IndustryDriver,
+        posts: fakePosts,
+      }),
+    ).not.toThrow();
+  });
+
   it("returns the submit_evidence tool with forced tool_choice", () => {
     const thesis = makeThesis();
     const req = buildLensContext({

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { isValidGicsCode } from "@/lib/data/gics";
 import { REGION_VALUES } from "@/lib/data/regions";
 
-const YAHOO_TICKER_REGEX = /^[A-Z0-9\-]+(\.[A-Z]+)?$/i;
+export const YAHOO_TICKER_REGEX = /^[A-Z0-9\-]+(\.[A-Z]+)?$/i;
 
 export const ThesisIdSchema = z
   .string()

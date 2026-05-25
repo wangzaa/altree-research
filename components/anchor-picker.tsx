@@ -1,24 +1,88 @@
 "use client";
 
-import React, { useState, type FormEvent } from "react";
+import React, { useEffect, useState, type FormEvent } from "react";
 import { getRegionForTicker } from "@/lib/data/regions";
 
 interface AnchorPickerProps {
+  thesis_id: string;
   tickers_seed: string[];
   /** Optional ticker → company name map. When provided, chips render as "TICKER — Name". */
   tickerNames?: Record<string, string>;
   onSubmit: (anchor: string) => void;
   disabled: boolean;
+  /** Opaque value the parent bumps to request a fresh /api/anchor/suggest
+   * call. Bumping forces the useEffect to re-fire even when thesis_id
+   * hasn't changed (e.g. when the user clicks "Continue without refining"
+   * on the thesis chat artifact). */
+  refreshKey?: number;
+}
+
+interface AnchorSuggestion {
+  ticker: string;
+  name: string;
+  why: string;
+}
+
+interface AnchorSuggestionDrop {
+  ticker: string;
+  reason: string;
 }
 
 export function AnchorPicker({
+  thesis_id,
   tickers_seed,
   tickerNames,
   onSubmit,
   disabled,
+  refreshKey,
 }: AnchorPickerProps) {
   const [ticker, setTicker] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<AnchorSuggestion[]>([]);
+  const [dropped, setDropped] = useState<AnchorSuggestionDrop[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingSuggestions(true);
+    setSuggestError(null);
+    (async () => {
+      try {
+        const res = await fetch("/api/anchor/suggest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ thesis_id }),
+        });
+        const body = (await res.json().catch(() => null)) as
+          | {
+              suggestions?: AnchorSuggestion[];
+              dropped?: AnchorSuggestionDrop[];
+              error?: string;
+            }
+          | null;
+        if (cancelled) return;
+        if (!res.ok || !body?.suggestions) {
+          setSuggestError(body?.error ?? `Suggest failed (${res.status})`);
+          setSuggestions([]);
+          setDropped([]);
+        } else {
+          setSuggestions(body.suggestions);
+          setDropped(body.dropped ?? []);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setSuggestError(
+          err instanceof Error ? err.message : "Unexpected error",
+        );
+      } finally {
+        if (!cancelled) setLoadingSuggestions(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [thesis_id, refreshKey]);
 
   const submitDisabled = disabled || ticker.trim().length === 0;
 
@@ -65,7 +129,7 @@ export function AnchorPicker({
 
       {tickers_seed.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-          <span>Suggested from thesis:</span>
+          <span>From your thesis:</span>
           {tickers_seed.map((t) => {
             const name = tickerNames?.[t];
             return (
@@ -91,6 +155,70 @@ export function AnchorPicker({
           })}
         </div>
       ) : null}
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium" style={{ color: "#585858" }}>
+          Suggested in your scope
+        </span>
+        {loadingSuggestions ? (
+          <span className="text-xs italic" style={{ color: "#9a9a9a" }}>
+            Searching for tickers that fit your scope…
+          </span>
+        ) : suggestError ? (
+          <span className="text-xs" style={{ color: "#a30000" }}>
+            Couldn’t load suggestions: {suggestError}
+          </span>
+        ) : suggestions.length === 0 ? (
+          <span className="text-xs italic" style={{ color: "#9a9a9a" }}>
+            No suggestions returned. Type any Yahoo ticker to continue.
+          </span>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {suggestions.map((s) => (
+              <li key={s.ticker}>
+                <button
+                  type="button"
+                  onClick={() => handleChipClick(s.ticker)}
+                  disabled={disabled}
+                  title={s.why}
+                  className="block w-full rounded-md px-2.5 py-1 text-left text-xs hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{
+                    background: "white",
+                    border: "1px dashed #B5B5B5",
+                    color: "var(--color-black)",
+                  }}
+                >
+                  <span className="font-mono font-medium">{s.ticker}</span>
+                  <span style={{ color: "#585858" }}> — {s.name}</span>
+                  <span style={{ color: "#9a9a9a" }}> — {s.why}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {dropped.length > 0 ? (
+          <details
+            className="mt-1 rounded-md p-2 text-xs"
+            style={{
+              background: "#F5F4F2",
+              border: "1px solid #E5E5E5",
+              color: "#585858",
+            }}
+          >
+            <summary className="cursor-pointer">
+              {dropped.length} candidate{dropped.length === 1 ? "" : "s"} dropped
+              during validation
+            </summary>
+            <ul className="mt-1 list-disc pl-5">
+              {dropped.map((d, i) => (
+                <li key={`${d.ticker}-${d.reason}-${i}`}>
+                  <code className="font-mono">{d.ticker}</code> — {d.reason}
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+      </div>
 
       <div className="flex items-center justify-end">
         <button

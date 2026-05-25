@@ -1,6 +1,10 @@
 import { createMessage, type ToolSpec } from "@/lib/llm/client";
 import { REGION_VALUES } from "@/lib/data/regions";
-import { ThesisSchema, type Thesis } from "@/lib/schemas/thesis";
+import {
+  ThesisSchema,
+  YAHOO_TICKER_REGEX,
+  type Thesis,
+} from "@/lib/schemas/thesis";
 
 export interface ExtractThesisInput {
   sourceSnippet: string;
@@ -9,14 +13,44 @@ export interface ExtractThesisInput {
   createdAt: string;
 }
 
+export type ExtractThesisFailureCode =
+  | "tool_use_missing"
+  | "tool_use_invalid"
+  | "extraction_invalid";
+
 export type ExtractThesisResult =
   | {
       ok: true;
       thesis: Thesis;
       model: string;
       usage: { input_tokens: number; output_tokens: number };
+      tickers_dropped: number;
     }
-  | { ok: false; error: string; raw?: unknown };
+  | {
+      ok: false;
+      code: ExtractThesisFailureCode;
+      error: string;
+      raw?: unknown;
+    };
+
+const TICKER_PATTERN_JSON = "^[A-Z0-9\\-]+(\\.[A-Z]+)?$";
+
+function sanitizeTickerArray(value: unknown): {
+  cleaned: string[];
+  dropped: number;
+} {
+  if (!Array.isArray(value)) return { cleaned: [], dropped: 0 };
+  let dropped = 0;
+  const cleaned: string[] = [];
+  for (const entry of value) {
+    if (typeof entry === "string" && YAHOO_TICKER_REGEX.test(entry)) {
+      cleaned.push(entry);
+    } else {
+      dropped += 1;
+    }
+  }
+  return { cleaned, dropped };
+}
 
 const TOOL_NAME = "extract_thesis";
 
@@ -66,13 +100,17 @@ const extractThesisTool: ToolSpec = {
             type: "array",
             items: {
               type: "string",
+              pattern: TICKER_PATTERN_JSON,
               description:
-                "Yahoo Finance ticker with suffix where applicable (RHM.DE, BA.L, 7203.T).",
+                "Yahoo Finance ticker with suffix where applicable (RHM.DE, BA.L, 7203.T). Uppercase letters/digits/hyphens, optional .SUFFIX. No spaces, no company names.",
             },
           },
           tickers_exclude: {
             type: "array",
-            items: { type: "string" },
+            items: {
+              type: "string",
+              pattern: TICKER_PATTERN_JSON,
+            },
           },
         },
         required: [
@@ -117,6 +155,7 @@ const extractThesisTool: ToolSpec = {
                   type: "array",
                   items: {
                     type: "string",
+                    pattern: TICKER_PATTERN_JSON,
                     description:
                       "Yahoo Finance ticker(s) directly relevant to THIS driver (subset of scope.tickers_seed). 0-5 entries. Empty array if the driver applies to the whole universe.",
                   },
@@ -175,7 +214,8 @@ Rules:
 - horizon_years should be 3 to 10 for most theses; up to 30 for very long-cycle (utilities, REITs).
 - macro_premise should state stipulated macro context, not predict outcomes.
 - claim should be a specific, testable assertion (one sentence ideally).
-- For each industry driver, populate driver.tickers with the 0-5 tickers from scope.tickers_seed that the driver most directly applies to. Leave empty if the driver applies to the whole universe.`;
+- For each industry driver, populate driver.tickers with the 0-5 tickers from scope.tickers_seed that the driver most directly applies to. Leave empty if the driver applies to the whole universe.
+- Tickers discipline: only include tickers for companies explicitly named in the source text. If the source names no specific companies, set scope.tickers_seed to [] (an empty array) — do NOT invent or guess tickers. tickers_exclude follows the same rule. Tickers must be valid Yahoo Finance symbols (uppercase letters/digits/hyphens, optional .SUFFIX). Never put company names, exchange names, or whitespace into ticker fields.`;
 
 interface ToolDriverInput {
   id: string;
@@ -209,7 +249,11 @@ export async function extractThesis(
 
   const toolCall = result.tool_calls.find((tc) => tc.name === TOOL_NAME);
   if (!toolCall) {
-    return { ok: false, error: "Model did not produce a tool_use block" };
+    return {
+      ok: false,
+      code: "tool_use_missing",
+      error: "Model did not produce a tool_use block",
+    };
   }
 
   if (
@@ -219,6 +263,7 @@ export async function extractThesis(
   ) {
     return {
       ok: false,
+      code: "tool_use_invalid",
       error: "tool_use.input was not an object",
       raw: toolCall.input,
     };
@@ -226,6 +271,21 @@ export async function extractThesis(
 
   const toolInput = toolCall.input as ToolThesisInput;
   const driversInput = toolInput.drivers?.industry ?? [];
+
+  let tickersDropped = 0;
+  const rawScope = toolInput.scope as Record<string, unknown> | undefined;
+  let sanitizedScope: unknown = toolInput.scope;
+  if (rawScope && typeof rawScope === "object" && !Array.isArray(rawScope)) {
+    const seed = sanitizeTickerArray(rawScope.tickers_seed);
+    const exclude = sanitizeTickerArray(rawScope.tickers_exclude);
+    tickersDropped += seed.dropped + exclude.dropped;
+    sanitizedScope = {
+      ...rawScope,
+      tickers_seed: seed.cleaned,
+      tickers_exclude: exclude.cleaned,
+    };
+  }
+
   const merged = {
     id: input.id,
     version: 1,
@@ -235,13 +295,18 @@ export async function extractThesis(
     claim: toolInput.claim,
     macro_premise: toolInput.macro_premise,
     horizon_years: toolInput.horizon_years,
-    scope: toolInput.scope,
+    scope: sanitizedScope,
     drivers: {
-      industry: driversInput.map((d) => ({
-        ...d,
-        evidence: [],
-        verdict: null,
-      })),
+      industry: driversInput.map((d) => {
+        const { cleaned, dropped } = sanitizeTickerArray(d.tickers);
+        tickersDropped += dropped;
+        return {
+          ...d,
+          tickers: d.tickers === undefined ? undefined : cleaned,
+          evidence: [],
+          verdict: null,
+        };
+      }),
     },
     falsification: toolInput.falsification,
     universe_id: toolInput.universe_id,
@@ -257,6 +322,7 @@ export async function extractThesis(
   if (!parsed.success) {
     return {
       ok: false,
+      code: "extraction_invalid",
       error: parsed.error.message,
       raw: toolCall.input,
     };
@@ -266,5 +332,6 @@ export async function extractThesis(
     thesis: parsed.data,
     model: result.model,
     usage: result.usage,
+    tickers_dropped: tickersDropped,
   };
 }

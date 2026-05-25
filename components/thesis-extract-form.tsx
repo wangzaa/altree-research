@@ -5,6 +5,28 @@ import { useRouter } from "next/navigation";
 
 const MIN_LENGTH = 20;
 
+function friendlyError(
+  status: number,
+  body: { code?: string; error?: string } | null,
+): string {
+  switch (body?.code) {
+    case "extraction_invalid":
+      return "We couldn't structure that thesis. Try adding more specifics — sectors, regions, or named companies — and resubmit.";
+    case "tool_use_missing":
+    case "tool_use_invalid":
+      return "The model didn't return a structured thesis. Please try again.";
+  }
+  switch (body?.error) {
+    case "invalid_body":
+      return "Please paste at least 20 characters of thesis prose.";
+    case "unauthenticated":
+      return "You need to sign in to extract a thesis.";
+    case "persist_failed":
+      return "We couldn't save the thesis. Please try again.";
+  }
+  return `Request failed (${status})`;
+}
+
 export function ThesisExtractForm() {
   const router = useRouter();
   const [snippet, setSnippet] = useState("");
@@ -25,10 +47,10 @@ export function ThesisExtractForm() {
         body: JSON.stringify({ source_snippet: snippet }),
       });
       const body = (await res.json().catch(() => null)) as
-        | { id?: string; error?: string }
+        | { id?: string; error?: string; code?: string }
         | null;
       if (!res.ok || !body?.id) {
-        setError(body?.error ?? `Request failed (${res.status})`);
+        setError(friendlyError(res.status, body));
         setSubmitting(false);
         return;
       }

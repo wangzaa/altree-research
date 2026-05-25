@@ -34,17 +34,19 @@ export function deriveStepStates(
   const universeDone =
     inputs.universe !== null && inputs.universe.tickers.length > 0;
   const insightsDone = hasAnyBullEvidence(inputs.validationResults);
-  const memoDone = false;
+  // 'Set up trade' is a placeholder section pending the trade-construction
+  // flow; it's never marked completed by data, only by user action later.
+  const tradeDone = false;
 
-  const completion = [thesisDone, universeDone, insightsDone, memoDone];
+  const completion = [thesisDone, universeDone, insightsDone, tradeDone];
   let activeIdx = completion.findIndex((c) => !c);
   if (activeIdx === -1) activeIdx = completion.length - 1;
 
   const labels: Array<{ id: string; label: string }> = [
-    { id: "step-thesis", label: "Thesis extraction" },
-    { id: "step-universe", label: "Universe construction" },
-    { id: "step-insights", label: "Insights" },
-    { id: "step-memo", label: "Memo" },
+    { id: "step-thesis", label: "Extract" },
+    { id: "step-universe", label: "Scan" },
+    { id: "step-insights", label: "Anti/Thesis" },
+    { id: "step-trade", label: "Execute" },
   ];
 
   return labels.map((l, i) => ({

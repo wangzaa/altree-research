@@ -31,6 +31,10 @@ export const UniverseTickerSchema = z
     exposure_rationale: z.string().optional(),
     transcript_source: TranscriptSourceSchema.optional(),
     transcript_url: z.string().url().optional(),
+    /** True for the anchor ticker the user picked when building the universe.
+     * Surfaced as a bold row in the universe table; no other behavior depends
+     * on it. Stored as optional/undefined for non-anchor rows. */
+    is_anchor: z.boolean().optional(),
     notes: z.string().default(""),
   })
   .strict();

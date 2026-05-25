@@ -36,13 +36,13 @@ describe("deriveStepStates", () => {
       "step-thesis",
       "step-universe",
       "step-insights",
-      "step-memo",
+      "step-trade",
     ]);
     expect(steps.map((s) => s.label)).toEqual([
-      "Thesis extraction",
-      "Universe construction",
-      "Insights",
-      "Memo",
+      "Extract",
+      "Scan",
+      "Anti/Thesis",
+      "Execute",
     ]);
   });
 
@@ -95,7 +95,7 @@ describe("deriveStepStates", () => {
     expect(steps[3].state).toBe("active");
   });
 
-  it("keeps memo active when all earlier steps are complete (memo is the lowest-incomplete)", () => {
+  it("keeps trade active when all earlier steps are complete (trade is the lowest-incomplete)", () => {
     const steps = deriveStepStates({
       thesis: cloneCanonicalThesis(),
       universe: sampleUniverse,

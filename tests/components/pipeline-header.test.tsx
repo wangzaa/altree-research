@@ -6,19 +6,19 @@ import { PipelineHeader } from "@/components/pipeline-header";
 import type { PipelineStep } from "@/lib/pipeline-steps";
 
 const sampleSteps: PipelineStep[] = [
-  { id: "step-thesis", label: "Thesis extraction", state: "completed" },
-  { id: "step-universe", label: "Universe construction", state: "active" },
-  { id: "step-insights", label: "Insights", state: "pending" },
-  { id: "step-memo", label: "Memo", state: "pending" },
+  { id: "step-thesis", label: "Extract", state: "completed" },
+  { id: "step-universe", label: "Scan", state: "active" },
+  { id: "step-insights", label: "Anti/Thesis", state: "pending" },
+  { id: "step-trade", label: "Execute", state: "pending" },
 ];
 
 describe("<PipelineHeader>", () => {
   it("renders the four step labels and numerals", () => {
     render(<PipelineHeader steps={sampleSteps} />);
-    expect(screen.getByText("Thesis extraction")).toBeInTheDocument();
-    expect(screen.getByText("Universe construction")).toBeInTheDocument();
-    expect(screen.getByText("Insights")).toBeInTheDocument();
-    expect(screen.getByText("Memo")).toBeInTheDocument();
+    expect(screen.getByText("Extract")).toBeInTheDocument();
+    expect(screen.getByText("Scan")).toBeInTheDocument();
+    expect(screen.getByText("Anti/Thesis")).toBeInTheDocument();
+    expect(screen.getByText("Execute")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
   });
@@ -26,15 +26,15 @@ describe("<PipelineHeader>", () => {
   it("tags each step button with its state via data-state", () => {
     render(<PipelineHeader steps={sampleSteps} />);
     const thesisButton = screen.getByRole("button", {
-      name: /thesis extraction/i,
+      name: /extract/i,
     });
     expect(thesisButton).toHaveAttribute("data-state", "completed");
     const universeButton = screen.getByRole("button", {
-      name: /universe construction/i,
+      name: /^scan$/i,
     });
     expect(universeButton).toHaveAttribute("data-state", "active");
-    const memoButton = screen.getByRole("button", { name: /memo/i });
-    expect(memoButton).toHaveAttribute("data-state", "pending");
+    const tradeButton = screen.getByRole("button", { name: /execute/i });
+    expect(tradeButton).toHaveAttribute("data-state", "pending");
   });
 
   it("scrolls the target section into view on click", async () => {
@@ -47,7 +47,7 @@ describe("<PipelineHeader>", () => {
 
     render(<PipelineHeader steps={sampleSteps} />);
     await user.click(
-      screen.getByRole("button", { name: /universe construction/i }),
+      screen.getByRole("button", { name: /^scan$/i }),
     );
     expect(scrollIntoViewSpy).toHaveBeenCalledWith({ behavior: "smooth" });
 

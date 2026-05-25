@@ -1,9 +1,9 @@
 import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { ScanPanel } from "@/components/scan-panel";
 import { cloneCanonicalScan } from "@/tests/fixtures/scan";
+import { cloneCanonicalUniverse } from "@/tests/fixtures/universe";
 
 const fetchMock = vi.fn();
 const routerRefreshMock = vi.fn();
@@ -19,34 +19,7 @@ beforeEach(() => {
 });
 
 describe("<ScanPanel>", () => {
-  it("renders the Run scan button when initial is null", () => {
-    render(
-      <ScanPanel
-        thesisId="t1"
-        universeId="t1_universe_01"
-        initial={null}
-      />,
-    );
-    expect(screen.getByRole("button", { name: /run scan/i })).toBeInTheDocument();
-  });
-
-  it("renders the chart wrapper, markdown, and Re-run button when initial is set", () => {
-    const scan = cloneCanonicalScan();
-    render(
-      <ScanPanel
-        thesisId={scan.thesis_id}
-        universeId={scan.universe_id}
-        initial={scan}
-      />,
-    );
-    // RHM.DE may appear in both the per-ticker table and the tickers-in-history
-    // line; just confirm at least one mention exists.
-    expect(screen.getAllByText(/RHM\.DE/).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /re-run scan/i })).toBeInTheDocument();
-  });
-
-  it("POSTs /api/scan/run on Run click and swaps to the returned payload", async () => {
-    const user = userEvent.setup();
+  it("auto-fires /api/scan/run on mount when no initial scan exists and universe is set", async () => {
     const scan = cloneCanonicalScan();
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -59,26 +32,47 @@ describe("<ScanPanel>", () => {
         thesisId={scan.thesis_id}
         universeId={scan.universe_id}
         initial={null}
+        universe={cloneCanonicalUniverse()}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /run scan/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /re-run scan/i }),
-      ).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/scan/run",
+        expect.objectContaining({ method: "POST" }),
+      );
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/scan/run",
-      expect.objectContaining({ method: "POST" }),
-    );
-    // router.refresh re-renders the server tree so the PipelineHeader
-    // re-derives its step state and reflects the new scan_runs row.
-    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+    // router.refresh fires after success so server-rendered state updates.
+    await waitFor(() => {
+      expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+    });
+    // No Run / Re-run scan buttons anymore.
+    expect(screen.queryByRole("button", { name: /run scan/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /re-run scan/i }),
+    ).toBeNull();
   });
 
-  it("surfaces dropped count when present in response", async () => {
-    const user = userEvent.setup();
+  it("renders the chart + per-ticker table when initial is set (no Run buttons)", () => {
+    const scan = cloneCanonicalScan();
+    render(
+      <ScanPanel
+        thesisId={scan.thesis_id}
+        universeId={scan.universe_id}
+        initial={scan}
+        universe={cloneCanonicalUniverse()}
+      />,
+    );
+    expect(screen.getAllByText(/RHM\.DE/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /run scan/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /re-run scan/i }),
+    ).toBeNull();
+    // No outbound fetch on initial-scan path either.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("surfaces dropped count after the auto-run completes", async () => {
     const scan = cloneCanonicalScan();
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -94,16 +88,15 @@ describe("<ScanPanel>", () => {
         thesisId={scan.thesis_id}
         universeId={scan.universe_id}
         initial={null}
+        universe={cloneCanonicalUniverse()}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /run scan/i }));
     await waitFor(() => {
       expect(screen.getByText(/1 ticker.*filtered/i)).toBeInTheDocument();
     });
   });
 
-  it("surfaces 422 detail in an alert when POST fails", async () => {
-    const user = userEvent.setup();
+  it("surfaces 422 detail in an alert when the auto-run fails", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 422,
@@ -114,11 +107,47 @@ describe("<ScanPanel>", () => {
         thesisId="t1"
         universeId="t1_universe_01"
         initial={null}
+        universe={cloneCanonicalUniverse()}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /run scan/i }));
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/too_few_history/);
+    });
+  });
+
+  it("re-fires the scan when runScanKey changes (universe Save handle)", async () => {
+    const scan = cloneCanonicalScan();
+    // First call: initial auto-run is skipped (initial scan provided), so
+    // only the bumped key triggers a fetch.
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ scan, dropped: [], dropped_ratios: [] }),
+    });
+
+    const { rerender } = render(
+      <ScanPanel
+        thesisId={scan.thesis_id}
+        universeId={scan.universe_id}
+        initial={scan}
+        universe={cloneCanonicalUniverse()}
+        runScanKey={0}
+      />,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    rerender(
+      <ScanPanel
+        thesisId={scan.thesis_id}
+        universeId={scan.universe_id}
+        initial={scan}
+        universe={cloneCanonicalUniverse()}
+        runScanKey={1}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 });

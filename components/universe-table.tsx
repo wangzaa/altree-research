@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getRegionForTicker } from "@/lib/data/regions";
-import type { Universe, UniverseTicker, ExposureTier } from "@/lib/schemas/universe";
+import type { Universe, UniverseTicker } from "@/lib/schemas/universe";
 
 interface UniverseTableProps {
   initial: Universe;
@@ -26,20 +27,24 @@ function SortHeader({
   onToggle,
   align = "left",
 }: {
-  label: string;
+  label: React.ReactNode;
   columnKey: SortKey;
   active: boolean;
   dir: SortDir;
   onToggle: (key: SortKey) => void;
-  align?: "left" | "right";
+  align?: "left" | "right" | "center";
 }) {
   // Inactive arrow is grey so the column visibly advertises sortability.
   const arrowChar = active ? (dir === "asc" ? "↑" : "↓") : "↕";
   const arrowColor = active ? "var(--color-black)" : "#B5B5B5";
+  const alignClass =
+    align === "right"
+      ? "text-right"
+      : align === "center"
+        ? "text-center"
+        : "text-left";
   return (
-    <th
-      className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"} font-medium`}
-    >
+    <th className={`px-3 py-2 ${alignClass} font-medium`}>
       <button
         type="button"
         onClick={() => onToggle(columnKey)}
@@ -53,8 +58,6 @@ function SortHeader({
     </th>
   );
 }
-
-const TIER_OPTIONS: ExposureTier[] = ["pure_play", "diversified", "etf_proxy"];
 
 function ticketsEqual(a: UniverseTicker[], b: UniverseTicker[]): boolean {
   if (a.length !== b.length) return false;
@@ -76,6 +79,7 @@ function ticketsEqual(a: UniverseTicker[], b: UniverseTicker[]): boolean {
 }
 
 export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProps) {
+  const router = useRouter();
   const [tickers, setTickers] = useState<UniverseTicker[]>(initial.tickers);
   const [addingRow, setAddingRow] = useState(false);
   const [newRowTicker, setNewRowTicker] = useState("");
@@ -91,14 +95,14 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
   );
 
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortDir("asc");
+      setSortDir("desc");
     }
   }
 
@@ -118,13 +122,6 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
     });
   }, [tickers, sortKey, sortDir]);
 
-
-  function updateRow(index: number, patch: Partial<UniverseTicker>) {
-    setJustSavedAt(null);
-    setTickers((rows) =>
-      rows.map((r, i) => (i === index ? { ...r, ...patch } : r)),
-    );
-  }
 
   function removeRow(index: number) {
     setJustSavedAt(null);
@@ -197,6 +194,9 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
       onSaved(body.universe);
       setSaving(false);
       setJustSavedAt(new Date());
+      // Re-render the server tree so the PipelineHeader re-derives step state
+      // and any insights that read from server-fetched data pick up the change.
+      router.refresh();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Unexpected error");
       setSaving(false);
@@ -219,86 +219,70 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
               <SortHeader label="Ticker" columnKey="ticker" active={sortKey === "ticker"} dir={sortDir} onToggle={toggleSort} />
               <SortHeader label="Name" columnKey="name" active={sortKey === "name"} dir={sortDir} onToggle={toggleSort} />
               <SortHeader label="Region" columnKey="region" active={sortKey === "region"} dir={sortDir} onToggle={toggleSort} />
-              <SortHeader label="Mcap (USD B)" columnKey="market_cap_usd_b" active={sortKey === "market_cap_usd_b"} dir={sortDir} onToggle={toggleSort} align="right" />
-              <SortHeader label="Exposure" columnKey="exposure_tier" active={sortKey === "exposure_tier"} dir={sortDir} onToggle={toggleSort} />
-              <th className="px-3 py-2 text-left font-medium">Notes</th>
+              <SortHeader
+                label={
+                  <span className="inline-block leading-tight">
+                    Mcap
+                    <br />
+                    (USD M)
+                  </span>
+                }
+                columnKey="market_cap_usd_b"
+                active={sortKey === "market_cap_usd_b"}
+                dir={sortDir}
+                onToggle={toggleSort}
+                align="center"
+              />
+              <th className="w-full px-3 py-2 text-left font-medium">Notes</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100 bg-white">
-            {displayRows.map(({ t, originalIndex: i }) => (
-              <tr key={`${t.ticker}-${i}`}>
-                <td className="px-3 py-2 font-mono text-xs text-neutral-900">{t.ticker}</td>
-                <td className="px-3 py-2 text-neutral-900">{t.name}</td>
-                <td className="px-3 py-2 text-xs text-neutral-700">{t.region}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-neutral-900">
-                  {Math.round(t.market_cap_usd_b).toLocaleString()}
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={t.exposure_tier}
-                      onChange={(e) =>
-                        updateRow(i, {
-                          exposure_tier: e.target.value as ExposureTier,
-                        })
-                      }
-                      title={t.exposure_rationale ?? undefined}
-                      className="rounded px-2 py-1 text-xs"
+            {displayRows.map(({ t, originalIndex: i }) => {
+              const rationale = (t.notes ?? "").trim() ||
+                (t.exposure_rationale ?? "").trim();
+              // Pure-play is the default for most rows, so showing it as
+              // a prefix adds noise. Only surface the tier when it deviates
+              // from pure-play (Diversified / ETF proxy).
+              const tierLabel =
+                t.exposure_tier === "diversified"
+                  ? "Diversified"
+                  : t.exposure_tier === "etf_proxy"
+                    ? "ETF proxy"
+                    : "";
+              const noteText =
+                tierLabel && rationale
+                  ? `${tierLabel}; ${rationale}`
+                  : tierLabel || rationale;
+              const anchorClass = t.is_anchor ? "font-semibold" : "";
+              return (
+                <tr key={`${t.ticker}-${i}`} className={anchorClass}>
+                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-neutral-900">{t.ticker}</td>
+                  <td className="px-3 py-2 text-neutral-900">{t.name}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-xs text-neutral-700">{t.region}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-center tabular-nums text-neutral-900">
+                    {Math.round(t.market_cap_usd_b * 1000).toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-neutral-700" style={{ minWidth: 280 }}>
+                    {noteText}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() => removeRow(i)}
+                      className="rounded px-2 py-0.5 text-xs"
                       style={{
                         background: "white",
                         border: "1px solid #E5E5E5",
-                        color: "var(--color-black)",
+                        color: "#585858",
                       }}
                     >
-                      {TIER_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                    {t.exposure_rationale ? (
-                      <span
-                        title={t.exposure_rationale}
-                        aria-label="Exposure rationale"
-                        className="cursor-help text-xs"
-                        style={{ color: "#585858" }}
-                      >
-                        &#9432;
-                      </span>
-                    ) : null}
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <input
-                    type="text"
-                    value={t.notes ?? ""}
-                    placeholder="Notes"
-                    onChange={(e) => updateRow(i, { notes: e.target.value })}
-                    className="w-full rounded px-2 py-1 text-xs"
-                    style={{
-                      background: "white",
-                      border: "1px solid #E5E5E5",
-                      color: "var(--color-black)",
-                    }}
-                  />
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => removeRow(i)}
-                    className="rounded px-2 py-0.5 text-xs"
-                    style={{
-                      background: "white",
-                      border: "1px solid #E5E5E5",
-                      color: "#585858",
-                    }}
-                  >
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

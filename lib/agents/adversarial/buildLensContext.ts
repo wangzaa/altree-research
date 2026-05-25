@@ -161,9 +161,28 @@ export function buildLensContext(input: BuildLensContextInput): LensRequest {
   const system = buildSystemPrompt(input);
 
   // Assertion: broad opposite-lens disallow-list absent from system prompt.
-  // The prompt is OUR text — we can guarantee it.
+  // The check is meant to catch authoring mistakes in OUR template only —
+  // not legitimate use of words like "support" inside user-authored claim
+  // text. Redact the user-supplied substitutions before checking so a
+  // claim like "demographic tailwinds support household robotics" doesn't
+  // trip the bear lens's `/\bsupports?\b/i` disallow rule.
   {
-    const hit = findFirstDisallowed(system, systemDisallowFor(input.lens));
+    let templateOnly = system;
+    const userSubs = [
+      input.thesis.claim,
+      input.thesis.macro_premise,
+      input.driver.claim,
+      input.driver.central_estimate.unit,
+    ];
+    for (const sub of userSubs) {
+      if (sub && sub.length > 0) {
+        templateOnly = templateOnly.split(sub).join("");
+      }
+    }
+    const hit = findFirstDisallowed(
+      templateOnly,
+      systemDisallowFor(input.lens),
+    );
     if (hit) {
       throw new Error(
         `buildLensContext: disallowed pattern ${hit} present in system prompt for lens ${input.lens}`,

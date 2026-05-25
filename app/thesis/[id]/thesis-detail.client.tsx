@@ -4,13 +4,16 @@ import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnchorPicker } from "@/components/anchor-picker";
 import { ChatBubble, ChatThread } from "@/components/chat-bubble";
-import { ChatInputAction } from "@/components/chat-input";
+import { ChatInputBinary } from "@/components/chat-input";
+import { FundSelectionCards } from "@/components/fund-selection-cards";
+import { RichProse } from "@/components/rich-prose";
 import { ScanPanel } from "@/components/scan-panel";
 import { ThesisChatArtifact } from "@/components/thesis-chat-artifact";
 import { UniverseTable } from "@/components/universe-table";
-import { DriverEvidencePanel } from "@/components/driver-evidence-panel";
-import { OpenQuestionsResolver } from "@/components/open-questions-resolver";
-import { PipelineSection } from "@/components/pipeline-layout";
+import {
+  PipelineSection,
+  usePipelineStepState,
+} from "@/components/pipeline-layout";
 import type { Memo } from "@/lib/schemas/memo";
 import type { ScanResults } from "@/lib/schemas/scan";
 import type { Thesis } from "@/lib/schemas/thesis";
@@ -30,6 +33,14 @@ interface ThesisDetailProps {
    * referenced ticker the universe doesn't cover yet. Used by the chat
    * artifact so every ticker can render as `Company (TICKER)`. */
   tickerNames?: Record<string, string>;
+  /** Live FX rates fetched server-side at page load. Keyed by uppercase
+   * ISO currency code; value is "1 unit of CCY in USD". Threaded into the
+   * per-ticker table so EBITDA renders in USD M with current rates. */
+  ratesByCurrency?: Record<string, number>;
+  /** Pre-formatted "FX as of …" timestamp string (server-side, UTC).
+   * Surfaced as a small indicator near the Insights table. Null when no
+   * currency in the scan had a live Yahoo timestamp. */
+  fxAsOf?: string | null;
 }
 
 interface DroppedTicker {
@@ -44,6 +55,8 @@ export function ThesisDetail({
   initialValidation,
   seedNames,
   tickerNames,
+  ratesByCurrency,
+  fxAsOf,
 }: ThesisDetailProps) {
   const router = useRouter();
   const [thesis, setThesis] = useState<Thesis>(initial);
@@ -52,6 +65,32 @@ export function ThesisDetail({
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
   const [dropped, setDropped] = useState<DroppedTicker[]>([]);
+  // Bumped by ThesisChatArtifact when the user clicks "Continue without
+  // refining" — forces the AnchorPicker to refetch suggestions even though
+  // thesis_id hasn't changed.
+  const [anchorSuggestRefreshKey, setAnchorSuggestRefreshKey] = useState(0);
+  // Bumped when the user saves an edited universe — forces ScanPanel to
+  // re-run the scan against the new ticker set so chart + table refresh
+  // without an explicit "Run scan" button.
+  const [scanRerunKey, setScanRerunKey] = useState(0);
+  // null = not yet asked, "yes"/"no" = user clicked. Drives whether the
+  // Endowus fund cards render and whether step-trade lights up.
+  const [tradeChoice, setTradeChoice] = useState<"yes" | "no" | null>(null);
+  const { setStepState } = usePipelineStepState();
+
+  function handleTradeChoice(yes: boolean) {
+    setTradeChoice(yes ? "yes" : "no");
+    if (yes) {
+      // Highlight step 4 in the pipeline header now that the user has
+      // engaged with the Execute prompt.
+      setStepState("step-trade", "active");
+    }
+  }
+
+  function handleUniverseSaved(next: Universe) {
+    setUniverse(next);
+    setScanRerunKey((k) => k + 1);
+  }
   const [validation, setValidation] = useState<
     Record<string, DriverValidationResult> | null
   >(initialValidation);
@@ -160,6 +199,22 @@ export function ThesisDetail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialScan, validation, thesis.drivers.industry.length]);
 
+  // Auto-fire memo generation the moment validation results are available
+  // and we don't already have a memo. Replaces the previous "Generate
+  // Bull/Bear/Open-questions" button — the analyst expects the aggregate
+  // Thesis / Anti-thesis bubbles to appear without an extra click.
+  const autoMemoFired = useRef(false);
+  useEffect(() => {
+    if (autoMemoFired.current) return;
+    if (validation === null) return;
+    if (memo !== null) return;
+    if (memoLoading) return;
+    autoMemoFired.current = true;
+    handleDraftMemo();
+    // handleDraftMemo is stable for the lifetime of this component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validation, memo, memoLoading]);
+
   async function handleBuild(anchor: string) {
     setBuilding(true);
     setBuildError(null);
@@ -204,27 +259,30 @@ export function ThesisDetail({
 
   return (
     <>
-      <PipelineSection id="step-thesis" title="Thesis extraction">
+      <PipelineSection id="step-thesis" title="Extract">
         <ThesisChatArtifact
           thesis={thesis}
           onApplied={setThesis}
           tickerNames={tickerNames}
+          onContinue={() => setAnchorSuggestRefreshKey((k) => k + 1)}
         />
       </PipelineSection>
 
-      <PipelineSection id="step-universe" title="Universe construction">
-        <div className="flex flex-col gap-4">
+      <PipelineSection id="step-universe" title="Scan">
+        <div className="flex flex-col gap-6">
           {picking || universe === null ? (
             <AnchorPicker
+              thesis_id={thesis.id}
               tickers_seed={thesis.scope.tickers_seed}
               tickerNames={seedNames}
               onSubmit={handleBuild}
               disabled={building}
+              refreshKey={anchorSuggestRefreshKey}
             />
           ) : (
             <UniverseTable
               initial={universe}
-              onSaved={setUniverse}
+              onSaved={handleUniverseSaved}
               onRefresh={handleRefresh}
             />
           )}
@@ -254,135 +312,120 @@ export function ThesisDetail({
               {buildError}
             </p>
           ) : null}
-        </div>
-      </PipelineSection>
-
-      <PipelineSection id="step-insights" title="Insights">
-        {universe ? (
-          <div className="flex flex-col gap-8">
+          {universe ? (
             <ScanPanel
               thesisId={thesis.id}
               universeId={universe.id}
               initial={initialScan}
               universe={universe}
+              ratesByCurrency={ratesByCurrency}
+              fxAsOf={fxAsOf}
+              runScanKey={scanRerunKey}
             />
-            {initialScan ? (
-              <div className="flex flex-col gap-6">
-                {thesis.drivers.industry.map((driver, idx) => {
-                  const v = validation?.[driver.id];
-                  return (
-                    <DriverEvidencePanel
-                      key={driver.id}
-                      driver_id={driver.id}
-                      driver_claim={driver.claim}
-                      thesisIndex={idx}
-                      thesisCount={thesis.drivers.industry.length}
-                      bull_evidence={v?.bull_evidence ?? []}
-                      bear_evidence={v?.bear_evidence ?? []}
-                      bull_synthesis={v?.bull_synthesis ?? null}
-                      bear_synthesis={v?.bear_synthesis ?? null}
-                      loading={validating && !v}
-                    />
-                  );
-                })}
-                {validation ? (
-                  <div className="flex items-center justify-end">
-                    <button
-                      type="button"
-                      onClick={handleValidateAll}
-                      disabled={validating}
-                      className="btn btn-outline"
-                    >
-                      {validating ? "Re-validating..." : "Re-validate drivers"}
-                    </button>
-                  </div>
-                ) : null}
-                {validationError ? (
-                  <p
-                    className="text-sm"
-                    role="alert"
-                    style={{ color: "#a30000" }}
+          ) : null}
+        </div>
+      </PipelineSection>
+
+      <PipelineSection id="step-insights" title="Anti/Thesis">
+        {universe && initialScan ? (
+          <div className="flex flex-col gap-6">
+            {validationError ? (
+              <p
+                className="text-sm"
+                role="alert"
+                style={{ color: "#a30000" }}
+              >
+                {validationError}
+              </p>
+            ) : null}
+            {memo ? (
+              <>
+                <ChatThread>
+                  <ChatBubble from="app" label="Thesis">
+                    <RichProse text={memo.bull_summary} />
+                  </ChatBubble>
+                  <ChatBubble from="app" label="Anti-thesis">
+                    <RichProse text={memo.bear_summary} />
+                  </ChatBubble>
+                </ChatThread>
+                <div className="flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={handleDraftMemo}
+                    disabled={memoLoading}
+                    className="btn btn-outline"
                   >
-                    {validationError}
+                    {memoLoading ? "Re-drafting..." : "Re-draft"}
+                  </button>
+                </div>
+                {memoError ? (
+                  <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
+                    {memoError}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <div className="flex flex-col items-start gap-2">
+                {validating ? (
+                  <p className="text-sm italic" style={{ color: "#585858" }}>
+                    Reading the corpus for Thesis / Anti-thesis evidence…
+                  </p>
+                ) : memoLoading ? (
+                  <p className="text-sm italic" style={{ color: "#585858" }}>
+                    Drafting Thesis / Anti-thesis from your scan and validation…
+                  </p>
+                ) : null}
+                {memoError ? (
+                  <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
+                    {memoError}
                   </p>
                 ) : null}
               </div>
-            ) : null}
+            )}
           </div>
         ) : (
           <p className="text-sm" style={{ color: "#585858" }}>
-            Build the universe to enable insights.
+            Run the scan first — Thesis / Anti-thesis draws on its evidence.
           </p>
         )}
       </PipelineSection>
 
-      <PipelineSection id="step-memo" title="Memo">
-        {validation ? (
-          memo ? (
-            <ChatThread>
-              <ChatBubble from="app" label={`Verdict: ${memo.verdict}`}>
-                <div style={{ whiteSpace: "pre-line" }}>{memo.recommendation}</div>
-              </ChatBubble>
-              <ChatBubble from="app" label="Bull">
-                <div style={{ whiteSpace: "pre-line" }}>{memo.bull_summary}</div>
-              </ChatBubble>
-              <ChatBubble from="app" label="Bear">
-                <div style={{ whiteSpace: "pre-line" }}>{memo.bear_summary}</div>
-              </ChatBubble>
-              {memo.open_questions.length > 0 ? (
-                <ChatBubble from="app" label="Open questions">
-                  <OpenQuestionsResolver
-                    thesisId={thesis.id}
-                    questions={memo.open_questions}
-                  />
-                </ChatBubble>
-              ) : null}
-              <div className="flex items-center justify-end pl-12">
-                <button
-                  type="button"
-                  onClick={handleDraftMemo}
-                  disabled={memoLoading}
-                  className="btn btn-outline"
-                >
-                  {memoLoading ? "Re-drafting..." : "Re-draft memo"}
-                </button>
+      <PipelineSection id="step-trade" title="Execute">
+        {universe && initialScan ? (
+          <ChatThread>
+            <ChatBubble from="app">
+              Provide a sample of possible financial products that match the
+              Anti/thesis?
+            </ChatBubble>
+            {tradeChoice === null ? (
+              <div className="pl-12">
+                <ChatInputBinary
+                  yesLabel="Yes"
+                  noLabel="No"
+                  onSelect={handleTradeChoice}
+                />
               </div>
-              {memoError ? (
-                <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
-                  {memoError}
-                </p>
-              ) : null}
-            </ChatThread>
-          ) : (
-            <ChatThread>
-              <ChatBubble from="app">
-                I can draft a memo from your thesis, scan, and validation
-                {memoLoading ? " — working on it now..." : "."}
-              </ChatBubble>
-              {!memoLoading ? (
-                <div className="pl-12">
-                  <ChatInputAction
-                    label="Draft memo"
-                    loadingLabel="Drafting..."
-                    loading={memoLoading}
-                    onAction={handleDraftMemo}
-                  />
-                </div>
-              ) : null}
-              {memoError ? (
-                <p
-                  className="pl-12 text-sm"
-                  role="alert"
-                  style={{ color: "#a30000" }}
-                >
-                  {memoError}
-                </p>
-              ) : null}
-            </ChatThread>
-          )
+            ) : (
+              <>
+                <ChatBubble from="user">
+                  {tradeChoice === "yes" ? "Yes" : "No"}
+                </ChatBubble>
+                {tradeChoice === "yes" ? (
+                  <ChatBubble from="app">
+                    <FundSelectionCards thesis_id={thesis.id} />
+                  </ChatBubble>
+                ) : (
+                  <ChatBubble from="app">
+                    Skipped — say the word any time and I’ll pull a fund shortlist.
+                  </ChatBubble>
+                )}
+              </>
+            )}
+          </ChatThread>
         ) : (
           <p className="text-sm" style={{ color: "#585858" }}>
-            Validate your drivers first — the memo draws on Bull/Bear evidence.
+            Run the scan first — Execute matches your thesis to the Endowus
+            fund catalogue.
           </p>
         )}
       </PipelineSection>
