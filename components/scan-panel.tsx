@@ -62,9 +62,6 @@ export function ScanPanel({
     new Set(),
   );
   const userTouchedSelectionRef = useRef(false);
-  // Track whether the auto-run on mount has fired so we don't double-run
-  // when React re-renders before the request resolves.
-  const autoRanRef = useRef(false);
 
   async function runScan() {
     setRunning(true);
@@ -103,22 +100,10 @@ export function ScanPanel({
     }
   }
 
-  // Auto-run on mount when no scan exists yet. The "Run scan" button is
-  // gone — first render fires the request, the spinner state below stands
-  // in until results arrive.
-  useEffect(() => {
-    if (autoRanRef.current) return;
-    if (scan !== null) return;
-    if (!universe) return;
-    autoRanRef.current = true;
-    runScan();
-    // runScan is stable for the lifetime of this component.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scan, universe]);
-
-  // Re-run whenever the parent bumps runScanKey (e.g. user saved an edited
-  // universe). Skip the very first render — the auto-run effect above
-  // handles initial mount.
+  // Scan runs are explicitly triggered by the user via "Proceed to scan"
+  // at the top of the section (or "Refresh" inside the universe table —
+  // both bump `runScanKey`). No auto-run on mount: the user controls when
+  // the chart + ticker table refresh.
   const firstKeyRef = useRef(true);
   useEffect(() => {
     if (firstKeyRef.current) {
@@ -211,15 +196,20 @@ export function ScanPanel({
   if (scan === null) {
     return (
       <div className="flex flex-col gap-2">
-        <p
-          className="inline-flex items-center gap-2 text-sm italic"
-          style={{ color: "#585858" }}
-        >
-          <Spinner size={14} />
-          {running
-            ? "Running price + fundamentals scan across the universe…"
-            : "Preparing scan…"}
-        </p>
+        {running ? (
+          <p
+            className="inline-flex items-center gap-2 text-sm italic"
+            style={{ color: "#585858" }}
+          >
+            <Spinner size={14} />
+            Running price + fundamentals scan across the universe…
+          </p>
+        ) : (
+          <p className="text-sm" style={{ color: "#585858" }}>
+            No scan yet — click <strong>Proceed to scan</strong> above to
+            generate the chart and ticker table.
+          </p>
+        )}
         {error ? (
           <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
             {error}
@@ -238,23 +228,6 @@ export function ScanPanel({
       return next;
     });
   }
-
-  // Mirror the chart palette so the per-ticker-table swatch matches the
-  // line drawn for each selected ticker. Recomputed alongside chart order.
-  const palette = [
-    "#1f77b4",
-    "#ff7f0e",
-    "#2ca02c",
-    "#d62728",
-    "#9467bd",
-    "#8c564b",
-    "#e377c2",
-    "#17becf",
-  ];
-  const colorByTicker: Record<string, string> = {};
-  orderedSelected.forEach((t, i) => {
-    colorByTicker[t] = palette[i % palette.length];
-  });
 
   return (
     <div className="flex flex-col gap-3">
@@ -275,7 +248,6 @@ export function ScanPanel({
         ratesByCurrency={ratesByCurrency}
         selectedTickers={selectedTickers}
         onToggleTicker={handleToggleTicker}
-        colorByTicker={colorByTicker}
       />
       {fxAsOf ? (
         <p className="text-xs" style={{ color: "#9a9a9a" }}>

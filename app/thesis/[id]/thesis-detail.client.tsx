@@ -261,70 +261,100 @@ export function ThesisDetail({
   return (
     <>
       <PipelineSection id="step-thesis" title="Extract">
-        <ThesisChatArtifact
-          thesis={thesis}
-          onApplied={setThesis}
-          tickerNames={tickerNames}
-          onContinue={() => setAnchorSuggestRefreshKey((k) => k + 1)}
-        />
+        <div className="flex flex-col gap-8">
+          <ThesisChatArtifact
+            thesis={thesis}
+            onApplied={setThesis}
+            tickerNames={tickerNames}
+            onContinue={() => setAnchorSuggestRefreshKey((k) => k + 1)}
+          />
+          {picking || universe === null ? (
+            <div id="anchor-picker" className="flex flex-col gap-3">
+              <p
+                className="text-sm"
+                style={{ color: "var(--color-black)", fontWeight: 500 }}
+              >
+                Pick a ticker to anchor the scan.
+              </p>
+              <AnchorPicker
+                thesis_id={thesis.id}
+                tickers_seed={thesis.scope.tickers_seed}
+                tickerNames={seedNames}
+                onSubmit={handleBuild}
+                disabled={building}
+                pending={building}
+                refreshKey={anchorSuggestRefreshKey}
+              />
+              {dropped.length > 0 ? (
+                <details
+                  className="rounded-md p-3 text-xs"
+                  style={{
+                    background: "#F5F4F2",
+                    border: "1px solid #E5E5E5",
+                    color: "#585858",
+                  }}
+                >
+                  <summary className="cursor-pointer font-medium">
+                    {dropped.length} ticker(s) filtered during build
+                  </summary>
+                  <ul className="mt-2 list-disc pl-5">
+                    {dropped.map((d) => (
+                      <li key={d.ticker}>
+                        <code className="font-mono">{d.ticker}</code> —{" "}
+                        {d.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+              {buildError ? (
+                <p
+                  className="text-sm"
+                  role="alert"
+                  style={{ color: "#a30000" }}
+                >
+                  {buildError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </PipelineSection>
 
       <PipelineSection id="step-universe" title="Scan">
         <div className="flex flex-col gap-6">
-          {picking || universe === null ? (
-            <AnchorPicker
-              thesis_id={thesis.id}
-              tickers_seed={thesis.scope.tickers_seed}
-              tickerNames={seedNames}
-              onSubmit={handleBuild}
-              disabled={building}
-              pending={building}
-              refreshKey={anchorSuggestRefreshKey}
-            />
-          ) : (
-            <UniverseTable
-              initial={universe}
-              onSaved={handleUniverseSaved}
-              onRefresh={handleRefresh}
-            />
-          )}
-          {dropped.length > 0 ? (
-            <details
-              className="rounded-md p-3 text-xs"
-              style={{
-                background: "#F5F4F2",
-                border: "1px solid #E5E5E5",
-                color: "#585858",
-              }}
-            >
-              <summary className="cursor-pointer font-medium">
-                {dropped.length} ticker(s) filtered during build
-              </summary>
-              <ul className="mt-2 list-disc pl-5">
-                {dropped.map((d) => (
-                  <li key={d.ticker}>
-                    <code className="font-mono">{d.ticker}</code> — {d.reason}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-          {buildError ? (
-            <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
-              {buildError}
-            </p>
-          ) : null}
           {universe ? (
-            <ScanPanel
-              thesisId={thesis.id}
-              universeId={universe.id}
-              initial={initialScan}
-              universe={universe}
-              ratesByCurrency={ratesByCurrency}
-              fxAsOf={fxAsOf}
-              runScanKey={scanRerunKey}
-            />
-          ) : null}
+            <>
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setScanRerunKey((k) => k + 1)}
+                  className="btn btn-primary"
+                >
+                  Proceed to scan →
+                </button>
+              </div>
+              <UniverseTable
+                initial={universe}
+                onSaved={handleUniverseSaved}
+                onRefresh={handleRefresh}
+              />
+              <ScanPanel
+                thesisId={thesis.id}
+                universeId={universe.id}
+                initial={initialScan}
+                universe={universe}
+                ratesByCurrency={ratesByCurrency}
+                fxAsOf={fxAsOf}
+                runScanKey={scanRerunKey}
+              />
+            </>
+          ) : (
+            <p className="text-sm" style={{ color: "#585858" }}>
+              Pick an anchor ticker above to build the universe — the scan
+              will run from there.
+            </p>
+          )}
         </div>
       </PipelineSection>
 

@@ -27,10 +27,10 @@ describe("<UniverseTable>", () => {
     }
   });
 
-  it("Begin Scan is disabled when nothing has been edited", () => {
+  it("Refresh is disabled when nothing has been edited", () => {
     const u = cloneCanonicalUniverse();
     render(<UniverseTable initial={u} onSaved={vi.fn()} onRefresh={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /begin scan/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^refresh$/i })).toBeDisabled();
   });
 
   it("sorts rows descending then ascending when the Ticker header is clicked twice", async () => {
@@ -68,7 +68,7 @@ describe("<UniverseTable>", () => {
     expect(mcapCells).toEqual(sortedDesc);
   });
 
-  it("removing a row enables Begin Scan and PATCHes with the remaining payload on click", async () => {
+  it("removing a row enables Refresh and PATCHes with the remaining payload on click", async () => {
     const user = userEvent.setup();
     const u = cloneCanonicalUniverse();
     const onSaved = vi.fn();
@@ -84,7 +84,7 @@ describe("<UniverseTable>", () => {
     const removeButtons = screen.getAllByRole("button", { name: /remove/i });
     await user.click(removeButtons[0]);
 
-    const saveButton = screen.getByRole("button", { name: /begin scan/i });
+    const saveButton = screen.getByRole("button", { name: /^refresh$/i });
     expect(saveButton).toBeEnabled();
     await user.click(saveButton);
 
@@ -138,7 +138,7 @@ describe("<UniverseTable>", () => {
     ).toBeInTheDocument();
   });
 
-  it("Remove button drops the row and enables Begin Scan", async () => {
+  it("Remove button drops the row and enables Refresh", async () => {
     const user = userEvent.setup();
     const u = cloneCanonicalUniverse();
     render(<UniverseTable initial={u} onSaved={vi.fn()} onRefresh={vi.fn()} />);
@@ -147,7 +147,7 @@ describe("<UniverseTable>", () => {
     await user.click(removeButtons[0]);
     const remaining = screen.getAllByRole("button", { name: /remove/i });
     expect(remaining.length).toBe(initialCount - 1);
-    expect(screen.getByRole("button", { name: /begin scan/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^refresh$/i })).toBeEnabled();
   });
 
   it("Add row form appends a new ticker after Yahoo fetch succeeds", async () => {
@@ -172,7 +172,7 @@ describe("<UniverseTable>", () => {
       expect(screen.getByText("DASF.PA")).toBeInTheDocument();
     });
     expect(screen.getByText("Dassault Aviation")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /begin scan/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^refresh$/i })).toBeEnabled();
   });
 
   it("Add row rejects unknown suffix without calling Yahoo", async () => {
@@ -202,7 +202,7 @@ describe("<UniverseTable>", () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
-  it("Begin Scan surfaces 422 detail in an alert when PATCH fails validation", async () => {
+  it("Refresh surfaces 422 detail in an alert when PATCH fails validation", async () => {
     const user = userEvent.setup();
     const u = cloneCanonicalUniverse();
     fetchMock.mockResolvedValueOnce({
@@ -217,7 +217,7 @@ describe("<UniverseTable>", () => {
     // Trigger dirty by removing a row; Save is otherwise inert.
     const removeButtons = screen.getAllByRole("button", { name: /remove/i });
     await user.click(removeButtons[0]);
-    await user.click(screen.getByRole("button", { name: /begin scan/i }));
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/tickers\[0\]\.name too short/);
     });

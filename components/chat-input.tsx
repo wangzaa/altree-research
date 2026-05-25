@@ -69,6 +69,11 @@ export interface ChatInputTextProps {
    * (e.g. a "continue without input" button) without a half-disabled
    * checkmark sitting in the dead state. */
   hideSubmitWhenEmpty?: boolean;
+  /** Hide the round submit button outright — for cases where the parent
+   * supplies its own external action buttons (e.g. an "Update" + "Ready
+   * for next step" pair below the textbox). Enter still submits the form
+   * if a value is present, so the textbox remains keyboard-operable. */
+  hideSubmit?: boolean;
 }
 
 export function ChatInputText({
@@ -85,6 +90,7 @@ export function ChatInputText({
   submitting = false,
   minChars = 1,
   hideSubmitWhenEmpty = false,
+  hideSubmit = false,
 }: ChatInputTextProps) {
   const [internal, setInternal] = useState(initialValue);
   const value = controlledValue ?? internal;
@@ -171,7 +177,7 @@ export function ChatInputText({
           </span>
         ) : null}
       </div>
-      {hideSubmitWhenEmpty && trimmed.length === 0 ? null : (
+      {hideSubmit || (hideSubmitWhenEmpty && trimmed.length === 0) ? null : (
         <button
           type="submit"
           disabled={!isReady || submitting}

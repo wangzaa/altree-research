@@ -317,26 +317,46 @@ export function ThesisChatArtifact({
             value={instruction}
             onChange={setInstruction}
             onSubmit={onRefineSubmit}
-            submitLabel={refining ? "Refining..." : "Refine"}
+            submitLabel="Refine"
             disabled={refining || applying}
-            submitting={refining}
-            hideSubmitWhenEmpty
+            hideSubmit
           />
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => onRefineSubmit(instruction)}
+              disabled={
+                refining ||
+                applying ||
+                instruction.trim().length === 0
+              }
+              className="btn btn-outline inline-flex items-center gap-2"
+            >
+              {refining ? (
+                <>
+                  <Spinner size={14} />
+                  Updating…
+                </>
+              ) : (
+                "Update"
+              )}
+            </button>
             <button
               type="button"
               onClick={() => {
                 onContinue?.();
-                document
-                  .getElementById("step-universe")
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                // Anchor picker lives at the end of the Extract section; if
+                // it isn't rendered (universe already built), fall back to
+                // the Scan section as the next logical destination.
+                const target =
+                  document.getElementById("anchor-picker") ??
+                  document.getElementById("step-universe");
+                target?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
               disabled={refining || applying}
               className="btn btn-primary"
             >
-              {history.length === 0
-                ? "Continue without refining →"
-                : "Done refining, continue →"}
+              Ready for next step →
             </button>
           </div>
         </div>

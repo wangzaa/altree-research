@@ -382,10 +382,10 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
           {saving ? (
             <>
               <Spinner size={14} />
-              Beginning scan…
+              Refreshing…
             </>
           ) : (
-            "Begin Scan"
+            "Refresh"
           )}
         </button>
       </div>

@@ -71,7 +71,7 @@ describe("<ThesisChatArtifact>", () => {
       screen.getByPlaceholderText(/refinement instruction/i),
       "add Japan",
     );
-    await user.click(screen.getByRole("button", { name: /refine/i }));
+    await user.click(screen.getByRole("button", { name: /update/i }));
 
     await waitFor(() => {
       expect(
@@ -119,7 +119,7 @@ describe("<ThesisChatArtifact>", () => {
       screen.getByPlaceholderText(/refinement instruction/i),
       "add Japan",
     );
-    await user.click(screen.getByRole("button", { name: /refine/i }));
+    await user.click(screen.getByRole("button", { name: /update/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/scope\.regions/)).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe("<ThesisChatArtifact>", () => {
       screen.getByPlaceholderText(/refinement instruction/i),
       "add Japan",
     );
-    await user.click(screen.getByRole("button", { name: /refine/i }));
+    await user.click(screen.getByRole("button", { name: /update/i }));
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: /show details/i }),
@@ -201,7 +201,7 @@ describe("<ThesisChatArtifact>", () => {
       screen.getByPlaceholderText(/refinement instruction/i),
       "add Japan",
     );
-    await user.click(screen.getByRole("button", { name: /refine/i }));
+    await user.click(screen.getByRole("button", { name: /update/i }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /confirm/i })).toBeEnabled();
     });
@@ -250,7 +250,7 @@ describe("<ThesisChatArtifact>", () => {
       screen.getByPlaceholderText(/refinement instruction/i),
       "add japan",
     );
-    await user.click(screen.getByRole("button", { name: /refine/i }));
+    await user.click(screen.getByRole("button", { name: /update/i }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /confirm/i })).toBeEnabled();
     });
@@ -297,7 +297,7 @@ describe("<ThesisChatArtifact>", () => {
       screen.getByPlaceholderText(/refinement instruction/i),
       "add Japan",
     );
-    await user.click(screen.getByRole("button", { name: /refine/i }));
+    await user.click(screen.getByRole("button", { name: /update/i }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /cancel/i })).toBeEnabled();
     });

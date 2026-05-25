@@ -19,38 +19,21 @@ beforeEach(() => {
 });
 
 describe("<ScanPanel>", () => {
-  it("auto-fires /api/scan/run on mount when no initial scan exists and universe is set", async () => {
-    const scan = cloneCanonicalScan();
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ scan, dropped: [], dropped_ratios: [] }),
-    });
-
+  it("renders a 'No scan yet' placeholder when no initial scan exists — and does not auto-fire /api/scan/run on mount", () => {
     render(
       <ScanPanel
-        thesisId={scan.thesis_id}
-        universeId={scan.universe_id}
+        thesisId="t1"
+        universeId="t1_universe_01"
         initial={null}
         universe={cloneCanonicalUniverse()}
       />,
     );
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/scan/run",
-        expect.objectContaining({ method: "POST" }),
-      );
-    });
-    // router.refresh fires after success so server-rendered state updates.
-    await waitFor(() => {
-      expect(routerRefreshMock).toHaveBeenCalledTimes(1);
-    });
-    // No Run / Re-run scan buttons anymore.
-    expect(screen.queryByRole("button", { name: /run scan/i })).toBeNull();
+    // Explicit user action ("Proceed to scan" in the parent) is the only
+    // path to a scan now — no implicit run on mount.
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole("button", { name: /re-run scan/i }),
-    ).toBeNull();
+      screen.getByText(/No scan yet — click/i),
+    ).toBeInTheDocument();
   });
 
   it("renders the chart + per-ticker table when initial is set (no Run buttons)", () => {
@@ -72,7 +55,7 @@ describe("<ScanPanel>", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("surfaces dropped count after the auto-run completes", async () => {
+  it("surfaces dropped count after a runScanKey-triggered scan completes", async () => {
     const scan = cloneCanonicalScan();
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -83,12 +66,22 @@ describe("<ScanPanel>", () => {
         dropped_ratios: [],
       }),
     });
-    render(
+    const { rerender } = render(
       <ScanPanel
         thesisId={scan.thesis_id}
         universeId={scan.universe_id}
         initial={null}
         universe={cloneCanonicalUniverse()}
+        runScanKey={0}
+      />,
+    );
+    rerender(
+      <ScanPanel
+        thesisId={scan.thesis_id}
+        universeId={scan.universe_id}
+        initial={null}
+        universe={cloneCanonicalUniverse()}
+        runScanKey={1}
       />,
     );
     await waitFor(() => {
@@ -96,18 +89,28 @@ describe("<ScanPanel>", () => {
     });
   });
 
-  it("surfaces 422 detail in an alert when the auto-run fails", async () => {
+  it("surfaces 422 detail in an alert when a runScanKey-triggered scan fails", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 422,
       json: async () => ({ error: "scan_failed", detail: "too_few_history" }),
     });
-    render(
+    const { rerender } = render(
       <ScanPanel
         thesisId="t1"
         universeId="t1_universe_01"
         initial={null}
         universe={cloneCanonicalUniverse()}
+        runScanKey={0}
+      />,
+    );
+    rerender(
+      <ScanPanel
+        thesisId="t1"
+        universeId="t1_universe_01"
+        initial={null}
+        universe={cloneCanonicalUniverse()}
+        runScanKey={1}
       />,
     );
     await waitFor(() => {

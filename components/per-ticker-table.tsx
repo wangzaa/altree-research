@@ -33,9 +33,6 @@ interface PerTickerTableProps {
   /** Toggle handler paired with `selectedTickers`. Receives the row's
    * ticker; the parent decides whether to add or remove from the set. */
   onToggleTicker?: (ticker: string) => void;
-  /** Color swatch shown alongside the checkbox when a ticker is plotted —
-   * matches the chart line color for visual coupling. Keyed by ticker. */
-  colorByTicker?: Record<string, string>;
 }
 
 // Sum of the 4 most recent quarterly EPS actuals. Returns null when fewer
@@ -257,7 +254,6 @@ export function PerTickerTable({
   ratesByCurrency,
   selectedTickers,
   onToggleTicker,
-  colorByTicker,
 }: PerTickerTableProps) {
   const showSelectColumn =
     selectedTickers !== undefined && onToggleTicker !== undefined;
@@ -399,34 +395,17 @@ export function PerTickerTable({
             const weight =
               color !== undefined ? 600 : undefined;
             const isSelected = selectedTickers?.has(r.ticker) ?? false;
-            const swatch =
-              isSelected && colorByTicker ? colorByTicker[r.ticker] : null;
             return (
               <tr key={r.ticker} style={{ color, fontWeight: weight }}>
                 {showSelectColumn ? (
                   <td className="px-3 py-2 text-center">
-                    <label
-                      className="inline-flex cursor-pointer items-center gap-1.5"
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleTicker!(r.ticker)}
                       aria-label={`Show ${r.ticker} on chart`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => onToggleTicker!(r.ticker)}
-                      />
-                      {swatch ? (
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            display: "inline-block",
-                            width: 10,
-                            height: 10,
-                            borderRadius: 9999,
-                            background: swatch,
-                          }}
-                        />
-                      ) : null}
-                    </label>
+                      style={{ accentColor: "#585858", cursor: "pointer" }}
+                    />
                   </td>
                 ) : null}
                 <td className="px-3 py-2 font-mono">{r.ticker}</td>
