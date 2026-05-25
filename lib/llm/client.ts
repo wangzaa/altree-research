@@ -39,7 +39,18 @@ export type ToolCall = {
 export type CreateMessageResult = {
   text: string;
   tool_calls: ToolCall[];
-  usage: { input_tokens: number; output_tokens: number };
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    /** Tokens written to cache on this request (≈1.25× input cost). Zero
+     * when the prefix didn't meet the per-model minimum (~1-4k tokens),
+     * the cache had already been written by a recent request, or
+     * something invalidated the prefix. */
+    cache_creation_input_tokens: number;
+    /** Tokens served from cache (≈0.1× input cost). The key signal for
+     * whether prompt caching is actually paying off. */
+    cache_read_input_tokens: number;
+  };
   model: string;
   finish_reason: string | null;
   raw: unknown;
@@ -57,10 +68,16 @@ export async function createMessage(
   const client = getClient();
   const model = getModelFor(p.agent);
 
+  // Cache the tools + system prefix. A `cache_control` breakpoint applies to
+  // everything before it in render order (tools → system → messages), so
+  // putting it on the last system block caches both. Subsequent calls with
+  // the same agent + system prompt hit the cache (~0.1× input cost).
   const params: Anthropic.MessageCreateParamsNonStreaming = {
     model,
     max_tokens: p.max_tokens ?? DEFAULT_MAX_TOKENS,
-    system: p.system,
+    system: [
+      { type: "text", text: p.system, cache_control: { type: "ephemeral" } },
+    ],
     messages: p.messages.map((m) => ({ role: m.role, content: m.content })),
   };
   if (p.tools && p.tools.length) {
@@ -90,6 +107,8 @@ export async function createMessage(
     usage: {
       input_tokens: res.usage.input_tokens,
       output_tokens: res.usage.output_tokens,
+      cache_creation_input_tokens: res.usage.cache_creation_input_tokens ?? 0,
+      cache_read_input_tokens: res.usage.cache_read_input_tokens ?? 0,
     },
     model: res.model,
     finish_reason: res.stop_reason,

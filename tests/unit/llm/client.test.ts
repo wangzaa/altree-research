@@ -48,12 +48,20 @@ describe("createMessage", () => {
     expect(createMock).toHaveBeenCalledOnce();
     const call = createMock.mock.calls[0][0] as {
       model: string;
-      system: string;
+      system: Array<{ type: string; text: string; cache_control?: unknown }>;
     };
     // Bare ID — no provider prefix. System prompt threads as a top-level
-    // field on the Messages API, not as a synthetic message.
+    // block array (not a string) so the last block can carry a
+    // `cache_control` breakpoint enabling prompt caching for the tools +
+    // system prefix.
     expect(call.model).toBe("claude-opus-4-7");
-    expect(call.system).toBe("You are bull_researcher.");
+    expect(call.system).toEqual([
+      {
+        type: "text",
+        text: "You are bull_researcher.",
+        cache_control: { type: "ephemeral" },
+      },
+    ]);
     expect(result.model).toBe("claude-opus-4-7");
   });
 
@@ -88,6 +96,31 @@ describe("createMessage", () => {
     });
     expect(result.usage.input_tokens).toBe(100);
     expect(result.usage.output_tokens).toBe(50);
+  });
+
+  it("surfaces Anthropic prompt-cache token counts in usage", async () => {
+    createMock.mockResolvedValueOnce({
+      id: "msg_cached",
+      type: "message" as const,
+      role: "assistant" as const,
+      model: "claude-opus-4-7",
+      content: [{ type: "text" as const, text: "ok" }],
+      stop_reason: "end_turn" as const,
+      stop_sequence: null,
+      usage: {
+        input_tokens: 5,
+        output_tokens: 1,
+        cache_creation_input_tokens: 1200,
+        cache_read_input_tokens: 4400,
+      },
+    });
+    const result = await createMessage({
+      agent: "bull_researcher",
+      system: "test",
+      messages: [{ role: "user", content: "x" }],
+    });
+    expect(result.usage.cache_creation_input_tokens).toBe(1200);
+    expect(result.usage.cache_read_input_tokens).toBe(4400);
   });
 
   it("concatenates text blocks across the content array", async () => {
