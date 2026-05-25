@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { Pool } from "pg";
+import { Resend } from "resend";
 
 const secret = process.env.BETTER_AUTH_SECRET;
 if (!secret && process.env.NODE_ENV === "production") {
@@ -39,6 +40,12 @@ if (process.env.NODE_ENV !== "production") {
   globalForPool.__pgPool = pool;
 }
 
+// Lazy-instantiate so a missing key during build / CI / fresh clone doesn't
+// crash; the runtime fallback in `sendMagicLink` logs to console instead.
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
+
 export const auth = betterAuth({
   database: pool,
   secret: secret,
@@ -47,16 +54,34 @@ export const auth = betterAuth({
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
-        // TODO: wire a real email transport (Resend, Postmark, SES, …)
-        // before opening sign-up to other users. Until then the URL is
-        // logged to the server console (Vercel function logs in prod) so
-        // the admin can copy it out for first-time sign-in.
-        if (process.env.NODE_ENV === "production") {
-          console.warn(
-            `[auth] Magic link for ${email} — copy from logs (no email transport configured): ${url}`,
+        const from = process.env.MAGIC_LINK_FROM;
+        // No transport configured (missing key or From address) — log the
+        // URL so dev/CI/initial-clone flows still work. Magic links shouldn't
+        // be the only signal that something is misconfigured in prod, hence
+        // the warn-level log.
+        if (!resend || !from) {
+          const level =
+            process.env.NODE_ENV === "production" ? "warn" : "log";
+          console[level](
+            `[auth] No mail transport — magic link for ${email}: ${url}`,
           );
-        } else {
-          console.log(`Magic link for ${email}: ${url}`);
+          return;
+        }
+        const result = await resend.emails.send({
+          from,
+          to: email,
+          subject: "Sign in to Altree",
+          text: `Sign in to Altree by clicking the link below:\n\n${url}\n\nThis link expires in a few minutes. If you didn't request it, you can safely ignore this email.`,
+        });
+        if (result.error) {
+          // Surface the failure to Better Auth so the API responds with an
+          // error rather than silently swallowing — the user will see a
+          // generic "Failed to send" and we'll see the cause in logs.
+          console.error(
+            `[auth] Resend send failed for ${email}:`,
+            result.error,
+          );
+          throw new Error(`Resend send failed: ${result.error.message}`);
         }
       },
     }),
