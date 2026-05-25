@@ -62,10 +62,17 @@ export function ThesisDetail({
   const router = useRouter();
   const [thesis, setThesis] = useState<Thesis>(initial);
   const [universe, setUniverse] = useState<Universe | null>(initialUniverse);
-  const [picking, setPicking] = useState<boolean>(initialUniverse === null);
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
   const [dropped, setDropped] = useState<DroppedTicker[]>([]);
+  // The anchor-picker section is gated behind "Ready for next step" — the
+  // dialogue stays focused on refinement until the user explicitly signals
+  // they want to move on. Auto-true on return visits where the universe is
+  // already built (no point re-asking) and on initial mount when no
+  // universe exists yet but we somehow lost session state.
+  const [showAnchorStep, setShowAnchorStep] = useState<boolean>(
+    initialUniverse !== null,
+  );
   // Bumped by ThesisChatArtifact when the user clicks "Continue without
   // refining" — forces the AnchorPicker to refetch suggestions even though
   // thesis_id hasn't changed.
@@ -244,18 +251,12 @@ export function ThesisDetail({
       setUniverse(body.universe);
       setThesis((t) => ({ ...t, universe_id: body.universe!.id }));
       setDropped(body.dropped ?? []);
-      setPicking(false);
       setBuilding(false);
       router.refresh();
     } catch (err) {
       setBuildError(err instanceof Error ? err.message : "Unexpected error");
       setBuilding(false);
     }
-  }
-
-  function handleRefresh() {
-    setPicking(true);
-    setUniverse(null);
   }
 
   return (
@@ -266,57 +267,59 @@ export function ThesisDetail({
             thesis={thesis}
             onApplied={setThesis}
             tickerNames={tickerNames}
-            onContinue={() => setAnchorSuggestRefreshKey((k) => k + 1)}
+            onContinue={() => {
+              setShowAnchorStep(true);
+              setAnchorSuggestRefreshKey((k) => k + 1);
+            }}
           />
-          {picking || universe === null ? (
-            <div id="anchor-picker" className="flex flex-col gap-3">
-              <p
-                className="text-sm"
-                style={{ color: "var(--color-black)", fontWeight: 500 }}
-              >
+          {showAnchorStep && universe === null ? (
+            <ChatThread>
+              <ChatBubble from="app">
                 Pick a ticker to anchor the scan.
-              </p>
-              <AnchorPicker
-                thesis_id={thesis.id}
-                tickers_seed={thesis.scope.tickers_seed}
-                tickerNames={seedNames}
-                onSubmit={handleBuild}
-                disabled={building}
-                pending={building}
-                refreshKey={anchorSuggestRefreshKey}
-              />
-              {dropped.length > 0 ? (
-                <details
-                  className="rounded-md p-3 text-xs"
-                  style={{
-                    background: "#F5F4F2",
-                    border: "1px solid #E5E5E5",
-                    color: "#585858",
-                  }}
-                >
-                  <summary className="cursor-pointer font-medium">
-                    {dropped.length} ticker(s) filtered during build
-                  </summary>
-                  <ul className="mt-2 list-disc pl-5">
-                    {dropped.map((d) => (
-                      <li key={d.ticker}>
-                        <code className="font-mono">{d.ticker}</code> —{" "}
-                        {d.reason}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-              {buildError ? (
-                <p
-                  className="text-sm"
-                  role="alert"
-                  style={{ color: "#a30000" }}
-                >
-                  {buildError}
-                </p>
-              ) : null}
-            </div>
+              </ChatBubble>
+              <div id="anchor-picker" className="flex flex-col gap-3 pl-12">
+                <AnchorPicker
+                  thesis_id={thesis.id}
+                  tickers_seed={thesis.scope.tickers_seed}
+                  tickerNames={seedNames}
+                  onSubmit={handleBuild}
+                  disabled={building}
+                  pending={building}
+                  refreshKey={anchorSuggestRefreshKey}
+                />
+                {dropped.length > 0 ? (
+                  <details
+                    className="rounded-md p-3 text-xs"
+                    style={{
+                      background: "#F5F4F2",
+                      border: "1px solid #E5E5E5",
+                      color: "#585858",
+                    }}
+                  >
+                    <summary className="cursor-pointer font-medium">
+                      {dropped.length} ticker(s) filtered during build
+                    </summary>
+                    <ul className="mt-2 list-disc pl-5">
+                      {dropped.map((d) => (
+                        <li key={d.ticker}>
+                          <code className="font-mono">{d.ticker}</code> —{" "}
+                          {d.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+                {buildError ? (
+                  <p
+                    className="text-sm"
+                    role="alert"
+                    style={{ color: "#a30000" }}
+                  >
+                    {buildError}
+                  </p>
+                ) : null}
+              </div>
+            </ChatThread>
           ) : null}
         </div>
       </PipelineSection>
@@ -325,19 +328,9 @@ export function ThesisDetail({
         <div className="flex flex-col gap-6">
           {universe ? (
             <>
-              <div className="flex items-center justify-end">
-                <button
-                  type="button"
-                  onClick={() => setScanRerunKey((k) => k + 1)}
-                  className="btn btn-primary"
-                >
-                  Proceed to scan →
-                </button>
-              </div>
               <UniverseTable
                 initial={universe}
                 onSaved={handleUniverseSaved}
-                onRefresh={handleRefresh}
               />
               <ScanPanel
                 thesisId={thesis.id}

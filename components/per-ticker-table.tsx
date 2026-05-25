@@ -116,11 +116,17 @@ export function computeRows(
   const historyByTicker = new Map(history.map((h) => [h.ticker, h]));
   return snapshots.map((s) => {
     const indexed = endValuesByTicker?.get(s.ticker);
+    // Prefer the EPS-anchored compute (uses the price at the latest report
+    // date, so it reflects what the market was actually pricing in). Fall
+    // back to Yahoo's aggregate trailing P/E when the compute path returns
+    // null — the sparse-quarters case for many HK/KR/TW listings.
+    const computed = computePe(s, historyByTicker.get(s.ticker));
+    const pe = computed ?? s.trailing_pe ?? null;
     return {
       ticker: s.ticker,
       name: s.name,
       market_cap_usd_b: marketCapByTicker?.[s.ticker] ?? null,
-      pe: computePe(s, historyByTicker.get(s.ticker)),
+      pe,
       revenue_growth_yoy: s.revenue_growth_yoy,
       ebitda: s.ebitda,
       ebitda_margin: s.ebitda_margin,

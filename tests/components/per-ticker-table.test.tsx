@@ -212,6 +212,49 @@ describe("computeRows", () => {
     });
   });
 
+  it("falls back to snapshot.trailing_pe when computePe returns null (sparse EPS history)", () => {
+    const snapshots: TickerSnapshot[] = [
+      {
+        ticker: "HK",
+        name: "HK Co",
+        ebitda: null,
+        ebitda_margin: null,
+        revenue_growth_yoy: null,
+        currency: "HKD",
+        // No quarters → computePe returns null.
+        quarterly_eps: [],
+        trailing_pe: 28.4,
+      },
+    ];
+    const rows = computeRows(snapshots, []);
+    expect(rows[0].pe).toBe(28.4);
+  });
+
+  it("prefers the EPS-anchored compute over snapshot.trailing_pe when both are available", () => {
+    const snapshots: TickerSnapshot[] = [
+      {
+        ticker: "FOO",
+        name: "Foo Co",
+        ebitda: null,
+        ebitda_margin: null,
+        revenue_growth_yoy: null,
+        currency: "USD",
+        quarterly_eps: [
+          { period_end_iso: "2025-03-31", eps: 0.5 },
+          { period_end_iso: "2025-06-30", eps: 0.5 },
+          { period_end_iso: "2025-09-30", eps: 0.5 },
+          { period_end_iso: "2025-12-31", eps: 0.5 },
+        ],
+        trailing_pe: 999, // would be a bug if this leaked through.
+      },
+    ];
+    const history: TickerHistory[] = [
+      { ticker: "FOO", points: [{ date: "2025-12-31", close: 80 }] },
+    ];
+    const rows = computeRows(snapshots, history);
+    expect(rows[0].pe).toBe(40.0); // 80 / TTM(2.0), NOT trailing_pe.
+  });
+
   it("attaches market_cap_usd_b from the supplied lookup map when provided", () => {
     const snapshots: TickerSnapshot[] = [
       {

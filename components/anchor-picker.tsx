@@ -114,24 +114,20 @@ export function AnchorPicker({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-neutral-700">
-          Anchor ticker for this universe
-        </span>
-        <input
-          type="text"
-          value={ticker}
-          onChange={(e) => setTicker(e.target.value)}
-          disabled={disabled}
-          placeholder="Yahoo ticker (e.g. RHM.DE)"
-          className="w-full rounded-md px-3 py-2 text-sm"
-          style={{
-            background: "white",
-            border: "1px solid #E5E5E5",
-            color: "var(--color-black)",
-          }}
-        />
-      </label>
+      <input
+        type="text"
+        value={ticker}
+        onChange={(e) => setTicker(e.target.value)}
+        disabled={disabled}
+        placeholder="Yahoo ticker (e.g. RHM.DE)"
+        aria-label="Anchor ticker"
+        className="w-full rounded-md px-3 py-2 text-sm"
+        style={{
+          background: "white",
+          border: "1px solid #E5E5E5",
+          color: "var(--color-black)",
+        }}
+      />
 
       {tickers_seed.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">

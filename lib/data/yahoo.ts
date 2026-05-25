@@ -126,15 +126,16 @@ export interface TickerRatios {
   ebit_margin: number | null;
   // Per-ticker fields used by the scan-panel per-ticker table. Not
   // aggregated; passed through to the UI as-is.
-  // P/E is intentionally NOT fetched from Yahoo's trailingPE — that field
-  // has spotty coverage for non-US listings and is sometimes stale relative
-  // to the latest reported EPS. The UI computes P/E client-side from
-  // quarterly_eps + history at the latest EPS report date.
   ebitda: number | null;             // native reporting currency, absolute
   ebitda_margin: number | null;      // decimal (ebitda / totalRevenue)
   revenue_growth_yoy: number | null; // decimal (Yahoo's financialData.revenueGrowth)
   currency: string | null;           // ISO currency code, e.g. "USD", "KRW", "TWD"
   quarterly_eps: QuarterlyEps[];     // up to ~4 actual-EPS quarters from earningsHistory.history
+  // Yahoo's pre-computed trailing P/E from `summaryDetail.trailingPE`.
+  // Used as a fallback in the UI when our compute-from-EPS path returns
+  // null (the EPS history is sparse for many HK/KR/TW listings, but
+  // Yahoo's aggregate trailing P/E is usually still populated).
+  trailing_pe: number | null;
 }
 
 // Yahoo's quoteSummary can return numeric fields either as a bare number or
@@ -195,6 +196,7 @@ export async function getRatios(ticker: string): Promise<TickerRatios | null> {
     );
     const r = raw as Record<string, unknown>;
     const fd = (r.financialData ?? {}) as Record<string, unknown>;
+    const sd = (r.summaryDetail ?? {}) as Record<string, unknown>;
     const earningsHistory =
       ((r.earningsHistory as Record<string, unknown> | undefined)?.history as
         | Array<Record<string, unknown>>
@@ -230,6 +232,15 @@ export async function getRatios(ticker: string): Promise<TickerRatios | null> {
       quarterly_eps.push({ period_end_iso, eps });
     }
 
+    // Yahoo sometimes returns negative or wildly large trailing P/E values
+    // (loss-makers or stale data). Clip to a sane positive range so the
+    // table doesn't surface gibberish; null means "not available".
+    const rawPe = extractNumber(sd.trailingPE);
+    const trailing_pe =
+      rawPe !== null && Number.isFinite(rawPe) && rawPe > 0 && rawPe < 10_000
+        ? rawPe
+        : null;
+
     return {
       gross_margin: extractNumber(fd.grossMargins),
       ebit_margin: extractNumber(fd.operatingMargins),
@@ -238,6 +249,7 @@ export async function getRatios(ticker: string): Promise<TickerRatios | null> {
       revenue_growth_yoy,
       currency,
       quarterly_eps,
+      trailing_pe,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

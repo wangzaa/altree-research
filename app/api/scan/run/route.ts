@@ -116,6 +116,7 @@ export async function POST(req: Request) {
             revenue_growth_yoy: r.revenue_growth_yoy,
             currency: r.currency,
             quarterly_eps: r.quarterly_eps,
+            trailing_pe: r.trailing_pe,
           });
         } else {
           dropped_ratios.push({ ticker: row.ticker, reason: "ratios_lookup_failed" });

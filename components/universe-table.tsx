@@ -9,7 +9,6 @@ import type { Universe, UniverseTicker } from "@/lib/schemas/universe";
 interface UniverseTableProps {
   initial: Universe;
   onSaved: (next: Universe) => void;
-  onRefresh: () => void;
 }
 
 interface YahooQuoteResponse {
@@ -79,7 +78,7 @@ function ticketsEqual(a: UniverseTicker[], b: UniverseTicker[]): boolean {
   return true;
 }
 
-export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProps) {
+export function UniverseTable({ initial, onSaved }: UniverseTableProps) {
   const router = useRouter();
   const [tickers, setTickers] = useState<UniverseTicker[]>(initial.tickers);
   const [addingRow, setAddingRow] = useState(false);
@@ -173,10 +172,20 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
     setAddingRow(false);
   }
 
-  async function handleSave() {
+  async function handleProceed() {
     setSaveError(null);
     setSaving(true);
     setJustSavedAt(null);
+    // Skip the PATCH when nothing has changed — emit the existing universe
+    // so the parent still bumps `scanRerunKey` and the chart + ticker table
+    // refresh from the most recent server state.
+    if (!dirty) {
+      onSaved({ ...initial, tickers });
+      setSaving(false);
+      setJustSavedAt(new Date());
+      router.refresh();
+      return;
+    }
     const payload: Universe = { ...initial, tickers };
     try {
       const res = await fetch(`/api/universe/${initial.id}`, {
@@ -370,22 +379,19 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
             })}
           </span>
         ) : null}
-        <button type="button" onClick={onRefresh} className="btn btn-outline">
-          Refresh from scope
-        </button>
         <button
           type="button"
-          onClick={handleSave}
-          disabled={!dirty || saving}
+          onClick={handleProceed}
+          disabled={saving}
           className="btn btn-primary inline-flex items-center gap-2"
         >
           {saving ? (
             <>
               <Spinner size={14} />
-              Refreshing…
+              Running…
             </>
           ) : (
-            "Refresh"
+            "Proceed to scan / Refresh →"
           )}
         </button>
       </div>

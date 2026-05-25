@@ -114,6 +114,11 @@ export function ThesisChatArtifact({
   const previewing = status === "previewing" && diff !== null;
   const refining = status === "refining";
   const applying = status === "applying";
+  // Keep the user echo + narrator reply on-screen while the confirm fetch
+  // is in flight. The history push that promotes them to permanent bubbles
+  // only fires on success — without this gate they vanish mid-apply and
+  // re-appear after the round trip completes.
+  const showingPreviewBlock = previewing || (applying && diff !== null);
 
   const submitDisabled =
     refining || applying || previewing || instruction.trim().length === 0;
@@ -254,7 +259,7 @@ export function ThesisChatArtifact({
         </React.Fragment>
       ))}
 
-      {previewing ? (
+      {showingPreviewBlock ? (
         <>
           <Stagger index={afterIndex++}>
             <ChatBubble from="user">{instruction}</ChatBubble>

@@ -50,6 +50,10 @@ export const TickerSnapshotSchema = z
     revenue_growth_yoy: z.number().nullable(),
     currency: z.string().nullable(),
     quarterly_eps: z.array(QuarterlyEpsSchema),
+    // Yahoo's aggregate trailing P/E. Optional so older scan_runs rows
+    // that predate this field still parse. UI falls back to it when the
+    // compute-from-quarterly_eps path returns null.
+    trailing_pe: z.number().positive().nullable().optional(),
   })
   .strict();
 

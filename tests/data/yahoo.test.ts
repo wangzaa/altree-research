@@ -205,7 +205,7 @@ describe("getRatios", () => {
           { quarter: new Date("2025-12-31T00:00:00Z"), epsActual: 1.85 },
         ],
       },
-      summaryDetail: { currency: "EUR" },
+      summaryDetail: { currency: "EUR", trailingPE: 18.4 },
       price: { currency: "EUR" },
     });
     const { getRatios } = await import("@/lib/data/yahoo");
@@ -223,6 +223,7 @@ describe("getRatios", () => {
         { period_end_iso: "2025-09-30", eps: 1.42 },
         { period_end_iso: "2025-12-31", eps: 1.85 },
       ],
+      trailing_pe: 18.4,
     });
     expect(quoteSummaryMock).toHaveBeenCalledWith(
       "RHM.DE",
@@ -275,6 +276,7 @@ describe("getRatios", () => {
       revenue_growth_yoy: null,
       currency: null,
       quarterly_eps: [],
+      trailing_pe: null,
     });
   });
 
@@ -304,5 +306,37 @@ describe("getRatios", () => {
     const { getRatios } = await import("@/lib/data/yahoo");
     const result = await getRatios("UNKNOWN");
     expect(result).toBeNull();
+  });
+
+  it("clips trailing_pe to a sane positive range — drops zero, negative, and gibberish-large values", async () => {
+    const { getRatios } = await import("@/lib/data/yahoo");
+
+    // Negative (loss-maker) → null.
+    quoteSummaryMock.mockResolvedValueOnce({
+      financialData: {},
+      summaryDetail: { trailingPE: -12.3 },
+    });
+    expect((await getRatios("LOSS"))?.trailing_pe).toBeNull();
+
+    // Zero → null (no meaningful signal).
+    quoteSummaryMock.mockResolvedValueOnce({
+      financialData: {},
+      summaryDetail: { trailingPE: 0 },
+    });
+    expect((await getRatios("ZERO"))?.trailing_pe).toBeNull();
+
+    // Wildly large → null (stale data; the threshold is 10_000).
+    quoteSummaryMock.mockResolvedValueOnce({
+      financialData: {},
+      summaryDetail: { trailingPE: 50_000 },
+    });
+    expect((await getRatios("HUGE"))?.trailing_pe).toBeNull();
+
+    // Normal value → passes through.
+    quoteSummaryMock.mockResolvedValueOnce({
+      financialData: {},
+      summaryDetail: { trailingPE: 22.5 },
+    });
+    expect((await getRatios("OK"))?.trailing_pe).toBe(22.5);
   });
 });
