@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { Pool } from "pg";
 import { Resend } from "resend";
+import { sendWelcomeEmail } from "@/lib/emails/send-welcome";
 
 const secret = process.env.BETTER_AUTH_SECRET;
 if (!secret && process.env.NODE_ENV === "production") {
@@ -51,6 +52,24 @@ export const auth = betterAuth({
   secret: secret,
   baseURL: resolveBaseUrl(),
   emailAndPassword: { enabled: false },
+  databaseHooks: {
+    user: {
+      create: {
+        // Fires once per user — the row is only inserted on the first
+        // successful magic-link verification, so this is our "first sign-in"
+        // signal. We deliberately don't await the send to avoid stretching
+        // the auth round-trip; `sendWelcomeEmail` traps its own errors.
+        after: async (user) => {
+          const u = user as { email?: string | null };
+          if (!u.email) return;
+          void sendWelcomeEmail({
+            to: u.email,
+            signInUrl: resolveBaseUrl(),
+          });
+        },
+      },
+    },
+  },
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
