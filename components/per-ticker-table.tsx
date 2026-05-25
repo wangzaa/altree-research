@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { toUsdLive } from "@/lib/data/fx";
 import type {
   TickerHistory,
   TickerSnapshot,
@@ -13,6 +14,17 @@ interface PerTickerTableProps {
   marketCapByTicker?: Record<string, number>;
   bestTicker?: string | null;
   worstTicker?: string | null;
+  /** Indexed (base 100) end-of-window value per ticker, sourced from
+   * `tickerEndValues(history, monthsFor(windowKey))`. When provided, a
+   * Return column is rendered showing the value − 100 as a signed %. */
+  endValuesByTicker?: Map<string, number>;
+  /** Short label for the Return column header, e.g. "6m return". */
+  returnLabel?: string;
+  /** Live FX rates threaded from the server. Keyed by uppercase ISO
+   * currency code; value is "1 unit of CCY in USD". When provided,
+   * EBITDA renders with live Yahoo rates; otherwise falls back to the
+   * static table in lib/data/fx.ts. */
+  ratesByCurrency?: Record<string, number>;
 }
 
 // Sum of the 4 most recent quarterly EPS actuals. Returns null when fewer
@@ -84,24 +96,33 @@ interface ComputedRow {
   ebitda: number | null;
   ebitda_margin: number | null;
   currency: string | null;
+  return_pct: number | null;
 }
 
 export function computeRows(
   snapshots: TickerSnapshot[],
   history: TickerHistory[],
   marketCapByTicker?: Record<string, number>,
+  endValuesByTicker?: Map<string, number>,
 ): ComputedRow[] {
   const historyByTicker = new Map(history.map((h) => [h.ticker, h]));
-  return snapshots.map((s) => ({
-    ticker: s.ticker,
-    name: s.name,
-    market_cap_usd_b: marketCapByTicker?.[s.ticker] ?? null,
-    pe: computePe(s, historyByTicker.get(s.ticker)),
-    revenue_growth_yoy: s.revenue_growth_yoy,
-    ebitda: s.ebitda,
-    ebitda_margin: s.ebitda_margin,
-    currency: s.currency,
-  }));
+  return snapshots.map((s) => {
+    const indexed = endValuesByTicker?.get(s.ticker);
+    return {
+      ticker: s.ticker,
+      name: s.name,
+      market_cap_usd_b: marketCapByTicker?.[s.ticker] ?? null,
+      pe: computePe(s, historyByTicker.get(s.ticker)),
+      revenue_growth_yoy: s.revenue_growth_yoy,
+      ebitda: s.ebitda,
+      ebitda_margin: s.ebitda_margin,
+      currency: s.currency,
+      return_pct:
+        typeof indexed === "number" && Number.isFinite(indexed)
+          ? (indexed - 100) / 100
+          : null,
+    };
+  });
 }
 
 function fmtRatio(v: number | null): string {
@@ -112,8 +133,33 @@ function fmtPct(v: number | null): string {
   return v === null ? "—" : `${(v * 100).toFixed(1)}%`;
 }
 
-function fmtMcap(v: number | null): string {
-  return v === null ? "—" : Math.round(v).toLocaleString();
+function fmtSignedPct(v: number | null): string {
+  if (v === null) return "—";
+  const pct = v * 100;
+  const sign = pct > 0 ? "+" : "";
+  return `${sign}${pct.toFixed(1)}%`;
+}
+
+// Mcap is stored as USD billions; render in USD millions to match the header.
+function fmtMcapUsdM(v: number | null): string {
+  if (v === null) return "—";
+  return Math.round(v * 1000).toLocaleString();
+}
+
+/** Render EBITDA in USD millions. EBITDA is stored in the company's local
+ * reporting currency, so we convert via the live FX rates threaded from
+ * the server (falls back to the static table when a currency isn't in
+ * the supplied map). Returns "—" when the value is null OR neither source
+ * has a rate for the currency. */
+export function fmtEbitdaUsdM(
+  value: number | null,
+  currency: string | null,
+  rates?: Record<string, number>,
+): string {
+  if (value === null) return "—";
+  const usd = toUsdLive(value, currency, rates);
+  if (usd === null) return "—";
+  return Math.round(usd / 1e6).toLocaleString();
 }
 
 export function fmtEbitda(value: number | null, currency: string | null): string {
@@ -147,7 +193,8 @@ type SortKey =
   | "pe"
   | "revenue_growth_yoy"
   | "ebitda"
-  | "ebitda_margin";
+  | "ebitda_margin"
+  | "return_pct";
 type SortDir = "asc" | "desc";
 
 function SortHeader({
@@ -194,21 +241,25 @@ export function PerTickerTable({
   marketCapByTicker,
   bestTicker,
   worstTicker,
+  endValuesByTicker,
+  returnLabel,
+  ratesByCurrency,
 }: PerTickerTableProps) {
   const rows = useMemo(
-    () => computeRows(snapshots, history, marketCapByTicker),
-    [snapshots, history, marketCapByTicker],
+    () => computeRows(snapshots, history, marketCapByTicker, endValuesByTicker),
+    [snapshots, history, marketCapByTicker, endValuesByTicker],
   );
+  const showReturn = endValuesByTicker !== undefined;
 
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortDir("asc");
+      setSortDir("desc");
     }
   }
 
@@ -267,7 +318,7 @@ export function PerTickerTable({
               onToggle={toggleSort}
             />
             <SortHeader
-              label="Mcap (USD B)"
+              label="Mcap (USD M)"
               columnKey="market_cap_usd_b"
               active={sortKey === "market_cap_usd_b"}
               dir={sortDir}
@@ -291,7 +342,7 @@ export function PerTickerTable({
               align="right"
             />
             <SortHeader
-              label="EBITDA"
+              label="EBITDA (USD M)"
               columnKey="ebitda"
               active={sortKey === "ebitda"}
               dir={sortDir}
@@ -306,6 +357,16 @@ export function PerTickerTable({
               onToggle={toggleSort}
               align="right"
             />
+            {showReturn ? (
+              <SortHeader
+                label={returnLabel ?? "Return"}
+                columnKey="return_pct"
+                active={sortKey === "return_pct"}
+                dir={sortDir}
+                onToggle={toggleSort}
+                align="right"
+              />
+            ) : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-100">
@@ -318,7 +379,7 @@ export function PerTickerTable({
                 <td className="px-3 py-2 font-mono">{r.ticker}</td>
                 <td className="px-3 py-2">{r.name}</td>
                 <td className="px-3 py-2 text-right tabular-nums">
-                  {fmtMcap(r.market_cap_usd_b)}
+                  {fmtMcapUsdM(r.market_cap_usd_b)}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
                   {fmtRatio(r.pe)}
@@ -327,11 +388,28 @@ export function PerTickerTable({
                   {fmtPct(r.revenue_growth_yoy)}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
-                  {fmtEbitda(r.ebitda, r.currency)}
+                  {fmtEbitdaUsdM(r.ebitda, r.currency, ratesByCurrency)}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
                   {fmtPct(r.ebitda_margin)}
                 </td>
+                {showReturn ? (
+                  <td
+                    className="px-3 py-2 text-right tabular-nums"
+                    style={{
+                      color:
+                        r.return_pct === null
+                          ? undefined
+                          : r.return_pct < 0
+                            ? "#a30000"
+                            : r.return_pct > 0
+                              ? "#0a7a30"
+                              : undefined,
+                    }}
+                  >
+                    {fmtSignedPct(r.return_pct)}
+                  </td>
+                ) : null}
               </tr>
             );
           })}

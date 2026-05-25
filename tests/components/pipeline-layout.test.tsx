@@ -8,26 +8,26 @@ import {
 import type { PipelineStep } from "@/lib/pipeline-steps";
 
 const steps: PipelineStep[] = [
-  { id: "step-thesis", label: "Thesis extraction", state: "active" },
-  { id: "step-universe", label: "Universe construction", state: "pending" },
-  { id: "step-insights", label: "Insights", state: "pending" },
-  { id: "step-memo", label: "Memo", state: "pending" },
+  { id: "step-thesis", label: "Extract", state: "active" },
+  { id: "step-universe", label: "Scan", state: "pending" },
+  { id: "step-insights", label: "Anti/Thesis", state: "pending" },
+  { id: "step-trade", label: "Execute", state: "pending" },
 ];
 
 describe("<PipelineLayout>", () => {
   it("renders the header labels and each section's children", () => {
     render(
       <PipelineLayout steps={steps}>
-        <PipelineSection id="step-thesis" title="Thesis extraction">
+        <PipelineSection id="step-thesis" title="Extract">
           <p>thesis body</p>
         </PipelineSection>
-        <PipelineSection id="step-universe" title="Universe construction">
+        <PipelineSection id="step-universe" title="Scan">
           <p>universe body</p>
         </PipelineSection>
       </PipelineLayout>,
     );
     expect(
-      screen.getAllByText("Thesis extraction").length,
+      screen.getAllByText("Extract").length,
     ).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("thesis body")).toBeInTheDocument();
     expect(screen.getByText("universe body")).toBeInTheDocument();
@@ -36,7 +36,7 @@ describe("<PipelineLayout>", () => {
   it("anchors each section by id", () => {
     render(
       <PipelineLayout steps={steps}>
-        <PipelineSection id="step-thesis" title="Thesis extraction">
+        <PipelineSection id="step-thesis" title="Extract">
           <p>x</p>
         </PipelineSection>
       </PipelineLayout>,

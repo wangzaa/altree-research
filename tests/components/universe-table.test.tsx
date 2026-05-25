@@ -2,6 +2,11 @@ import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+}));
+
 import { UniverseTable } from "@/components/universe-table";
 import { cloneCanonicalUniverse } from "@/tests/fixtures/universe";
 
@@ -28,27 +33,28 @@ describe("<UniverseTable>", () => {
     expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
   });
 
-  it("sorts rows ascending then descending when the Ticker header is clicked twice", async () => {
+  it("sorts rows descending then ascending when the Ticker header is clicked twice", async () => {
     const user = userEvent.setup();
     const u = cloneCanonicalUniverse();
     render(<UniverseTable initial={u} onSaved={vi.fn()} onRefresh={vi.fn()} />);
     const header = screen.getByRole("button", { name: /^Ticker/i });
 
+    // First click defaults to descending (Z→A / largest→smallest) for every column.
     await user.click(header);
-    // Asc: tickers should be lexicographically sorted.
+    const rowsDesc = Array.from(document.querySelectorAll("tbody tr"))
+      .map((r) => r.querySelector("td")?.textContent ?? "");
+    const sortedDesc = [...rowsDesc].sort().reverse();
+    expect(rowsDesc).toEqual(sortedDesc);
+
+    // Second click on the same column flips to ascending.
+    await user.click(header);
     const rowsAsc = Array.from(document.querySelectorAll("tbody tr"))
       .map((r) => r.querySelector("td")?.textContent ?? "");
     const sortedAsc = [...rowsAsc].sort();
     expect(rowsAsc).toEqual(sortedAsc);
-
-    await user.click(header);
-    const rowsDesc = Array.from(document.querySelectorAll("tbody tr"))
-      .map((r) => r.querySelector("td")?.textContent ?? "");
-    const sortedDesc = [...rowsAsc].sort().reverse();
-    expect(rowsDesc).toEqual(sortedDesc);
   });
 
-  it("sorts rows numerically by Mcap when its header is clicked", async () => {
+  it("sorts rows numerically by Mcap (descending) when its header is clicked", async () => {
     const user = userEvent.setup();
     const u = cloneCanonicalUniverse();
     render(<UniverseTable initial={u} onSaved={vi.fn()} onRefresh={vi.fn()} />);
@@ -58,11 +64,11 @@ describe("<UniverseTable>", () => {
         const cells = r.querySelectorAll("td");
         return Number(cells[3]?.textContent?.replace(/,/g, "") ?? "0");
       });
-    const sortedAsc = [...mcapCells].sort((a, b) => a - b);
-    expect(mcapCells).toEqual(sortedAsc);
+    const sortedDesc = [...mcapCells].sort((a, b) => b - a);
+    expect(mcapCells).toEqual(sortedDesc);
   });
 
-  it("editing notes enables Save and PATCHes with the full payload on click", async () => {
+  it("removing a row enables Save and PATCHes with the remaining payload on click", async () => {
     const user = userEvent.setup();
     const u = cloneCanonicalUniverse();
     const onSaved = vi.fn();
@@ -70,14 +76,13 @@ describe("<UniverseTable>", () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ universe: { ...u, tickers: [{ ...u.tickers[0], notes: "edited" }, ...u.tickers.slice(1)] } }),
+      json: async () => ({ universe: { ...u, tickers: u.tickers.slice(1) } }),
     });
 
     render(<UniverseTable initial={u} onSaved={onSaved} onRefresh={vi.fn()} />);
 
-    const notesInputs = screen.getAllByPlaceholderText(/notes/i);
-    await user.clear(notesInputs[0]);
-    await user.type(notesInputs[0], "edited");
+    const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+    await user.click(removeButtons[0]);
 
     const saveButton = screen.getByRole("button", { name: /save/i });
     expect(saveButton).toBeEnabled();
@@ -99,13 +104,38 @@ describe("<UniverseTable>", () => {
     });
   });
 
-  it("changing exposure_tier dropdown enables Save", async () => {
-    const user = userEvent.setup();
+  it("Notes column shows just the rationale for pure_play rows (no tier prefix)", () => {
     const u = cloneCanonicalUniverse();
+    const first = u.tickers[0];
+    first.exposure_tier = "pure_play";
+    first.notes = "lead anchor for the basket";
     render(<UniverseTable initial={u} onSaved={vi.fn()} onRefresh={vi.fn()} />);
-    const selects = screen.getAllByRole("combobox");
-    await user.selectOptions(selects[0], "diversified");
-    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+    // pure_play is the default tier and is intentionally not shown as a
+    // prefix — it would just add noise to most rows.
+    expect(
+      screen.getByText("lead anchor for the basket"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/pure_play/i)).not.toBeInTheDocument();
+    // No editable inputs for notes/exposure anymore.
+    expect(
+      screen.queryByPlaceholderText(/^notes$/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+  });
+
+  it("Notes column prefixes 'Diversified' / 'ETF proxy' only for non-default tiers", () => {
+    const u = cloneCanonicalUniverse();
+    u.tickers[0].exposure_tier = "diversified";
+    u.tickers[0].notes = "broader industrials mix";
+    u.tickers[1].exposure_tier = "etf_proxy";
+    u.tickers[1].notes = "sector ETF wrapper";
+    render(<UniverseTable initial={u} onSaved={vi.fn()} onRefresh={vi.fn()} />);
+    expect(
+      screen.getByText("Diversified; broader industrials mix"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("ETF proxy; sector ETF wrapper"),
+    ).toBeInTheDocument();
   });
 
   it("Remove button drops the row and enables Save", async () => {
@@ -184,9 +214,9 @@ describe("<UniverseTable>", () => {
       }),
     });
     render(<UniverseTable initial={u} onSaved={vi.fn()} onRefresh={vi.fn()} />);
-    const notesInputs = screen.getAllByPlaceholderText(/notes/i);
-    await user.clear(notesInputs[0]);
-    await user.type(notesInputs[0], "x");
+    // Trigger dirty by removing a row; Save is otherwise inert.
+    const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+    await user.click(removeButtons[0]);
     await user.click(screen.getByRole("button", { name: /save/i }));
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/tickers\[0\]\.name too short/);

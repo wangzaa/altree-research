@@ -3,6 +3,7 @@
 import React, { useState, type ReactNode } from "react";
 import { ChatBubble, ChatThread } from "@/components/chat-bubble";
 import { ChatInputText } from "@/components/chat-input";
+import { RichProse } from "@/components/rich-prose";
 import { thesisBubbles } from "@/lib/thesis-bubbles";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { ThesisDiff } from "@/lib/diff/thesis-diff";
@@ -13,6 +14,10 @@ export interface ThesisChatArtifactProps {
   /** Ticker -> company name lookup so the chat artifact can render every
    * ticker as `Company (TICKER)` per docs/tone/conversational-thesis. */
   tickerNames?: Record<string, string>;
+  /** Fired when the user clicks "Continue without refining" / "Done
+   * refining, continue". Parent uses this to trigger downstream refreshes
+   * (e.g. refetching anchor suggestions). */
+  onContinue?: () => void;
 }
 
 type Status = "idle" | "refining" | "previewing" | "applying" | "error";
@@ -58,23 +63,6 @@ function Stagger({
   );
 }
 
-// Renders a string with **bold** spans. Keeps line breaks via the wrapping
-// pre-line container. Anything else (italic, links) is intentionally not
-// supported — the bubbles only need a soft anchor on the leg handle.
-function ProseBody({ text }: { text: string }) {
-  const parts = text.split(/\*\*([^*]+)\*\*/g);
-  return (
-    <div style={{ whiteSpace: "pre-line" }}>
-      {parts.map((segment, i) =>
-        i % 2 === 1 ? (
-          <strong key={i}>{segment}</strong>
-        ) : (
-          <React.Fragment key={i}>{segment}</React.Fragment>
-        ),
-      )}
-    </div>
-  );
-}
 
 function DiffLines({ diff }: { diff: ThesisDiff }) {
   if (isDiffEmpty(diff)) {
@@ -109,6 +97,7 @@ export function ThesisChatArtifact({
   thesis,
   onApplied,
   tickerNames,
+  onContinue,
 }: ThesisChatArtifactProps) {
   const [instruction, setInstruction] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -218,7 +207,7 @@ export function ThesisChatArtifact({
       {bubbles.map((b, i) => (
         <Stagger key={b.id} index={i}>
           <ChatBubble from="app">
-            <ProseBody text={b.body} />
+            <RichProse text={b.body} />
           </ChatBubble>
         </Stagger>
       ))}
@@ -254,7 +243,7 @@ export function ThesisChatArtifact({
           <ChatBubble from="user">{turn.instruction}</ChatBubble>
           {turn.narrative ? (
             <ChatBubble from="app">
-              <ProseBody text={turn.narrative} />
+              <RichProse text={turn.narrative} />
             </ChatBubble>
           ) : (
             <ChatBubble from="app">
@@ -272,7 +261,7 @@ export function ThesisChatArtifact({
           <Stagger index={afterIndex++}>
             {narrative ? (
               <ChatBubble from="app">
-                <ProseBody text={narrative} />
+                <RichProse text={narrative} />
               </ChatBubble>
             ) : (
               <ChatBubble from="app">
@@ -313,7 +302,7 @@ export function ThesisChatArtifact({
           </div>
         </>
       ) : (
-        <div className="pl-12">
+        <div className="flex flex-col gap-3 pl-12">
           <ChatInputText
             multiline
             placeholder="Type a refinement instruction (e.g., add Japan to regions)..."
@@ -322,7 +311,25 @@ export function ThesisChatArtifact({
             onSubmit={onRefineSubmit}
             submitLabel={refining ? "Refining..." : "Refine"}
             disabled={refining || applying}
+            hideSubmitWhenEmpty
           />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                onContinue?.();
+                document
+                  .getElementById("step-universe")
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              disabled={refining || applying}
+              className="btn btn-primary"
+            >
+              {history.length === 0
+                ? "Continue without refining →"
+                : "Done refining, continue →"}
+            </button>
+          </div>
         </div>
       )}
 

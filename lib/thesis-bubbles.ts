@@ -65,11 +65,49 @@ function formatCapFloor(usd: number): string {
   return `$${usd.toLocaleString()}`;
 }
 
-function formatEstimate(value: number, unit: string): string {
-  const u = unit.toLowerCase();
-  if (u === "pct" || u === "percent" || u === "%") return `${value}%`;
-  if (u === "bps") return `${value} bps`;
-  return `${value} ${unit}`;
+/** Drops the legal-entity suffixes Yahoo and SEC databases append to
+ * company names. Per v5: legal suffixes (`Co., Ltd.`, `Corp.`, `Inc.`,
+ * etc.) shouldn't appear in conversational prose — they're a tell that
+ * a database export landed in user-facing text. Order matters: longest
+ * patterns first so `Co., Ltd.` is removed in one pass, not stripped to
+ * `Co.,` and then to nothing. */
+function stripLegalSuffix(name: string): string {
+  const patterns: RegExp[] = [
+    /,?\s*Co\.,?\s*Ltd\.?$/i,
+    /,?\s*Co\.\s*,?\s*Ltd\.?$/i,
+    /,?\s*S\.A\.B\.\s+de\s+C\.V\.$/i,
+    /,?\s*Corporation$/i,
+    /,?\s*Incorporated$/i,
+    /,?\s*Limited$/i,
+    /,?\s*Holdings?$/i,
+    /,?\s*Group$/i,
+    /,?\s*Corp\.?$/i,
+    /,?\s*Inc\.?$/i,
+    /,?\s*Ltd\.?$/i,
+    /,?\s*LLC$/i,
+    /,?\s*plc$/i,
+    /,?\s*PLC$/i,
+    /,?\s*S\.A\.$/i,
+    /,?\s*N\.V\.$/i,
+    /,?\s*S\.p\.A\.$/i,
+    /,?\s*AG$/,
+    /,?\s*SE$/,
+    /,?\s*Oyj$/i,
+    /,?\s*A\/S$/i,
+  ];
+  let out = name.trim();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const p of patterns) {
+      const next = out.replace(p, "").trim();
+      if (next !== out && next.length > 0) {
+        out = next;
+        changed = true;
+      }
+    }
+  }
+  return out;
 }
 
 /** Renders a ticker as `Company (TICKER)` when a name is available, else
@@ -80,8 +118,9 @@ function tickerLabel(
   ticker: string,
   tickerNames: Record<string, string> | undefined,
 ): string {
-  const name = tickerNames?.[ticker];
-  if (!name) return ticker;
+  const rawName = tickerNames?.[ticker];
+  if (!rawName) return ticker;
+  const name = stripLegalSuffix(rawName);
   // Where company name and ticker are effectively the same (AMD, IBM,
   // TSMC vs TSM), render just the ticker. Heuristic: name fits in <=4 chars
   // and matches the ticker prefix.
@@ -93,7 +132,10 @@ function tickerLabel(
 }
 
 function thesisAnchor(driver: IndustryDriver): string {
-  const id = driver.id.toLowerCase();
+  // Strip the `drv_` prefix that the extractor sometimes attaches to
+  // driver ids — without this, the fallback emits "drv aging
+  // demographics" verbatim into the readback (a v5 anti-pattern).
+  const id = driver.id.toLowerCase().replace(/^drv_/, "");
   if (id.includes("memory")) return "memory";
   if (id.includes("cpu")) return "CPUs";
   if (id.includes("gpu")) return "GPUs";
@@ -110,8 +152,9 @@ function thesisAnchor(driver: IndustryDriver): string {
   if (id.includes("packaging")) return "packaging";
   if (id.includes("ev_") || id.includes("electrification")) return "electrification";
   if (id.includes("ai")) return "AI";
-  // Fallback: snake_case → space-separated, lowercase.
-  return driver.id.replace(/_/g, " ").toLowerCase();
+  // Fallback: snake_case → space-separated. The `drv_` prefix has already
+  // been stripped above.
+  return id.replace(/_/g, " ");
 }
 
 function tickerSentence(
@@ -130,32 +173,29 @@ function thesisBody(
   tickerNames: Record<string, string> | undefined,
 ): string {
   const anchor = thesisAnchor(driver);
-  const central = formatEstimate(
-    driver.central_estimate.value,
-    driver.central_estimate.unit,
-  );
-  const breaks = formatEstimate(
-    driver.thesis_breaks_below,
-    driver.central_estimate.unit,
-  );
   const tickers = tickerSentence(driver, tickerNames);
   const headerLabel =
     total === 1 ? `**Thesis (${anchor}):**` : `**Thesis ${index + 1} (${anchor}):**`;
   // Sentence-case the claim — never leave it lowercase, which would signal
-  // an enum slug got dropped raw into the prose.
+  // an enum slug got dropped raw into the prose. Per v5: target returns
+  // and break thresholds DO NOT appear in the readback prose. They live
+  // in JSON / show-details, and are referenced in Anti/Thesis where
+  // genuinely needed.
   const claim = driver.claim
     .replace(/\.$/, "")
     .replace(/^./, (c) => c.toUpperCase());
-  return `${headerLabel} ${claim}. You're penciling in around ${central}, and you'd call this broken below ${breaks}.${tickers}`;
+  return `${headerLabel} ${claim}.${tickers}`;
 }
 
 function killBody(f: Falsification): string {
-  const primary = f.primary.replace(/\.$/, "");
-  if (f.secondary) {
-    const secondary = f.secondary.replace(/\.$/, "");
-    return `What would kill it: ${primary}. Secondary signal: ${secondary}.`;
-  }
-  return `What would kill it: ${primary}.`;
+  // v5: kill conditions render as a bold header + simple-statement bullets.
+  // Never "Primary:" / "Secondary signal:" — those were Label:value
+  // patterns the v4 anti-pattern table called out.
+  const items = [f.primary, f.secondary]
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .map((s) => s.replace(/\.$/, "").trim());
+  const bullets = items.map((s) => `- ${s}`).join("\n");
+  return `**What would kill it:**\n${bullets}`;
 }
 
 function setupBody(t: Thesis): string {

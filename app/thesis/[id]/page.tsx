@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { getQuote } from "@/lib/data/yahoo";
+import { getRatesUsd, formatFxAsOf } from "@/lib/data/fx-live";
 import { ScanResultsSchema, type ScanResults } from "@/lib/schemas/scan";
 import { ThesisIdSchema, type Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
@@ -123,6 +124,21 @@ export default async function ThesisViewerPage({
     if (tickerNames[t]) seedNames[t] = tickerNames[t];
   }
 
+  // Pre-fetch FX rates for every currency present in the scan so the
+  // client-rendered EBITDA column converts to USD M without doing its own
+  // network lookups. The fx-live module caches in-process for 30 min, so
+  // repeated page loads share the same rates batch.
+  const fxCurrencies = new Set<string>();
+  if (initialScan) {
+    for (const s of initialScan.tickers_snapshot) {
+      if (s.currency) fxCurrencies.add(s.currency);
+    }
+  }
+  const { rates: ratesByCurrency, as_of_ms: fxAsOfMs } = await getRatesUsd(
+    Array.from(fxCurrencies),
+  );
+  const fxAsOf = formatFxAsOf(fxAsOfMs);
+
   const steps = deriveStepStates({
     thesis,
     universe: initialUniverse,
@@ -139,6 +155,8 @@ export default async function ThesisViewerPage({
         initialValidation={initialValidation}
         seedNames={seedNames}
         tickerNames={tickerNames}
+        ratesByCurrency={ratesByCurrency}
+        fxAsOf={fxAsOf}
       />
     </PipelineLayout>
   );

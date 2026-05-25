@@ -37,12 +37,12 @@ const memoTool: ToolSpec = {
       bull_summary: {
         type: "string",
         description:
-          "One paragraph (2-3 sentences) summarising the bull case across all drivers, citing the strongest supporting evidence and what would keep the thesis intact.",
+          "Bull case in 'key-point + supporting bullets' markdown: a bold claim sentence on line 1 (wrapped in **…**), then 2-4 bullet lines starting with '- '. Each bullet is one specific fact or sub-claim. Optionally a single 'Adjacent support:' italic line after the bullets for wider context. Must mirror bear_summary structurally (same bullet count and shape).",
       },
       bear_summary: {
         type: "string",
         description:
-          "One paragraph (2-3 sentences) summarising the bear case, citing the strongest threshold-breach evidence and where the thesis is most exposed.",
+          "Bear case in 'key-point + supporting bullets' markdown: a bold claim sentence on line 1 (wrapped in **…**), then 2-4 bullet lines starting with '- '. Each bullet is one specific fact or sub-claim. Optionally a single 'Adjacent risk:' italic line after the bullets for wider context. Must mirror bull_summary structurally (same bullet count and shape).",
       },
       recommendation: {
         type: "string",
@@ -75,8 +75,29 @@ You receive the structured thesis, the latest scan results (price + fundamentals
 OUTPUT (via the draft_memo tool)
 Write tight, second-person prose. Be specific. Reference tickers, regions, and driver anchors where they tighten the argument.
 
+BULL / BEAR FORMAT — key-point + supporting bullets
+Each of bull_summary and bear_summary follows this exact markdown shape:
+
+  **Single bold claim sentence with a verb.**
+  - Specific supporting fact or sub-claim (one per bullet).
+  - Specific supporting fact or sub-claim.
+  - Optional third / fourth bullet (4 is the ceiling, not the target — 2 clean bullets beat 4 padded).
+
+After the bullets you MAY append exactly one italic line of adjacent context:
+  *Adjacent support:* …  (bull only)
+  *Adjacent risk:* …     (bear only)
+
+Mirror rules — these are hard stops:
+- Bull and Bear must have the same number of bullets.
+- Bull and Bear bullets must have the same shape (all fragments OR all full sentences — not mixed).
+- The opening bold claim is one sentence on its own line, never inside a bullet.
+- No standalone "Bull says —" / "Bear says —" prose. Section labels are handled by the UI.
+- Direct evidence first; adjacent context only appears in the labeled italic line, never sprinkled into the bullets.
+- No schema linkage inside bullets. Never cite back to schema field values mid-bullet — patterns like "(Thesis 2 central estimate: ≥ $5B)" or "(Thesis 1 break-below: annual market growth < 8%)" are forbidden. The bullet sits inside a section already identified by its header; redundant "(Thesis 1)" or "(Thesis 2)" references inside their own section also go. If a bullet genuinely needs to anchor to a thesis number, do so inline ("sustaining the policy support the thesis depends on") rather than as a parenthetical citation.
+- Basket observations (e.g. "OMRON down ~32%", "mean EBIT margin ~6%") may appear as bullets when they back a specific Bull or Bear claim — never on their own. Basket-quality concerns (the basket may be a poor proxy for the thesis) belong in 'Adjacent risk:', not in the lead bullets. Lead with mechanism-level evidence on whether the thesis itself holds; basket-quality is wrapper risk, not thesis risk.
+
 TICKER FORMAT
-Every ticker is paired with a company name on each appearance: "Samsung Electronics (005930.KS)", not "005930.KS" alone. Exception: where company name and ticker are effectively the same (AMD, IBM).
+Every ticker is paired with a company name on each appearance: "Samsung Electronics (005930.KS)", not "005930.KS" alone. Exception: where company name and ticker are effectively the same (AMD, IBM). Drop legal suffixes in prose — "Toyota" not "Toyota Motor Corporation", "Fanuc" not "Fanuc Corporation". Legal suffixes ("Co., Ltd.", "Corp.", "Inc.", "Holdings", "AG", "plc") signal a database export landed in a sentence.
 
 REGION NORMALIZATION
 Never write raw enum values. Translate before output: KOREA → "Korean," EUROZONE → "Europe," SEA → "Southeast Asia," GREATER_CHINA → "Greater China." Proper-noun casing applies — never "japanese and korean" or "us and eu peers."

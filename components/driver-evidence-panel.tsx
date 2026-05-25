@@ -152,7 +152,7 @@ function LensBubble({
   loading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const label = lens === "bull" ? "Bull case" : "Bear case";
+  const label = lens === "bull" ? "Thesis" : "Anti-thesis";
   const hasSynthesis =
     typeof synthesis === "string" && synthesis.trim().length > 0;
   const text = loading

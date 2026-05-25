@@ -50,6 +50,24 @@ export function toUsd(
   return amountLocal * rate;
 }
 
+/**
+ * Sync USD conversion that prefers a pre-fetched live-rates map and falls
+ * back to the static table above. Pure function — client-safe (no Yahoo
+ * dependency), so client components can import it directly. The live-rates
+ * map is produced server-side by `getRatesUsd` in `lib/data/fx-live.ts`.
+ */
+export function toUsdLive(
+  amountLocal: number | null,
+  currency: string | null,
+  rates?: Record<string, number>,
+): number | null {
+  if (amountLocal === null) return null;
+  if (!currency) return null;
+  const upper = currency.toUpperCase();
+  if (rates && upper in rates) return amountLocal * rates[upper];
+  return toUsd(amountLocal, currency);
+}
+
 /** True when we have a USD rate for the given currency code. */
 export function hasRate(currency: string | null | undefined): boolean {
   if (!currency) return false;

@@ -85,10 +85,18 @@ export async function POST(req: Request) {
       stage: "extract",
       agent: "thesis_extractor",
       event_type: "error",
-      payload: { error: result.error, model: extractorModel },
+      payload: {
+        code: result.code,
+        error: result.error,
+        model: extractorModel,
+      },
     });
     return NextResponse.json(
-      { error: result.error, raw: result.raw ?? null },
+      {
+        error: result.error,
+        code: result.code,
+        raw: result.raw ?? null,
+      },
       { status: 422 },
     );
   }
@@ -102,6 +110,7 @@ export async function POST(req: Request) {
       model: result.model,
       usage: result.usage,
       drivers: result.thesis.drivers.industry.length,
+      tickers_dropped: result.tickers_dropped,
     },
   });
 

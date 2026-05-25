@@ -59,6 +59,11 @@ export interface ChatInputTextProps {
   submitLabel?: string;
   disabled?: boolean;
   minChars?: number;
+  /** Hide the submit button when the input is empty (trim()=""). Lets the
+   * parent provide an alternative affordance for the empty-input case
+   * (e.g. a "continue without input" button) without a half-disabled
+   * checkmark sitting in the dead state. */
+  hideSubmitWhenEmpty?: boolean;
 }
 
 export function ChatInputText({
@@ -73,6 +78,7 @@ export function ChatInputText({
   submitLabel = "Submit",
   disabled = false,
   minChars = 1,
+  hideSubmitWhenEmpty = false,
 }: ChatInputTextProps) {
   const [internal, setInternal] = useState(initialValue);
   const value = controlledValue ?? internal;
@@ -159,27 +165,29 @@ export function ChatInputText({
           </span>
         ) : null}
       </div>
-      <button
-        type="submit"
-        disabled={!isReady}
-        aria-label={submitLabel}
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 9999,
-          background: isReady ? "var(--color-pear-black)" : "#B5B5B5",
-          color: "white",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: "none",
-          cursor: isReady ? "pointer" : "not-allowed",
-          flexShrink: 0,
-          transition: "background-color 0.2s var(--pear-ease)",
-        }}
-      >
-        <CheckIcon />
-      </button>
+      {hideSubmitWhenEmpty && trimmed.length === 0 ? null : (
+        <button
+          type="submit"
+          disabled={!isReady}
+          aria-label={submitLabel}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 9999,
+            background: isReady ? "var(--color-pear-black)" : "#B5B5B5",
+            color: "white",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "none",
+            cursor: isReady ? "pointer" : "not-allowed",
+            flexShrink: 0,
+            transition: "background-color 0.2s var(--pear-ease)",
+          }}
+        >
+          <CheckIcon />
+        </button>
+      )}
     </form>
   );
 }

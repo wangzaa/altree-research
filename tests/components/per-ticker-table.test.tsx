@@ -208,6 +208,7 @@ describe("computeRows", () => {
       ebitda: 1e9,
       ebitda_margin: 0.15,
       currency: "USD",
+      return_pct: null,
     });
   });
 
@@ -245,7 +246,8 @@ describe("<PerTickerTable>", () => {
     render(<PerTickerTable snapshots={snapshots} history={[]} />);
     expect(screen.getByText("TEST")).toBeInTheDocument();
     expect(screen.getByText("Test Industries")).toBeInTheDocument();
-    expect(screen.getByText("$1.5B")).toBeInTheDocument();
+    // EBITDA: 1.5B USD rendered in USD millions = "1,500".
+    expect(screen.getByText("1,500")).toBeInTheDocument();
     expect(screen.getByText("22.0%")).toBeInTheDocument();
     // P/E shows em-dash because the snapshot has no quarterly_eps. Header is
     // a sortable button so we match by role+text (the inactive arrow glyph
@@ -288,7 +290,30 @@ describe("<PerTickerTable>", () => {
     expect(loseRow.style.color).toMatch(/a30000|rgb\(163, 0, 0\)/);
   });
 
-  it("renders a Mcap (USD B) column from marketCapByTicker", () => {
+  it("converts EBITDA to USD M using the supplied live rates map", () => {
+    const jpyEbitdaSnapshots: TickerSnapshot[] = [
+      {
+        ticker: "JP",
+        name: "JP Co",
+        ebitda: 100_000_000_000, // JPY 100B
+        ebitda_margin: 0.1,
+        revenue_growth_yoy: null,
+        currency: "JPY",
+        quarterly_eps: [],
+      },
+    ];
+    render(
+      <PerTickerTable
+        snapshots={jpyEbitdaSnapshots}
+        history={[]}
+        ratesByCurrency={{ JPY: 0.007 }}
+      />,
+    );
+    // 100B JPY * 0.007 = 700M USD => "700" in the USD M column.
+    expect(screen.getByText("700")).toBeInTheDocument();
+  });
+
+  it("renders a Mcap (USD M) column from marketCapByTicker", () => {
     render(
       <PerTickerTable
         snapshots={snapshots}
@@ -297,9 +322,10 @@ describe("<PerTickerTable>", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: /Mcap \(USD B\)/ }),
+      screen.getByRole("button", { name: /Mcap \(USD M\)/ }),
     ).toBeInTheDocument();
-    expect(screen.getByText("1,378")).toBeInTheDocument();
+    // 1378 (USD billions) rendered in millions = 1,378,000.
+    expect(screen.getByText("1,378,000")).toBeInTheDocument();
   });
 
   it("renders an empty-state message when no snapshots are present", () => {

@@ -3,7 +3,8 @@ import { z } from "zod";
 import { discoverUniverse } from "@/lib/agents/universe-discoverer";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getQuote, getFundamentals } from "@/lib/data/yahoo";
-import { toUsd } from "@/lib/data/fx";
+import { toUsdLive } from "@/lib/data/fx";
+import { getRatesUsd } from "@/lib/data/fx-live";
 import { getRegionForTicker } from "@/lib/data/regions";
 import { ThesisIdSchema, type Thesis } from "@/lib/schemas/thesis";
 import {
@@ -96,7 +97,14 @@ export async function POST(req: Request) {
       payload: { anchor: anchor_ticker, model: discovererModel },
     });
 
-    const anchorMcapUsd = toUsd(anchorQuote.market_cap_local, anchorQuote.currency);
+    const { rates: anchorRates } = await getRatesUsd(
+      anchorQuote.currency ? [anchorQuote.currency] : [],
+    );
+    const anchorMcapUsd = toUsdLive(
+      anchorQuote.market_cap_local,
+      anchorQuote.currency,
+      anchorRates,
+    );
 
     let discovery;
     try {
@@ -158,14 +166,23 @@ export async function POST(req: Request) {
     const tickers: UniverseTicker[] = [];
     const dropped: DroppedTicker[] = [];
 
-    // Always seed the anchor first (deduped against agent output).
+    // Always seed the anchor first (deduped against agent output). If the
+    // discoverer happened to also return the anchor in its proposed list,
+    // borrow its exposure_rationale + notes so the anchor row carries the
+    // same context as every other row; otherwise leave them empty (the row
+    // is visually distinguished by is_anchor=true).
+    const anchorProposed = discovery.tickers.find(
+      (p) => p.ticker === anchor_ticker,
+    );
     const anchorTicker: UniverseTicker = {
       ticker: anchor_ticker,
       name: anchorQuote.name,
       region: anchorRegion,
       market_cap_usd_b: (anchorMcapUsd ?? 0) / 1e9,
       exposure_tier: "pure_play",
-      notes: "Anchor",
+      exposure_rationale: anchorProposed?.exposure_rationale || undefined,
+      notes: anchorProposed?.notes ?? "",
+      is_anchor: true,
     };
     tickers.push(anchorTicker);
 
@@ -181,7 +198,16 @@ export async function POST(req: Request) {
         dropped.push({ ticker: proposed.ticker, reason: "yahoo_lookup_failed" });
         continue;
       }
-      const mcapUsd = toUsd(quote.market_cap_local, quote.currency);
+      // FX module caches per-currency for 30 min, so repeat currencies in
+      // the discovery list are O(1) lookups, not extra Yahoo calls.
+      const { rates } = await getRatesUsd(
+        quote.currency ? [quote.currency] : [],
+      );
+      const mcapUsd = toUsdLive(
+        quote.market_cap_local,
+        quote.currency,
+        rates,
+      );
       if (mcapUsd === null) {
         dropped.push({ ticker: proposed.ticker, reason: "unknown_currency" });
         continue;
