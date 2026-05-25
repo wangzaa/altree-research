@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PerTickerTable } from "@/components/per-ticker-table";
 import {
+  defaultChartSelection,
   ScanChart,
   monthsFor,
   rankTickersByWindow,
@@ -11,6 +12,7 @@ import {
   WINDOWS,
   type WindowKey,
 } from "@/components/scan-chart";
+import { Spinner } from "@/components/spinner";
 import type { ScanResults } from "@/lib/schemas/scan";
 import type { Universe } from "@/lib/schemas/universe";
 
@@ -52,6 +54,14 @@ export function ScanPanel({
   const [error, setError] = useState<string | null>(null);
   const [dropped, setDropped] = useState<Dropped[]>([]);
   const [windowKey, setWindowKey] = useState<WindowKey>("6mth");
+  // Tickers plotted on the chart. Initial set is derived from the scan +
+  // universe (top-4 by mcap + worst-by-window-return) in the effect below.
+  // After that the user owns the selection via the per-ticker-table
+  // checkbox column — toggling never resets it.
+  const [selectedTickers, setSelectedTickers] = useState<Set<string>>(
+    new Set(),
+  );
+  const userTouchedSelectionRef = useRef(false);
   // Track whether the auto-run on mount has fired so we don't double-run
   // when React re-renders before the request resolves.
   const autoRanRef = useRef(false);
@@ -120,10 +130,92 @@ export function ScanPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runScanKey]);
 
+  // All hooks must run on every render — keep them above the early return
+  // for the null-scan case. Visible* arrays default to empty when scan
+  // hasn't landed yet, which is fine for the downstream memos.
+  const universeTickers = useMemo(
+    () =>
+      universe ? new Set(universe.tickers.map((t) => t.ticker)) : null,
+    [universe],
+  );
+  const visibleHistory: ScanResults["history_5y"] = useMemo(() => {
+    if (scan === null) return [];
+    return universeTickers
+      ? scan.history_5y.filter((h) => universeTickers.has(h.ticker))
+      : scan.history_5y;
+  }, [scan, universeTickers]);
+  const visibleSnapshots: ScanResults["tickers_snapshot"] = useMemo(() => {
+    if (scan === null) return [];
+    return universeTickers
+      ? scan.tickers_snapshot.filter((s) => universeTickers.has(s.ticker))
+      : scan.tickers_snapshot;
+  }, [scan, universeTickers]);
+
+  const windowMonths = monthsFor(windowKey);
+  const endValuesByTicker = useMemo(
+    () => tickerEndValues(visibleHistory, windowMonths),
+    [visibleHistory, windowMonths],
+  );
+  const { best: bestTicker, worst: worstTicker } = useMemo(
+    () => rankTickersByWindow(visibleHistory, windowMonths),
+    [visibleHistory, windowMonths],
+  );
+  const windowLabel =
+    WINDOWS.find((w) => w.key === windowKey)?.label ?? windowKey;
+  const returnLabel = `${windowLabel} return`;
+  const marketCapByTicker: Record<string, number> = useMemo(() => {
+    const out: Record<string, number> = {};
+    if (universe) {
+      for (const t of universe.tickers) out[t.ticker] = t.market_cap_usd_b;
+    }
+    return out;
+  }, [universe]);
+
+  // Auto-default selection on first scan + whenever the universe membership
+  // changes meaningfully (rerun / new tickers). Skipped once the user has
+  // touched the selection so explicit choices aren't clobbered.
+  const universeFingerprint = visibleHistory
+    .map((h) => h.ticker)
+    .sort()
+    .join(",");
+  useEffect(() => {
+    if (userTouchedSelectionRef.current) return;
+    if (visibleHistory.length === 0) return;
+    const next = defaultChartSelection(
+      visibleHistory,
+      marketCapByTicker,
+      windowMonths,
+    );
+    setSelectedTickers(new Set(next));
+    // marketCapByTicker is memoized; windowMonths is a number. Re-derive
+    // only when the underlying ticker set changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [universeFingerprint]);
+
+  const orderedSelected = useMemo(() => {
+    // Preserve the default-selection order so chart colors stay stable
+    // when the user toggles tickers in/out — top-by-mcap first, then any
+    // user-added tickers appended in history order.
+    const seed = defaultChartSelection(
+      visibleHistory,
+      marketCapByTicker,
+      windowMonths,
+    );
+    const inSeed = seed.filter((t) => selectedTickers.has(t));
+    const extras = visibleHistory
+      .map((h) => h.ticker)
+      .filter((t) => selectedTickers.has(t) && !seed.includes(t));
+    return [...inSeed, ...extras];
+  }, [selectedTickers, visibleHistory, marketCapByTicker, windowMonths]);
+
   if (scan === null) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm italic" style={{ color: "#585858" }}>
+        <p
+          className="inline-flex items-center gap-2 text-sm italic"
+          style={{ color: "#585858" }}
+        >
+          <Spinner size={14} />
           {running
             ? "Running price + fundamentals scan across the universe…"
             : "Preparing scan…"}
@@ -137,34 +229,32 @@ export function ScanPanel({
     );
   }
 
-  // Filter scan data to current universe membership so removing rows in the
-  // universe table immediately drops them from chart + per-ticker table,
-  // without requiring a server re-scan.
-  const universeTickers = universe
-    ? new Set(universe.tickers.map((t) => t.ticker))
-    : null;
-  const visibleHistory = universeTickers
-    ? scan.history_5y.filter((h) => universeTickers.has(h.ticker))
-    : scan.history_5y;
-  const visibleSnapshots = universeTickers
-    ? scan.tickers_snapshot.filter((s) => universeTickers.has(s.ticker))
-    : scan.tickers_snapshot;
-
-  const windowMonths = monthsFor(windowKey);
-  const endValuesByTicker = tickerEndValues(visibleHistory, windowMonths);
-  const { best: bestTicker, worst: worstTicker } = rankTickersByWindow(
-    visibleHistory,
-    windowMonths,
-  );
-  const windowLabel =
-    WINDOWS.find((w) => w.key === windowKey)?.label ?? windowKey;
-  const returnLabel = `${windowLabel} return`;
-  const marketCapByTicker: Record<string, number> = {};
-  if (universe) {
-    for (const t of universe.tickers) {
-      marketCapByTicker[t.ticker] = t.market_cap_usd_b;
-    }
+  function handleToggleTicker(ticker: string) {
+    userTouchedSelectionRef.current = true;
+    setSelectedTickers((prev) => {
+      const next = new Set(prev);
+      if (next.has(ticker)) next.delete(ticker);
+      else next.add(ticker);
+      return next;
+    });
   }
+
+  // Mirror the chart palette so the per-ticker-table swatch matches the
+  // line drawn for each selected ticker. Recomputed alongside chart order.
+  const palette = [
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#17becf",
+  ];
+  const colorByTicker: Record<string, string> = {};
+  orderedSelected.forEach((t, i) => {
+    colorByTicker[t] = palette[i % palette.length];
+  });
 
   return (
     <div className="flex flex-col gap-3">
@@ -172,6 +262,7 @@ export function ScanPanel({
         history={visibleHistory}
         windowKey={windowKey}
         onWindowChange={setWindowKey}
+        selectedTickers={orderedSelected}
       />
       <PerTickerTable
         snapshots={visibleSnapshots}
@@ -182,6 +273,9 @@ export function ScanPanel({
         endValuesByTicker={endValuesByTicker}
         returnLabel={returnLabel}
         ratesByCurrency={ratesByCurrency}
+        selectedTickers={selectedTickers}
+        onToggleTicker={handleToggleTicker}
+        colorByTicker={colorByTicker}
       />
       {fxAsOf ? (
         <p className="text-xs" style={{ color: "#9a9a9a" }}>

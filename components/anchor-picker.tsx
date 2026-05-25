@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, type FormEvent } from "react";
 import { getRegionForTicker } from "@/lib/data/regions";
+import { Spinner } from "@/components/spinner";
 
 interface AnchorPickerProps {
   thesis_id: string;
@@ -10,6 +11,10 @@ interface AnchorPickerProps {
   tickerNames?: Record<string, string>;
   onSubmit: (anchor: string) => void;
   disabled: boolean;
+  /** Distinct from `disabled`: true while the parent is mid-fetch building
+   * the universe. Drives the spinner on the submit button so the user sees
+   * progress instead of an inert disabled state. */
+  pending?: boolean;
   /** Opaque value the parent bumps to request a fresh /api/anchor/suggest
    * call. Bumping forces the useEffect to re-fire even when thesis_id
    * hasn't changed (e.g. when the user clicks "Continue without refining"
@@ -34,6 +39,7 @@ export function AnchorPicker({
   tickerNames,
   onSubmit,
   disabled,
+  pending = false,
   refreshKey,
 }: AnchorPickerProps) {
   const [ticker, setTicker] = useState("");
@@ -161,7 +167,11 @@ export function AnchorPicker({
           Suggested in your scope
         </span>
         {loadingSuggestions ? (
-          <span className="text-xs italic" style={{ color: "#9a9a9a" }}>
+          <span
+            className="inline-flex items-center gap-2 text-xs italic"
+            style={{ color: "#9a9a9a" }}
+          >
+            <Spinner size={12} />
             Searching for tickers that fit your scope…
           </span>
         ) : suggestError ? (
@@ -223,10 +233,17 @@ export function AnchorPicker({
       <div className="flex items-center justify-end">
         <button
           type="submit"
-          disabled={submitDisabled}
-          className="btn btn-primary"
+          disabled={submitDisabled || pending}
+          className="btn btn-primary inline-flex items-center gap-2"
         >
-          Build universe →
+          {pending ? (
+            <>
+              <Spinner size={14} />
+              Building universe…
+            </>
+          ) : (
+            "Build universe →"
+          )}
         </button>
       </div>
 

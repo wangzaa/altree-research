@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, type FormEvent, type ReactNode } from "react";
+import { Spinner } from "@/components/spinner";
 
 function CheckIcon({ size = 16 }: { size?: number }) {
   return (
@@ -58,6 +59,10 @@ export interface ChatInputTextProps {
   onSubmit: (value: string) => void;
   submitLabel?: string;
   disabled?: boolean;
+  /** When true, the submit button shows a spinner instead of the checkmark
+   * — a visible signal that a request is in flight, distinct from a generic
+   * disabled state. */
+  submitting?: boolean;
   minChars?: number;
   /** Hide the submit button when the input is empty (trim()=""). Lets the
    * parent provide an alternative affordance for the empty-input case
@@ -77,6 +82,7 @@ export function ChatInputText({
   onSubmit,
   submitLabel = "Submit",
   disabled = false,
+  submitting = false,
   minChars = 1,
   hideSubmitWhenEmpty = false,
 }: ChatInputTextProps) {
@@ -168,24 +174,29 @@ export function ChatInputText({
       {hideSubmitWhenEmpty && trimmed.length === 0 ? null : (
         <button
           type="submit"
-          disabled={!isReady}
+          disabled={!isReady || submitting}
           aria-label={submitLabel}
           style={{
             width: 36,
             height: 36,
             borderRadius: 9999,
-            background: isReady ? "var(--color-pear-black)" : "#B5B5B5",
+            background:
+              isReady || submitting ? "var(--color-pear-black)" : "#B5B5B5",
             color: "white",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
             border: "none",
-            cursor: isReady ? "pointer" : "not-allowed",
+            cursor: submitting
+              ? "wait"
+              : isReady
+                ? "pointer"
+                : "not-allowed",
             flexShrink: 0,
             transition: "background-color 0.2s var(--pear-ease)",
           }}
         >
-          <CheckIcon />
+          {submitting ? <Spinner size={16} /> : <CheckIcon />}
         </button>
       )}
     </form>

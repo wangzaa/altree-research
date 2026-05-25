@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getRegionForTicker } from "@/lib/data/regions";
+import { Spinner } from "@/components/spinner";
 import type { Universe, UniverseTicker } from "@/lib/schemas/universe";
 
 interface UniverseTableProps {
@@ -310,10 +311,17 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
               type="button"
               onClick={handleAddRow}
               disabled={addingPending}
-              className="btn btn-secondary"
+              className="btn btn-secondary inline-flex items-center gap-1.5"
               style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
             >
-              {addingPending ? "Looking up..." : "Add"}
+              {addingPending ? (
+                <>
+                  <Spinner size={12} />
+                  Looking up…
+                </>
+              ) : (
+                "Add"
+              )}
             </button>
             <button
               type="button"
@@ -369,9 +377,16 @@ export function UniverseTable({ initial, onSaved, onRefresh }: UniverseTableProp
           type="button"
           onClick={handleSave}
           disabled={!dirty || saving}
-          className="btn btn-primary"
+          className="btn btn-primary inline-flex items-center gap-2"
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? (
+            <>
+              <Spinner size={14} />
+              Beginning scan…
+            </>
+          ) : (
+            "Begin Scan"
+          )}
         </button>
       </div>
 

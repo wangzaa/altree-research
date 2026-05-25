@@ -277,6 +277,7 @@ export function ThesisDetail({
               tickerNames={seedNames}
               onSubmit={handleBuild}
               disabled={building}
+              pending={building}
               refreshKey={anchorSuggestRefreshKey}
             />
           ) : (

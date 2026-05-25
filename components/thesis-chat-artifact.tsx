@@ -4,6 +4,7 @@ import React, { useState, type ReactNode } from "react";
 import { ChatBubble, ChatThread } from "@/components/chat-bubble";
 import { ChatInputText } from "@/components/chat-input";
 import { RichProse } from "@/components/rich-prose";
+import { Spinner } from "@/components/spinner";
 import { thesisBubbles } from "@/lib/thesis-bubbles";
 import type { Thesis } from "@/lib/schemas/thesis";
 import type { ThesisDiff } from "@/lib/diff/thesis-diff";
@@ -294,9 +295,16 @@ export function ThesisChatArtifact({
                 type="button"
                 onClick={onConfirm}
                 disabled={confirmDisabled}
-                className="btn btn-primary"
+                className="btn btn-primary inline-flex items-center gap-2"
               >
-                {applying ? "Applying..." : "Confirm"}
+                {applying ? (
+                  <>
+                    <Spinner size={14} />
+                    Applying…
+                  </>
+                ) : (
+                  "Confirm"
+                )}
               </button>
             </div>
           </div>
@@ -311,6 +319,7 @@ export function ThesisChatArtifact({
             onSubmit={onRefineSubmit}
             submitLabel={refining ? "Refining..." : "Refine"}
             disabled={refining || applying}
+            submitting={refining}
             hideSubmitWhenEmpty
           />
           <div className="flex justify-end">

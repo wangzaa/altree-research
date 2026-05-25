@@ -31,13 +31,32 @@ interface ScanChartProps {
   history: TickerHistory[];
   windowKey: WindowKey;
   onWindowChange: (next: WindowKey) => void;
+  /** Tickers to draw as individual lines. When omitted, every ticker in
+   * `history` is drawn — preserves the test-friendly default but the live
+   * scan panel always passes an explicit selection. Order matters: it
+   * controls color assignment from the palette. */
+  selectedTickers?: string[];
 }
 
-interface ChartRow {
-  date: string;
-  max: number;
-  min: number;
-}
+/** Indexed (base 100) chart row: one date column plus one numeric column
+ * per ticker. Recharts plots a `<Line>` per ticker by reading the ticker
+ * key off this object. */
+type ChartRow = { date: string } & Record<string, number | string>;
+
+// Stable line color palette. Ordered for high contrast on a white
+// background — first 5 cover the default top-4-by-mcap + worst-performer
+// case without re-using a color. Keep at least 8 colors so the user can
+// add a few more from the per-ticker table without collisions.
+export const CHART_PALETTE = [
+  "#1f77b4", // blue
+  "#ff7f0e", // orange
+  "#2ca02c", // green
+  "#d62728", // red
+  "#9467bd", // purple
+  "#8c564b", // brown
+  "#e377c2", // pink
+  "#17becf", // teal
+];
 
 // Asian exchanges (.KS / .TW) report monthly bars on the LAST day of the
 // month (2025-11-30); US listings (MU, AAPL...) on the FIRST day of the
@@ -109,22 +128,20 @@ function downloadCsv(filename: string, content: string): void {
   URL.revokeObjectURL(url);
 }
 
-// Per-ticker rebase to 100 from each ticker's first in-window observation,
-// then take the max and min across tickers per month bucket. Bucketing by
-// YYYY-MM (with day 1-5 snapped to the prior month) aligns rows that arrive
-// on slightly different days across exchanges — e.g. Asian month-end vs US
-// month-start — so every bucket has data from the whole universe.
-function indexedRebase(
+/** Build the per-ticker indexed series for the trailing window. Each ticker
+ * is rebased to 100 at its earliest in-window bucket. Bucketing by YYYY-MM
+ * (with day 1-5 snapped to the prior month) aligns rows that arrive on
+ * slightly different days across exchanges — Asian month-end vs US
+ * month-start — so every bucket has data from the whole universe. Returns
+ * an inner map `bucket -> close-indexed-to-100`. */
+function rebasedSeriesByTicker(
   history: TickerHistory[],
   windowMonths: number,
-): ChartRow[] {
-  if (history.length === 0) return [];
-
+): Map<string, Map<string, number>> {
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - windowMonths);
   const cutoffMs = cutoff.getTime();
 
-  // ticker -> bucket -> close (last row wins within a bucket)
   const perTickerByBucket = new Map<string, Map<string, number>>();
   for (const h of history) {
     const bucketed = new Map<string, number>();
@@ -151,8 +168,7 @@ function indexedRebase(
     perTickerByBucket.set(h.ticker, bucketed);
   }
 
-  // Per ticker: rebase its bucketed series to 100 from its earliest bucket.
-  const perTickerIndexed = new Map<string, Map<string, number>>();
+  const out = new Map<string, Map<string, number>>();
   for (const [ticker, bucketed] of perTickerByBucket) {
     const buckets = Array.from(bucketed.keys()).sort();
     if (buckets.length === 0) continue;
@@ -164,30 +180,39 @@ function indexedRebase(
       if (typeof close !== "number" || !Number.isFinite(close)) continue;
       indexed.set(b, (close / base) * 100);
     }
-    perTickerIndexed.set(ticker, indexed);
+    out.set(ticker, indexed);
   }
+  return out;
+}
 
+/** Pivot per-ticker indexed series into Recharts' "one row per date with
+ * a numeric column per ticker" shape. Tickers with no in-window data are
+ * silently dropped. Buckets where a given ticker is missing simply omit
+ * that key (Recharts treats undefined as a gap). */
+function buildChartRows(
+  history: TickerHistory[],
+  windowMonths: number,
+  tickers: string[],
+): ChartRow[] {
+  if (history.length === 0 || tickers.length === 0) return [];
+
+  const series = rebasedSeriesByTicker(history, windowMonths);
   const bucketSet = new Set<string>();
-  for (const inner of perTickerIndexed.values()) {
+  for (const t of tickers) {
+    const inner = series.get(t);
+    if (!inner) continue;
     for (const b of inner.keys()) bucketSet.add(b);
   }
   const buckets = Array.from(bucketSet).sort();
 
-  const rows: ChartRow[] = [];
-  for (const b of buckets) {
-    const vals: number[] = [];
-    for (const inner of perTickerIndexed.values()) {
-      const v = inner.get(b);
-      if (typeof v === "number" && Number.isFinite(v)) vals.push(v);
+  return buckets.map((b) => {
+    const row: ChartRow = { date: b };
+    for (const t of tickers) {
+      const v = series.get(t)?.get(b);
+      if (typeof v === "number" && Number.isFinite(v)) row[t] = v;
     }
-    if (vals.length === 0) continue;
-    rows.push({
-      date: b,
-      max: Math.max(...vals),
-      min: Math.min(...vals),
-    });
-  }
-  return rows;
+    return row;
+  });
 }
 
 /** Returns each ticker's last-bucket indexed value (base 100) within the
@@ -257,16 +282,73 @@ export function rankTickersByWindow(
   };
 }
 
+/** Default chart selection = top-N tickers by USD market cap (default 4)
+ * plus the worst-performing ticker over the supplied window. Order is
+ * preserved (top-by-mcap first, worst appended only if not already in the
+ * top-N) so it maps cleanly onto `CHART_PALETTE`. Tickers absent from
+ * `marketCapByTicker` fall to the back of the mcap ranking. */
+export function defaultChartSelection(
+  history: TickerHistory[],
+  marketCapByTicker: Record<string, number> | undefined,
+  windowMonths: number,
+  topN = 4,
+): string[] {
+  const tickersInHistory = history.map((h) => h.ticker);
+  const ranked = [...tickersInHistory].sort((a, b) => {
+    const mcapA = marketCapByTicker?.[a] ?? -Infinity;
+    const mcapB = marketCapByTicker?.[b] ?? -Infinity;
+    return mcapB - mcapA;
+  });
+  const top = ranked.slice(0, topN);
+
+  const ends = tickerEndValues(history, windowMonths);
+  let worst: string | null = null;
+  let worstVal = Number.POSITIVE_INFINITY;
+  for (const [ticker, value] of ends) {
+    if (value < worstVal) {
+      worstVal = value;
+      worst = ticker;
+    }
+  }
+
+  const out = [...top];
+  if (worst && !out.includes(worst)) out.push(worst);
+  return out;
+}
+
 export function ScanChart({
   history,
   windowKey,
   onWindowChange,
+  selectedTickers,
 }: ScanChartProps) {
   const months = monthsFor(windowKey);
-  const data = useMemo(
-    () => indexedRebase(history, months),
-    [history, months],
+
+  // Fall back to all tickers in history when the caller doesn't pin a
+  // selection — keeps the component drop-in usable in tests and any
+  // legacy call site. The live scan panel always passes an explicit list.
+  const tickers = useMemo(
+    () =>
+      selectedTickers && selectedTickers.length > 0
+        ? selectedTickers
+        : history.map((h) => h.ticker),
+    [selectedTickers, history],
   );
+
+  const data = useMemo(
+    () => buildChartRows(history, months, tickers),
+    [history, months, tickers],
+  );
+
+  // Stable color assignment: index in `tickers` → palette slot. Cycles
+  // through the palette when the selection grows past its length.
+  const colorByTicker = useMemo(() => {
+    const out: Record<string, string> = {};
+    tickers.forEach((t, i) => {
+      out[t] = CHART_PALETTE[i % CHART_PALETTE.length];
+    });
+    return out;
+  }, [tickers]);
 
   if (history.length === 0) {
     return <p className="text-sm text-neutral-500">No history to display.</p>;
@@ -325,29 +407,23 @@ export function ScanChart({
                   style: { fontSize: 11, fill: "#525252", textAnchor: "middle" },
                 }}
               />
-              <Tooltip
-                formatter={(value: number) => value.toFixed(1)}
-              />
+              <Tooltip formatter={(value: number) => value.toFixed(1)} />
               <Legend
                 wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
                 iconType="plainline"
               />
-              <Line
-                type="monotone"
-                dataKey="max"
-                name="Best-performing ticker"
-                stroke="#16a34a"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="min"
-                name="Worst-performing ticker"
-                stroke="#dc2626"
-                strokeWidth={2}
-                dot={false}
-              />
+              {tickers.map((t) => (
+                <Line
+                  key={t}
+                  type="monotone"
+                  dataKey={t}
+                  name={t}
+                  stroke={colorByTicker[t]}
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls
+                />
+              ))}
             </LineChart>
           </ResponsiveContainer>
         </div>

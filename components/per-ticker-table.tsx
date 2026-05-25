@@ -25,6 +25,17 @@ interface PerTickerTableProps {
    * EBITDA renders with live Yahoo rates; otherwise falls back to the
    * static table in lib/data/fx.ts. */
   ratesByCurrency?: Record<string, number>;
+  /** When provided, a leading "Show" column with a checkbox renders per
+   * row. Lets the user toggle which tickers plot on the chart above.
+   * Without it the column is hidden — keeps tests and any read-only view
+   * unchanged. */
+  selectedTickers?: Set<string>;
+  /** Toggle handler paired with `selectedTickers`. Receives the row's
+   * ticker; the parent decides whether to add or remove from the set. */
+  onToggleTicker?: (ticker: string) => void;
+  /** Color swatch shown alongside the checkbox when a ticker is plotted —
+   * matches the chart line color for visual coupling. Keyed by ticker. */
+  colorByTicker?: Record<string, string>;
 }
 
 // Sum of the 4 most recent quarterly EPS actuals. Returns null when fewer
@@ -244,7 +255,12 @@ export function PerTickerTable({
   endValuesByTicker,
   returnLabel,
   ratesByCurrency,
+  selectedTickers,
+  onToggleTicker,
+  colorByTicker,
 }: PerTickerTableProps) {
+  const showSelectColumn =
+    selectedTickers !== undefined && onToggleTicker !== undefined;
   const rows = useMemo(
     () => computeRows(snapshots, history, marketCapByTicker, endValuesByTicker),
     [snapshots, history, marketCapByTicker, endValuesByTicker],
@@ -303,6 +319,14 @@ export function PerTickerTable({
       <table className="min-w-full divide-y divide-neutral-200 text-xs">
         <thead style={{ background: "#F5F4F2", color: "#585858" }}>
           <tr>
+            {showSelectColumn ? (
+              <th
+                className="px-3 py-2 text-center font-medium"
+                title="Toggle which tickers plot on the chart above"
+              >
+                Show
+              </th>
+            ) : null}
             <SortHeader
               label="Ticker"
               columnKey="ticker"
@@ -374,8 +398,37 @@ export function PerTickerTable({
             const color = rowColor(r.ticker);
             const weight =
               color !== undefined ? 600 : undefined;
+            const isSelected = selectedTickers?.has(r.ticker) ?? false;
+            const swatch =
+              isSelected && colorByTicker ? colorByTicker[r.ticker] : null;
             return (
               <tr key={r.ticker} style={{ color, fontWeight: weight }}>
+                {showSelectColumn ? (
+                  <td className="px-3 py-2 text-center">
+                    <label
+                      className="inline-flex cursor-pointer items-center gap-1.5"
+                      aria-label={`Show ${r.ticker} on chart`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => onToggleTicker!(r.ticker)}
+                      />
+                      {swatch ? (
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            display: "inline-block",
+                            width: 10,
+                            height: 10,
+                            borderRadius: 9999,
+                            background: swatch,
+                          }}
+                        />
+                      ) : null}
+                    </label>
+                  </td>
+                ) : null}
                 <td className="px-3 py-2 font-mono">{r.ticker}</td>
                 <td className="px-3 py-2">{r.name}</td>
                 <td className="px-3 py-2 text-right tabular-nums">

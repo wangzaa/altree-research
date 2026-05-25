@@ -2,7 +2,12 @@ import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ScanChart, buildCsv, monthBucket } from "@/components/scan-chart";
+import {
+  ScanChart,
+  buildCsv,
+  defaultChartSelection,
+  monthBucket,
+} from "@/components/scan-chart";
 import type { TickerHistory } from "@/lib/schemas/scan";
 
 // Use dates close to the current month so the default 5Y window keeps them.
@@ -176,5 +181,107 @@ describe("buildCsv", () => {
     const csv = buildCsv(hist, 60);
     expect(csv).not.toContain("BAD,");
     expect(csv).toContain("GOOD,");
+  });
+});
+
+describe("defaultChartSelection", () => {
+  // Use dates close to "now" so they land inside any trailing window.
+  const recentMonthsAgo = (n: number) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it("returns top-N by mcap plus the worst-performing ticker for the window", () => {
+    const hist: TickerHistory[] = [
+      // BIG1 — flat: indexed end = 100.
+      {
+        ticker: "BIG1",
+        points: [
+          { date: recentMonthsAgo(3), close: 100 },
+          { date: recentMonthsAgo(0), close: 100 },
+        ],
+      },
+      // BIG2 — up: indexed end = 110.
+      {
+        ticker: "BIG2",
+        points: [
+          { date: recentMonthsAgo(3), close: 100 },
+          { date: recentMonthsAgo(0), close: 110 },
+        ],
+      },
+      // BIG3 — up small: indexed end = 105.
+      {
+        ticker: "BIG3",
+        points: [
+          { date: recentMonthsAgo(3), close: 100 },
+          { date: recentMonthsAgo(0), close: 105 },
+        ],
+      },
+      // BIG4 — up larger: indexed end = 120.
+      {
+        ticker: "BIG4",
+        points: [
+          { date: recentMonthsAgo(3), close: 100 },
+          { date: recentMonthsAgo(0), close: 120 },
+        ],
+      },
+      // SMALL — worst performer (indexed end = 50), tiny mcap so not in top-4.
+      {
+        ticker: "SMALL",
+        points: [
+          { date: recentMonthsAgo(3), close: 100 },
+          { date: recentMonthsAgo(0), close: 50 },
+        ],
+      },
+    ];
+    const mcap = { BIG1: 500, BIG2: 400, BIG3: 300, BIG4: 200, SMALL: 1 };
+    const result = defaultChartSelection(hist, mcap, 6);
+    expect(result).toEqual(["BIG1", "BIG2", "BIG3", "BIG4", "SMALL"]);
+  });
+
+  it("does not duplicate the worst-performer when it already sits in the top-N", () => {
+    const hist: TickerHistory[] = [
+      {
+        ticker: "MEGA",
+        points: [
+          { date: recentMonthsAgo(3), close: 100 },
+          { date: recentMonthsAgo(0), close: 50 }, // also the worst
+        ],
+      },
+      {
+        ticker: "OK",
+        points: [
+          { date: recentMonthsAgo(3), close: 100 },
+          { date: recentMonthsAgo(0), close: 110 },
+        ],
+      },
+    ];
+    const mcap = { MEGA: 1000, OK: 5 };
+    const result = defaultChartSelection(hist, mcap, 6, 4);
+    expect(result).toEqual(["MEGA", "OK"]);
+  });
+
+  it("handles missing mcap entries by sinking them to the back of the ranking", () => {
+    const hist: TickerHistory[] = [
+      {
+        ticker: "WITH_MCAP",
+        points: [
+          { date: recentMonthsAgo(3), close: 100 },
+          { date: recentMonthsAgo(0), close: 110 },
+        ],
+      },
+      {
+        ticker: "NO_MCAP",
+        points: [
+          { date: recentMonthsAgo(3), close: 100 },
+          { date: recentMonthsAgo(0), close: 105 },
+        ],
+      },
+    ];
+    const result = defaultChartSelection(hist, { WITH_MCAP: 100 }, 6, 4);
+    // WITH_MCAP ranked first; NO_MCAP appended after.
+    expect(result[0]).toBe("WITH_MCAP");
+    expect(result).toContain("NO_MCAP");
   });
 });
