@@ -95,7 +95,7 @@ describe("POST /api/memo/generate", () => {
         recommendation: "Hold.",
         open_questions: ["q1?", "q2?"],
       },
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       usage: { input_tokens: 800, output_tokens: 240 },
     });
 

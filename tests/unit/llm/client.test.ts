@@ -1,33 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Mock the Anthropic SDK at the module boundary. The default export is the
+// `Anthropic` class; constructing it returns an object exposing
+// `messages.create()` — that's what our LLM client wraps.
 const createMock = vi.fn(async () => ({
-  id: "resp_1",
-  model: "anthropic/claude-opus-4-7",
-  choices: [
+  id: "msg_1",
+  type: "message" as const,
+  role: "assistant" as const,
+  model: "claude-opus-4-7",
+  content: [
     {
-      message: {
-        role: "assistant",
-        content: "",
-        tool_calls: [
-          {
-            id: "call_1",
-            type: "function",
-            function: {
-              name: "submit_evidence",
-              arguments: JSON.stringify({ evidence: [{ post_id: "p1" }] }),
-            },
-          },
-        ],
-      },
-      finish_reason: "tool_calls",
+      type: "tool_use" as const,
+      id: "toolu_1",
+      name: "submit_evidence",
+      input: { evidence: [{ post_id: "p1" }] },
     },
   ],
-  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+  stop_reason: "tool_use" as const,
+  stop_sequence: null,
+  usage: {
+    input_tokens: 100,
+    output_tokens: 50,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+  },
 }));
 
-vi.mock("openai", () => ({
+vi.mock("@anthropic-ai/sdk", () => ({
   default: class {
-    chat = { completions: { create: createMock } };
+    messages = { create: createMock };
   },
 }));
 
@@ -38,19 +39,25 @@ beforeEach(() => {
 });
 
 describe("createMessage", () => {
-  it("resolves agent → model from registry and calls OpenRouter", async () => {
+  it("resolves agent → model from registry and calls Anthropic with bare model IDs", async () => {
     const result = await createMessage({
       agent: "bull_researcher",
       system: "You are bull_researcher.",
       messages: [{ role: "user", content: "Test" }],
     });
     expect(createMock).toHaveBeenCalledOnce();
-    const call = createMock.mock.calls[0][0] as { model: string };
-    expect(call.model).toMatch(/anthropic\/claude-opus-4-7/);
-    expect(result.model).toMatch(/anthropic\/claude-opus-4-7/);
+    const call = createMock.mock.calls[0][0] as {
+      model: string;
+      system: string;
+    };
+    // Bare ID — no provider prefix. System prompt threads as a top-level
+    // field on the Messages API, not as a synthetic message.
+    expect(call.model).toBe("claude-opus-4-7");
+    expect(call.system).toBe("You are bull_researcher.");
+    expect(result.model).toBe("claude-opus-4-7");
   });
 
-  it("normalizes tool_calls into parsed inputs", async () => {
+  it("collects tool_use blocks from the content array into typed ToolCall objects", async () => {
     const result = await createMessage({
       agent: "bull_researcher",
       system: "test",
@@ -64,7 +71,10 @@ describe("createMessage", () => {
       tool_choice: { type: "tool", name: "submit_evidence" },
     });
     expect(result.tool_calls).toHaveLength(1);
+    expect(result.tool_calls[0].id).toBe("toolu_1");
     expect(result.tool_calls[0].name).toBe("submit_evidence");
+    // `input` is already a parsed object in the Anthropic SDK response —
+    // no JSON.parse needed (and the wrapper must not re-stringify it).
     expect(result.tool_calls[0].input).toEqual({
       evidence: [{ post_id: "p1" }],
     });
@@ -78,5 +88,34 @@ describe("createMessage", () => {
     });
     expect(result.usage.input_tokens).toBe(100);
     expect(result.usage.output_tokens).toBe(50);
+  });
+
+  it("concatenates text blocks across the content array", async () => {
+    createMock.mockResolvedValueOnce({
+      id: "msg_2",
+      type: "message" as const,
+      role: "assistant" as const,
+      model: "claude-haiku-4-5",
+      content: [
+        { type: "text" as const, text: "Hello " },
+        { type: "text" as const, text: "world." },
+      ],
+      stop_reason: "end_turn" as const,
+      stop_sequence: null,
+      usage: {
+        input_tokens: 5,
+        output_tokens: 2,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      },
+    });
+    const result = await createMessage({
+      agent: "diff_narrator",
+      system: "test",
+      messages: [{ role: "user", content: "say hi" }],
+    });
+    expect(result.text).toBe("Hello world.");
+    expect(result.tool_calls).toEqual([]);
+    expect(result.finish_reason).toBe("end_turn");
   });
 });

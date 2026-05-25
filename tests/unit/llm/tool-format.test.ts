@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { toOpenAITool, toOpenAIToolChoice } from "@/lib/llm/tool-format";
+import {
+  toAnthropicTool,
+  toAnthropicToolChoice,
+} from "@/lib/llm/tool-format";
 
-describe("toOpenAITool", () => {
-  it("converts an Anthropic-format tool to OpenAI format", () => {
-    const anthropic = {
+describe("toAnthropicTool", () => {
+  it("passes through name + input_schema (project shape already matches Anthropic's)", () => {
+    const tool = {
       name: "submit_evidence",
       description: "Submit per-lens evidence.",
       input_schema: {
@@ -14,44 +17,43 @@ describe("toOpenAITool", () => {
         required: ["evidence"],
       },
     };
-    expect(toOpenAITool(anthropic)).toEqual({
-      type: "function",
-      function: {
-        name: "submit_evidence",
-        description: "Submit per-lens evidence.",
-        parameters: {
-          type: "object",
-          properties: {
-            evidence: { type: "array", items: { type: "object" } },
-          },
-          required: ["evidence"],
+    expect(toAnthropicTool(tool)).toEqual({
+      name: "submit_evidence",
+      description: "Submit per-lens evidence.",
+      input_schema: {
+        type: "object",
+        properties: {
+          evidence: { type: "array", items: { type: "object" } },
         },
+        required: ["evidence"],
       },
     });
   });
 
   it("omits description when absent", () => {
-    const out = toOpenAITool({
+    const out = toAnthropicTool({
       name: "x",
       input_schema: { type: "object" as const, properties: {} },
     });
-    expect(out.function.description).toBeUndefined();
+    expect(out.description).toBeUndefined();
   });
 });
 
-describe("toOpenAIToolChoice", () => {
-  it("forwards 'auto'", () => {
-    expect(toOpenAIToolChoice("auto")).toBe("auto");
+describe("toAnthropicToolChoice", () => {
+  it("maps 'auto' to Anthropic's {type: 'auto'}", () => {
+    expect(toAnthropicToolChoice("auto")).toEqual({ type: "auto" });
   });
 
-  it("forwards 'none'", () => {
-    expect(toOpenAIToolChoice("none")).toBe("none");
+  it("maps 'none' to Anthropic's {type: 'none'}", () => {
+    expect(toAnthropicToolChoice("none")).toEqual({ type: "none" });
   });
 
-  it("converts {type:'tool', name} to OpenAI function-choice form", () => {
-    expect(toOpenAIToolChoice({ type: "tool", name: "submit_evidence" })).toEqual({
-      type: "function",
-      function: { name: "submit_evidence" },
+  it("forwards {type:'tool', name} unchanged (already matches Anthropic's shape)", () => {
+    expect(
+      toAnthropicToolChoice({ type: "tool", name: "submit_evidence" }),
+    ).toEqual({
+      type: "tool",
+      name: "submit_evidence",
     });
   });
 });

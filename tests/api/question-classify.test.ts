@@ -114,7 +114,7 @@ describe("POST /api/question/classify", () => {
           confidence: 0.9,
         },
       ],
-      model: "anthropic/claude-haiku-4-5",
+      model: "claude-haiku-4-5",
       usage: { input_tokens: 400, output_tokens: 120 },
     });
 

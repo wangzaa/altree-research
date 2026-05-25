@@ -8,8 +8,12 @@ describe("agent-models registry", () => {
     expect(map.bear_researcher).toBeTruthy();
   });
 
-  it("returns the model for a known agent", () => {
-    expect(getModelFor("bull_researcher")).toMatch(/\//);
+  it("returns a bare Anthropic model ID for a known agent (no provider prefix)", () => {
+    // Direct Anthropic SDK accepts bare model IDs only — no `anthropic/`
+    // prefix like OpenRouter required.
+    const id = getModelFor("bull_researcher");
+    expect(id).toMatch(/^claude-/);
+    expect(id).not.toContain("/");
   });
 
   it("each agent gets a non-empty model string", () => {

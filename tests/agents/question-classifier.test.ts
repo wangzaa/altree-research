@@ -12,7 +12,7 @@ function mockToolUse(input: unknown) {
     text: "",
     tool_calls: [{ id: "call_1", name: "classify_questions", input }],
     usage: { input_tokens: 200, output_tokens: 80 },
-    model: "anthropic/claude-haiku-4-5",
+    model: "claude-haiku-4-5",
     finish_reason: "tool_calls",
     raw: {},
   });
@@ -69,7 +69,7 @@ describe("classifyQuestions", () => {
     if (result.ok) {
       expect(result.classifications).toHaveLength(3);
       expect(result.classifications[0].category).toBe("derivable");
-      expect(result.model).toBe("anthropic/claude-haiku-4-5");
+      expect(result.model).toBe("claude-haiku-4-5");
       expect(result.usage.input_tokens).toBe(200);
       expect(result.usage.output_tokens).toBe(80);
     }
@@ -83,7 +83,7 @@ describe("classifyQuestions", () => {
       text: "Here is some prose instead.",
       tool_calls: [],
       usage: { input_tokens: 100, output_tokens: 30 },
-      model: "anthropic/claude-haiku-4-5",
+      model: "claude-haiku-4-5",
       finish_reason: "stop",
       raw: {},
     });

@@ -12,7 +12,7 @@ function mockToolUse(input: unknown) {
     text: "",
     tool_calls: [{ id: "call_1", name: "propose_universe", input }],
     usage: { input_tokens: 100, output_tokens: 50 },
-    model: "anthropic/claude-sonnet-4-6",
+    model: "claude-sonnet-4-6",
     finish_reason: "tool_calls",
     raw: {},
   });
@@ -132,7 +132,7 @@ describe("discoverUniverse", () => {
       text: "sorry",
       tool_calls: [],
       usage: { input_tokens: 1, output_tokens: 1 },
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       finish_reason: "stop",
       raw: {},
     });
@@ -159,7 +159,7 @@ describe("discoverUniverse", () => {
         },
       ],
       usage: { input_tokens: 1, output_tokens: 1 },
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       finish_reason: "tool_calls",
       raw: {},
     });

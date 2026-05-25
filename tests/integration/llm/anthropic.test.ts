@@ -1,11 +1,11 @@
-// SKIPPED BY DEFAULT — exercises real OpenRouter endpoints (costs ~$0.05).
+// SKIPPED BY DEFAULT — exercises the real Anthropic Messages API (costs $$).
 // Run on demand: temporarily flip `describe.skip` → `describe` and rerun.
 
 import { describe, it, expect } from "vitest";
 import { createMessage } from "@/lib/llm/client";
 
-describe.skip("OpenRouter integration", () => {
-  it("calls the default Anthropic model via OpenRouter", async () => {
+describe.skip("Anthropic Messages API integration", () => {
+  it("calls the configured model end-to-end", async () => {
     const res = await createMessage({
       agent: "thesis_extractor",
       system: 'You are a JSON producer. Return {"ok": true}.',
@@ -16,9 +16,7 @@ describe.skip("OpenRouter integration", () => {
     expect(res.text || res.tool_calls.length).toBeTruthy();
   });
 
-  it("calls a non-Anthropic model (manual setup required)", async () => {
-    // To exercise this, edit lib/data/agent-models.json to point one agent
-    // at e.g. google/gemini-2.5-pro, then flip describe.skip → describe.
+  it("returns non-zero output token usage", async () => {
     const res = await createMessage({
       agent: "scan_runner",
       system: "Say hi.",

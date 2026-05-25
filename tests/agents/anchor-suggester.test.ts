@@ -19,7 +19,7 @@ function mockToolUse(suggestions: unknown) {
       { id: "call_1", name: "suggest_anchor_tickers", input: { suggestions } },
     ],
     usage: { input_tokens: 400, output_tokens: 120 },
-    model: "anthropic/claude-sonnet-4-6",
+    model: "claude-sonnet-4-6",
     finish_reason: "tool_calls",
     raw: {},
   });
@@ -125,7 +125,7 @@ describe("suggestAnchors", () => {
       text: "no",
       tool_calls: [],
       usage: { input_tokens: 1, output_tokens: 1 },
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       finish_reason: "stop",
       raw: {},
     });

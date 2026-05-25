@@ -54,7 +54,7 @@ function mockToolUse(picks: unknown) {
     text: "",
     tool_calls: [{ id: "c", name: "pick_funds", input: { picks } }],
     usage: { input_tokens: 500, output_tokens: 80 },
-    model: "anthropic/claude-sonnet-4-6",
+    model: "claude-sonnet-4-6",
     finish_reason: "tool_calls",
     raw: {},
   });
@@ -126,7 +126,7 @@ describe("selectFunds", () => {
       text: "no",
       tool_calls: [],
       usage: { input_tokens: 1, output_tokens: 1 },
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       finish_reason: "stop",
       raw: {},
     });

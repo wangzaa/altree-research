@@ -1,5 +1,13 @@
-import type OpenAI from "openai";
+import type Anthropic from "@anthropic-ai/sdk";
 
+/**
+ * Project-local tool spec. The shape matches Anthropic's Messages API tool
+ * format ({name, description, input_schema}) — when the project was on
+ * OpenRouter via the OpenAI SDK there was a conversion layer here. Now that
+ * we call Anthropic directly the conversion collapses to a pass-through,
+ * but the helpers are kept so the call sites in client.ts stay symmetric
+ * with Anthropic's stricter SDK types.
+ */
 export type ToolSpec = {
   name: string;
   description?: string;
@@ -15,22 +23,20 @@ export type ToolChoice =
   | "none"
   | { type: "tool"; name: string };
 
-export function toOpenAITool(
-  t: ToolSpec,
-): OpenAI.Chat.Completions.ChatCompletionTool {
+/** Narrow our project-local `ToolSpec` to the Anthropic SDK's `Tool` type. */
+export function toAnthropicTool(t: ToolSpec): Anthropic.Tool {
   return {
-    type: "function",
-    function: {
-      name: t.name,
-      ...(t.description ? { description: t.description } : {}),
-      parameters: t.input_schema as Record<string, unknown>,
-    },
+    name: t.name,
+    ...(t.description ? { description: t.description } : {}),
+    input_schema: t.input_schema,
   };
 }
 
-export function toOpenAIToolChoice(
+/** Map our string-or-object `ToolChoice` to the Anthropic SDK union. */
+export function toAnthropicToolChoice(
   c: ToolChoice,
-): OpenAI.Chat.Completions.ChatCompletionToolChoiceOption {
-  if (c === "auto" || c === "none") return c;
-  return { type: "function", function: { name: c.name } };
+): Anthropic.ToolChoice {
+  if (c === "auto") return { type: "auto" };
+  if (c === "none") return { type: "none" };
+  return { type: "tool", name: c.name };
 }

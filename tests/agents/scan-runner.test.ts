@@ -14,7 +14,7 @@ function mockToolUse(input: unknown) {
     text: "",
     tool_calls: [{ id: "call_1", name: "return_scan_description", input }],
     usage: { input_tokens: 100, output_tokens: 50 },
-    model: "anthropic/claude-sonnet-4-6",
+    model: "claude-sonnet-4-6",
     finish_reason: "tool_calls",
     raw: {},
   });
@@ -92,7 +92,7 @@ describe("scanRunner", () => {
       text: "oops",
       tool_calls: [],
       usage: { input_tokens: 1, output_tokens: 1 },
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       finish_reason: "stop",
       raw: {},
     });

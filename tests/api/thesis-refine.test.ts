@@ -50,7 +50,7 @@ describe("POST /api/thesis/refine", () => {
     insertMock.mockResolvedValue({ error: null });
     narrateDiffMock.mockResolvedValue({
       narrative: "OK — I tweaked the thesis. This means the universe will widen.",
-      model: "anthropic/claude-haiku-4-5",
+      model: "claude-haiku-4-5",
       usage: { input_tokens: 100, output_tokens: 30 },
     });
   });
@@ -162,7 +162,7 @@ describe("POST /api/thesis/refine", () => {
     refineThesisMock.mockResolvedValue({
       ok: true,
       thesis: proposed,
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       usage: { input_tokens: 800, output_tokens: 240 },
     });
 
@@ -204,7 +204,7 @@ describe("POST /api/thesis/refine", () => {
     refineThesisMock.mockResolvedValue({
       ok: true,
       thesis: proposed,
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       usage: { input_tokens: 800, output_tokens: 240 },
     });
     const { POST } = await import("@/app/api/thesis/refine/route");
@@ -230,7 +230,7 @@ describe("POST /api/thesis/refine", () => {
     refineThesisMock.mockResolvedValue({
       ok: true,
       thesis: proposed,
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       usage: { input_tokens: 800, output_tokens: 240 },
     });
     narrateDiffMock.mockRejectedValueOnce(new Error("haiku timeout"));

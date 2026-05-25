@@ -44,7 +44,7 @@ function mockToolUseResponse(input: unknown) {
     text: "",
     tool_calls: [{ id: "call_1", name: "extract_thesis", input }],
     usage: { input_tokens: 100, output_tokens: 50 },
-    model: "anthropic/claude-sonnet-4-6",
+    model: "claude-sonnet-4-6",
     finish_reason: "tool_calls",
     raw: {},
   });
@@ -102,7 +102,7 @@ describe("extractThesis", () => {
       text: "sorry, I cannot help",
       tool_calls: [],
       usage: { input_tokens: 10, output_tokens: 5 },
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       finish_reason: "stop",
       raw: {},
     });
@@ -170,7 +170,7 @@ describe("extractThesis", () => {
         { id: "call_1", name: "extract_thesis_v2", input: baseToolInput },
       ],
       usage: { input_tokens: 100, output_tokens: 50 },
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       finish_reason: "tool_calls",
       raw: {},
     });

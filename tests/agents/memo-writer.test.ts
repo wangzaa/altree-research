@@ -25,7 +25,7 @@ function mockToolUse(input: unknown) {
     text: "",
     tool_calls: [{ id: "call_1", name: "draft_memo", input }],
     usage: { input_tokens: 800, output_tokens: 240 },
-    model: "anthropic/claude-sonnet-4-6",
+    model: "claude-sonnet-4-6",
     finish_reason: "tool_calls",
     raw: {},
   });
@@ -48,7 +48,7 @@ describe("writeMemo", () => {
     if (result.ok) {
       expect(result.memo.verdict).toBe("supports");
       expect(result.memo.open_questions).toHaveLength(2);
-      expect(result.model).toBe("anthropic/claude-sonnet-4-6");
+      expect(result.model).toBe("claude-sonnet-4-6");
       expect(result.usage.input_tokens).toBe(800);
     }
   });
@@ -78,7 +78,7 @@ describe("writeMemo", () => {
       text: "I prefer prose to tool calls.",
       tool_calls: [],
       usage: { input_tokens: 100, output_tokens: 30 },
-      model: "anthropic/claude-sonnet-4-6",
+      model: "claude-sonnet-4-6",
       finish_reason: "stop",
       raw: {},
     });

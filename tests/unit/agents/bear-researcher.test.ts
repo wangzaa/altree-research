@@ -40,7 +40,7 @@ vi.mock("@/lib/llm/client", () => ({
       },
     ],
     usage: { input_tokens: 90, output_tokens: 40 },
-    model: "anthropic/claude-opus-4-7",
+    model: "claude-opus-4-7",
     finish_reason: "tool_calls",
     raw: {},
   })),
@@ -56,6 +56,6 @@ describe("runBearResearcher", () => {
     const result = await runBearResearcher({ thesis, driver });
     expect(result.evidence.length).toBe(1);
     expect(result.evidence[0].post_id).toBe("p2");
-    expect(result.model).toBe("anthropic/claude-opus-4-7");
+    expect(result.model).toBe("claude-opus-4-7");
   });
 });

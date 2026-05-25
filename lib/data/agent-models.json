@@ -1,15 +1,15 @@
 {
-  "thesis_extractor":    "anthropic/claude-sonnet-4-6",
-  "thesis_refiner":      "anthropic/claude-sonnet-4-6",
-  "diff_narrator":       "anthropic/claude-haiku-4-5",
-  "universe_discoverer": "anthropic/claude-sonnet-4-6",
-  "anchor_suggester":    "anthropic/claude-sonnet-4-6",
-  "scan_runner":         "anthropic/claude-sonnet-4-6",
-  "bull_researcher":     "anthropic/claude-opus-4-7",
-  "bear_researcher":     "anthropic/claude-opus-4-7",
-  "bull_synthesiser":    "anthropic/claude-haiku-4-5",
-  "bear_synthesiser":    "anthropic/claude-haiku-4-5",
-  "memo_writer":         "anthropic/claude-sonnet-4-6",
-  "question_classifier": "anthropic/claude-haiku-4-5",
-  "fund_selector":       "anthropic/claude-sonnet-4-6"
+  "thesis_extractor":    "claude-sonnet-4-6",
+  "thesis_refiner":      "claude-sonnet-4-6",
+  "diff_narrator":       "claude-haiku-4-5",
+  "universe_discoverer": "claude-sonnet-4-6",
+  "anchor_suggester":    "claude-sonnet-4-6",
+  "scan_runner":         "claude-sonnet-4-6",
+  "bull_researcher":     "claude-opus-4-7",
+  "bear_researcher":     "claude-opus-4-7",
+  "bull_synthesiser":    "claude-haiku-4-5",
+  "bear_synthesiser":    "claude-haiku-4-5",
+  "memo_writer":         "claude-sonnet-4-6",
+  "question_classifier": "claude-haiku-4-5",
+  "fund_selector":       "claude-sonnet-4-6"
 }
