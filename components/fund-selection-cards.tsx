@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { Spinner } from "@/components/spinner";
 import { riskRatingLabel } from "@/lib/data/endowus-funds-types";
 
 interface SelectedFund {
@@ -148,8 +149,12 @@ export function FundSelectionCards({
 
   if (loading && funds === null) {
     return (
-      <p className="text-sm italic" style={{ color: "#585858" }}>
-        Matching your thesis to the Endowus fund catalogue…
+      <p
+        className="inline-flex items-center gap-2 text-sm italic"
+        style={{ color: "#585858" }}
+      >
+        <Spinner size={14} />
+        Matching…
       </p>
     );
   }

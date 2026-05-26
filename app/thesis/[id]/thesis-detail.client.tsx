@@ -534,8 +534,7 @@ export function ThesisDetail({
         {universe && initialScan ? (
           <ChatThread>
             <ChatBubble from="app">
-              Provide a sample of possible financial products that match the
-              Anti/thesis?
+              Find financial products that match Anti/Thesis?
             </ChatBubble>
             {tradeChoice === null ? (
               <div className="pl-12">
