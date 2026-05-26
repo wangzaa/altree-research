@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnchorPicker } from "@/components/anchor-picker";
 import { ChatBubble, ChatThread } from "@/components/chat-bubble";
 import { ChatInputBinary } from "@/components/chat-input";
 import { FundSelectionCards } from "@/components/fund-selection-cards";
 import { RichProse } from "@/components/rich-prose";
-import { ScanPanel } from "@/components/scan-panel";
-import { Spinner } from "@/components/spinner";
+import { ScanPanel, TABLE_METRIC_KEYS } from "@/components/scan-panel";
+import { type WindowKey } from "@/components/scan-chart";
 import { ThesisChatArtifact } from "@/components/thesis-chat-artifact";
 import { UniverseTable } from "@/components/universe-table";
 import {
@@ -81,6 +81,21 @@ export function ThesisDetail({
   // re-run the scan against the new ticker set so chart + table refresh
   // without an explicit "Run scan" button.
   const [scanRerunKey, setScanRerunKey] = useState(0);
+  // Chart state lifted from ScanPanel so handleProceedToInsights can pass
+  // it to the memo route. selectedTickers seeds empty; the panel's own
+  // auto-default effect populates it (top-by-mcap + worst-by-window).
+  const [windowKey, setWindowKey] = useState<WindowKey>("6mth");
+  const [selectedTickers, setSelectedTickers] = useState<Set<string>>(
+    new Set(),
+  );
+  function handleToggleTicker(ticker: string) {
+    setSelectedTickers((prev) => {
+      const next = new Set(prev);
+      if (next.has(ticker)) next.delete(ticker);
+      else next.add(ticker);
+      return next;
+    });
+  }
   // null = not yet asked, "yes"/"no" = user clicked. Drives whether the
   // Endowus fund cards render and whether step-trade lights up.
   const [tradeChoice, setTradeChoice] = useState<"yes" | "no" | null>(null);
@@ -104,19 +119,27 @@ export function ThesisDetail({
   >(initialValidation);
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const autoValidateFired = useRef(false);
   const [memo, setMemo] = useState<Memo | null>(null);
   const [memoLoading, setMemoLoading] = useState(false);
   const [memoError, setMemoError] = useState<string | null>(null);
+  // True while validate → memo is sequencing. Drives the Spinner state on
+  // the "Proceed to Anti/Thesis / Refresh →" button in ScanPanel and
+  // prevents double-clicks during the in-flight period.
+  const [insightsPending, setInsightsPending] = useState(false);
 
-  async function handleDraftMemo() {
+  async function handleDraftMemo(): Promise<boolean> {
     setMemoLoading(true);
     setMemoError(null);
     try {
       const res = await fetch("/api/memo/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ thesis_id: thesis.id }),
+        body: JSON.stringify({
+          thesis_id: thesis.id,
+          chart_window: windowKey,
+          visible_metric_keys: [...TABLE_METRIC_KEYS],
+          selected_tickers: [...selectedTickers],
+        }),
       });
       const body = (await res.json().catch(() => null)) as
         | { memo?: Memo; error?: string; detail?: string }
@@ -126,17 +149,19 @@ export function ThesisDetail({
           body?.detail ?? body?.error ?? `Draft failed (${res.status})`,
         );
         setMemoLoading(false);
-        return;
+        return false;
       }
       setMemo(body.memo);
       setMemoLoading(false);
+      return true;
     } catch (err) {
       setMemoError(err instanceof Error ? err.message : "Unexpected error");
       setMemoLoading(false);
+      return false;
     }
   }
 
-  async function handleValidateAll() {
+  async function handleValidateAll(): Promise<boolean> {
     setValidating(true);
     setValidationError(null);
     const driversToRun = thesis.drivers.industry;
@@ -191,37 +216,28 @@ export function ThesisDetail({
     if (errors.length > 0) setValidationError(errors.join(" • "));
     setValidating(false);
     router.refresh();
+    // Soft success: even if some drivers errored, we still have partial
+    // results and the memo writer can synthesise from what landed. Hard
+    // failure (all drivers errored, nothing in `next`) returns false so
+    // the caller skips the memo step.
+    return Object.keys(next).length > 0;
   }
 
-  // Auto-fire validation the first time we land on the page with a scan but
-  // no validation results. Subsequent re-validation is manual via the
-  // outline button next to the bubbles.
-  useEffect(() => {
-    if (autoValidateFired.current) return;
-    if (!initialScan) return;
-    if (validation !== null) return;
-    if (thesis.drivers.industry.length === 0) return;
-    autoValidateFired.current = true;
-    handleValidateAll();
-    // handleValidateAll is stable for the lifetime of this component.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialScan, validation, thesis.drivers.industry.length]);
-
-  // Auto-fire memo generation the moment validation results are available
-  // and we don't already have a memo. Replaces the previous "Generate
-  // Bull/Bear/Open-questions" button — the analyst expects the aggregate
-  // Thesis / Anti-thesis bubbles to appear without an extra click.
-  const autoMemoFired = useRef(false);
-  useEffect(() => {
-    if (autoMemoFired.current) return;
-    if (validation === null) return;
-    if (memo !== null) return;
-    if (memoLoading) return;
-    autoMemoFired.current = true;
-    handleDraftMemo();
-    // handleDraftMemo is stable for the lifetime of this component.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validation, memo, memoLoading]);
+  // Validation + memo are user-triggered via "Proceed to Anti/Thesis /
+  // Refresh →" in ScanPanel. The handler sequences validate → memo so
+  // the synthesis always reflects the chart state (windowKey +
+  // selectedTickers) at click time.
+  async function handleProceedToInsights() {
+    if (insightsPending) return;
+    setInsightsPending(true);
+    try {
+      const validated = await handleValidateAll();
+      if (!validated) return;
+      await handleDraftMemo();
+    } finally {
+      setInsightsPending(false);
+    }
+  }
 
   async function handleBuild(anchor: string) {
     setBuilding(true);
@@ -340,6 +356,13 @@ export function ThesisDetail({
                 ratesByCurrency={ratesByCurrency}
                 fxAsOf={fxAsOf}
                 runScanKey={scanRerunKey}
+                windowKey={windowKey}
+                onWindowKeyChange={setWindowKey}
+                selectedTickers={selectedTickers}
+                onToggleTicker={handleToggleTicker}
+                onSelectedTickersChange={setSelectedTickers}
+                onProceedToInsights={handleProceedToInsights}
+                insightsPending={insightsPending}
               />
             </>
           ) : (
@@ -373,23 +396,6 @@ export function ThesisDetail({
                     <RichProse text={memo.bear_summary} />
                   </ChatBubble>
                 </ChatThread>
-                <div className="flex items-center justify-end">
-                  <button
-                    type="button"
-                    onClick={handleDraftMemo}
-                    disabled={memoLoading}
-                    className="btn btn-outline inline-flex items-center gap-2"
-                  >
-                    {memoLoading ? (
-                      <>
-                        <Spinner size={14} />
-                        Refreshing…
-                      </>
-                    ) : (
-                      "Refresh"
-                    )}
-                  </button>
-                </div>
                 {memoError ? (
                   <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
                     {memoError}
@@ -406,7 +412,12 @@ export function ThesisDetail({
                   <p className="text-sm italic" style={{ color: "#585858" }}>
                     Drafting Thesis / Anti-thesis from your scan and validation…
                   </p>
-                ) : null}
+                ) : (
+                  <p className="text-sm" style={{ color: "#585858" }}>
+                    Click <strong>Proceed to Anti/Thesis</strong> below the
+                    ticker table to generate.
+                  </p>
+                )}
                 {memoError ? (
                   <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
                     {memoError}

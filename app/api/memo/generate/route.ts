@@ -18,7 +18,14 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BodySchema = z.object({ thesis_id: ThesisIdSchema }).strict();
+const BodySchema = z
+  .object({
+    thesis_id: ThesisIdSchema,
+    chart_window: z.enum(["3mth", "6mth", "12mth", "3y", "5y"]).optional(),
+    visible_metric_keys: z.array(z.string()).optional(),
+    selected_tickers: z.array(z.string()).optional(),
+  })
+  .strict();
 
 export async function POST(req: Request) {
   try {
@@ -32,7 +39,12 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: "invalid_body" }, { status: 400 });
     }
-    const { thesis_id } = parsed.data;
+    const {
+      thesis_id,
+      chart_window,
+      visible_metric_keys,
+      selected_tickers,
+    } = parsed.data;
 
     const user = await getCurrentUser();
     if (!user) {
@@ -111,7 +123,14 @@ export async function POST(req: Request) {
 
     let result;
     try {
-      result = await writeMemo({ thesis, scan, validation });
+      result = await writeMemo({
+        thesis,
+        scan,
+        validation,
+        chartWindow: chart_window,
+        visibleMetricKeys: visible_metric_keys,
+        selectedTickers: selected_tickers,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[/api/memo/generate] write_failed:", message);

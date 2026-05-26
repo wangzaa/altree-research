@@ -4,11 +4,48 @@ import type { Thesis } from "@/lib/schemas/thesis";
 import type { ScanResults } from "@/lib/schemas/scan";
 import type { DriverValidationResult } from "@/lib/schemas/validation";
 
+export type ChartWindow = "3mth" | "6mth" | "12mth" | "3y" | "5y";
+
 export interface WriteMemoInput {
   thesis: Thesis;
   scan: ScanResults | null;
   validation: Record<string, DriverValidationResult> | null;
+  /** Time horizon currently selected on the analyst's chart. Frames the
+   * Return column language ("6-month return", "3-year return") and is
+   * passed through to the METRIC HYGIENE prompt block. */
+  chartWindow?: ChartWindow;
+  /** Metric column keys actually rendered in the per-ticker table at
+   * the time the analyst clicked "Proceed to Anti/Thesis". Drives the
+   * EBIT lookalike blacklist. */
+  visibleMetricKeys?: string[];
+  /** Tickers the analyst has checked via the table's Show column. The
+   * memo confines commentary to these when provided. */
+  selectedTickers?: string[];
 }
+
+const WINDOW_LABEL: Record<ChartWindow, string> = {
+  "3mth": "3-month",
+  "6mth": "6-month",
+  "12mth": "12-month",
+  "3y": "3-year",
+  "5y": "5-year",
+};
+
+// Metric-key → near-twin phrases the model must NOT cite when that key is
+// on the table. Today the only rule is "EBITDA shown → EBIT blacklisted".
+// Future entries: P/E → P/B and P/S; revenue_growth_yoy → revenue CAGR.
+const LOOKALIKE_BLACKLIST: Record<string, string[]> = {
+  ebitda: ["EBIT", "EBIT margin"],
+};
+
+const METRIC_LABEL: Record<string, string> = {
+  market_cap: "Mcap",
+  pe: "P/E",
+  revenue_growth_yoy: "Rev YoY",
+  ebitda: "EBITDA",
+  ebitda_margin: "EBITDA margin",
+  return_pct: "trailing return",
+};
 
 export type WriteMemoResult =
   | {
@@ -120,6 +157,43 @@ Each question should be falsifiable and concrete enough that someone could answe
 
 Return the memo via the supplied tool. Do not return free-text.`;
 
+function buildMetricHygieneBlock(input: WriteMemoInput): string {
+  const keys = input.visibleMetricKeys;
+  if (!keys || keys.length === 0) return "";
+
+  const visibleLabels = keys
+    .map((k) => METRIC_LABEL[k] ?? k)
+    .join(", ");
+  const blacklisted = Array.from(
+    new Set(keys.flatMap((k) => LOOKALIKE_BLACKLIST[k] ?? [])),
+  );
+  const blacklistClause =
+    blacklisted.length > 0
+      ? `Do NOT cite ${blacklisted.join(" or ")} — these are too close to a metric the analyst is already reading and mixing them confuses the read.`
+      : "";
+
+  const windowLabel = input.chartWindow ? WINDOW_LABEL[input.chartWindow] : null;
+  const returnClause = windowLabel
+    ? `Return percentages refer to ${windowLabel} trailing returns and must be framed as such ("${windowLabel} return"), never undifferentiated "performance".`
+    : "";
+
+  const selected =
+    input.selectedTickers && input.selectedTickers.length > 0
+      ? `Confine commentary to selected tickers: ${input.selectedTickers.join(", ")}.`
+      : "";
+
+  const sentences = [
+    `The analyst's per-ticker table shows: ${visibleLabels}.`,
+    blacklistClause,
+    "Other fundamentals are fair game when they sharpen the case: net debt, ROE, ROIC, debt/assets, FCF, gross margin, and similar.",
+    returnClause,
+    selected,
+  ].filter(Boolean);
+
+  return `METRIC HYGIENE
+${sentences.join(" ")}`;
+}
+
 function buildUserMessage(input: WriteMemoInput): string {
   const validationBlock =
     input.validation && Object.keys(input.validation).length > 0
@@ -142,6 +216,9 @@ function buildUserMessage(input: WriteMemoInput): string {
           .join("\n\n")
       : "(no validation results yet)";
 
+  const metricHygiene = buildMetricHygieneBlock(input);
+  const metricHygieneSection = metricHygiene ? `\n\n${metricHygiene}` : "";
+
   return `Thesis:
 \`\`\`json
 ${JSON.stringify(input.thesis, null, 2)}
@@ -154,7 +231,7 @@ Scan (price + fundamentals): ${
   }
 
 Validation:
-${validationBlock}`;
+${validationBlock}${metricHygieneSection}`;
 }
 
 export async function writeMemo(input: WriteMemoInput): Promise<WriteMemoResult> {

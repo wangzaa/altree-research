@@ -107,4 +107,44 @@ describe("writeMemo", () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  it("threads METRIC HYGIENE into the user message when chart state is provided (and blacklists EBIT when EBITDA is shown)", async () => {
+    mockToolUse(validMemoInput);
+    const { writeMemo } = await import("@/lib/agents/memo-writer");
+    await writeMemo({
+      thesis: cloneCanonicalThesis(),
+      scan: null,
+      validation: null,
+      chartWindow: "5y",
+      visibleMetricKeys: [
+        "market_cap",
+        "pe",
+        "revenue_growth_yoy",
+        "ebitda",
+        "ebitda_margin",
+        "return_pct",
+      ],
+      selectedTickers: ["RHM.DE", "BA.L"],
+    });
+    const userMessage = createMessageMock.mock.calls[0][0].messages[0]
+      .content as string;
+    expect(userMessage).toMatch(/METRIC HYGIENE/);
+    expect(userMessage).toMatch(/EBITDA margin/);
+    expect(userMessage).toMatch(/Do NOT cite EBIT or EBIT margin/);
+    expect(userMessage).toMatch(/5-year trailing returns/);
+    expect(userMessage).toMatch(/RHM\.DE, BA\.L/);
+  });
+
+  it("omits the METRIC HYGIENE block entirely when visibleMetricKeys is absent", async () => {
+    mockToolUse(validMemoInput);
+    const { writeMemo } = await import("@/lib/agents/memo-writer");
+    await writeMemo({
+      thesis: cloneCanonicalThesis(),
+      scan: null,
+      validation: null,
+    });
+    const userMessage = createMessageMock.mock.calls[0][0].messages[0]
+      .content as string;
+    expect(userMessage).not.toMatch(/METRIC HYGIENE/);
+  });
 });

@@ -15,6 +15,19 @@ import { Spinner } from "@/components/spinner";
 import type { ScanResults } from "@/lib/schemas/scan";
 import type { Universe } from "@/lib/schemas/universe";
 
+/** Static list of metric column keys rendered in the per-ticker table.
+ * Exported so the parent can forward this verbatim to the memo route as
+ * `visible_metric_keys`, which constrains the Anti/Thesis prompt to only
+ * cite or near-twin-blacklist what the analyst is actually seeing. */
+export const TABLE_METRIC_KEYS = [
+  "market_cap",
+  "pe",
+  "revenue_growth_yoy",
+  "ebitda",
+  "ebitda_margin",
+  "return_pct",
+] as const;
+
 interface ScanPanelProps {
   thesisId: string;
   universeId: string;
@@ -32,6 +45,22 @@ interface ScanPanelProps {
    * fires on mount whenever `initial` is null; this is the explicit
    * re-run handle. */
   runScanKey?: number;
+  /** Controlled chart-window selection. Lifted into the parent so the
+   * "Proceed to Anti/Thesis" handler can pass it to the memo route. */
+  windowKey: WindowKey;
+  onWindowKeyChange: (next: WindowKey) => void;
+  /** Controlled Show-checkbox selection, paired with toggle. Same
+   * reason as windowKey — the parent needs the current set at click
+   * time to scope the memo to visible tickers. */
+  selectedTickers: Set<string>;
+  onToggleTicker: (ticker: string) => void;
+  onSelectedTickersChange: (next: Set<string>) => void;
+  /** Fires when the user clicks the "Proceed to Anti/Thesis / Refresh →"
+   * button below the ticker table. Parent runs validate → memo against
+   * the current chart state. The button is disabled while `pending` is
+   * true. */
+  onProceedToInsights: () => void;
+  insightsPending: boolean;
 }
 
 interface Dropped {
@@ -46,20 +75,22 @@ export function ScanPanel({
   ratesByCurrency,
   fxAsOf,
   runScanKey,
+  windowKey,
+  onWindowKeyChange,
+  selectedTickers,
+  onToggleTicker,
+  onSelectedTickersChange,
+  onProceedToInsights,
+  insightsPending,
 }: ScanPanelProps) {
   const router = useRouter();
   const [scan, setScan] = useState<ScanResults | null>(initial);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dropped, setDropped] = useState<Dropped[]>([]);
-  const [windowKey, setWindowKey] = useState<WindowKey>("6mth");
-  // Tickers plotted on the chart. Initial set is derived from the scan +
-  // universe (top-4 by mcap + worst-by-window-return) in the effect below.
-  // After that the user owns the selection via the per-ticker-table
-  // checkbox column — toggling never resets it.
-  const [selectedTickers, setSelectedTickers] = useState<Set<string>>(
-    new Set(),
-  );
+  // Default-selection seeding is gated behind the user not having touched
+  // the Show checkboxes yet — once they have, we never auto-replace their
+  // selection on subsequent universe rebuilds.
   const userTouchedSelectionRef = useRef(false);
 
   async function runScan() {
@@ -166,9 +197,11 @@ export function ScanPanel({
       marketCapByTicker,
       windowMonths,
     );
-    setSelectedTickers(new Set(next));
+    onSelectedTickersChange(new Set(next));
     // marketCapByTicker is memoized; windowMonths is a number. Re-derive
-    // only when the underlying ticker set changes.
+    // only when the underlying ticker set changes. onSelectedTickersChange
+    // is stable enough at the parent — re-running this on identity change
+    // would re-seed selection every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [universeFingerprint]);
 
@@ -216,12 +249,7 @@ export function ScanPanel({
 
   function handleToggleTicker(ticker: string) {
     userTouchedSelectionRef.current = true;
-    setSelectedTickers((prev) => {
-      const next = new Set(prev);
-      if (next.has(ticker)) next.delete(ticker);
-      else next.add(ticker);
-      return next;
-    });
+    onToggleTicker(ticker);
   }
 
   return (
@@ -229,7 +257,7 @@ export function ScanPanel({
       <ScanChart
         history={visibleHistory}
         windowKey={windowKey}
-        onWindowChange={setWindowKey}
+        onWindowChange={onWindowKeyChange}
         selectedTickers={orderedSelected}
       />
       <PerTickerTable
@@ -273,6 +301,23 @@ export function ScanPanel({
           </ul>
         </details>
       ) : null}
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={onProceedToInsights}
+          disabled={insightsPending || running}
+          className="btn btn-primary inline-flex items-center gap-2"
+        >
+          {insightsPending ? (
+            <>
+              <Spinner size={14} />
+              Working…
+            </>
+          ) : (
+            "Proceed to Anti/Thesis / Refresh →"
+          )}
+        </button>
+      </div>
       {error ? (
         <p className="text-sm" role="alert" style={{ color: "#a30000" }}>
           {error}

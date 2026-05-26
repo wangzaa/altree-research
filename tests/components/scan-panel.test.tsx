@@ -5,6 +5,19 @@ import { ScanPanel } from "@/components/scan-panel";
 import { cloneCanonicalScan } from "@/tests/fixtures/scan";
 import { cloneCanonicalUniverse } from "@/tests/fixtures/universe";
 
+// Default controlled-state props (windowKey, selection, callbacks, button
+// state) shared across tests that don't exercise those surfaces. Spread
+// last so per-test overrides win.
+const controlledStub = {
+  windowKey: "6mth" as const,
+  onWindowKeyChange: () => {},
+  selectedTickers: new Set<string>(),
+  onToggleTicker: () => {},
+  onSelectedTickersChange: () => {},
+  onProceedToInsights: () => {},
+  insightsPending: false,
+};
+
 const fetchMock = vi.fn();
 const routerRefreshMock = vi.fn();
 
@@ -26,6 +39,7 @@ describe("<ScanPanel>", () => {
         universeId="t1_universe_01"
         initial={null}
         universe={cloneCanonicalUniverse()}
+        {...controlledStub}
       />,
     );
     // Explicit user action ("Proceed to scan" in the parent) is the only
@@ -44,6 +58,7 @@ describe("<ScanPanel>", () => {
         universeId={scan.universe_id}
         initial={scan}
         universe={cloneCanonicalUniverse()}
+        {...controlledStub}
       />,
     );
     expect(screen.getAllByText(/RHM\.DE/).length).toBeGreaterThan(0);
@@ -73,6 +88,7 @@ describe("<ScanPanel>", () => {
         initial={null}
         universe={cloneCanonicalUniverse()}
         runScanKey={0}
+        {...controlledStub}
       />,
     );
     rerender(
@@ -82,6 +98,7 @@ describe("<ScanPanel>", () => {
         initial={null}
         universe={cloneCanonicalUniverse()}
         runScanKey={1}
+        {...controlledStub}
       />,
     );
     await waitFor(() => {
@@ -102,6 +119,7 @@ describe("<ScanPanel>", () => {
         initial={null}
         universe={cloneCanonicalUniverse()}
         runScanKey={0}
+        {...controlledStub}
       />,
     );
     rerender(
@@ -111,6 +129,7 @@ describe("<ScanPanel>", () => {
         initial={null}
         universe={cloneCanonicalUniverse()}
         runScanKey={1}
+        {...controlledStub}
       />,
     );
     await waitFor(() => {
@@ -135,6 +154,7 @@ describe("<ScanPanel>", () => {
         initial={scan}
         universe={cloneCanonicalUniverse()}
         runScanKey={0}
+        {...controlledStub}
       />,
     );
     expect(fetchMock).not.toHaveBeenCalled();
@@ -146,6 +166,7 @@ describe("<ScanPanel>", () => {
         initial={scan}
         universe={cloneCanonicalUniverse()}
         runScanKey={1}
+        {...controlledStub}
       />,
     );
 
