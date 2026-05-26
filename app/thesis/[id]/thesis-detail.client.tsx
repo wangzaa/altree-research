@@ -11,6 +11,7 @@ import { ScanPanel, TABLE_METRIC_KEYS } from "@/components/scan-panel";
 import { type WindowKey } from "@/components/scan-chart";
 import { ThesisChatArtifact } from "@/components/thesis-chat-artifact";
 import { UniverseTable } from "@/components/universe-table";
+import { formatCompactDateTime } from "@/lib/format-date";
 import {
   PipelineSection,
   usePipelineStepState,
@@ -29,6 +30,14 @@ interface ThesisDetailProps {
   initialUniverse: Universe | null;
   initialScan: ScanResults | null;
   initialValidation: Record<string, DriverValidationResult> | null;
+  /** Cached memo from the last user-triggered Anti/Thesis refresh, hydrated
+   * server-side by /thesis/[id]/page.tsx. When non-null, the section
+   * renders immediately instead of showing the click-to-generate empty
+   * state. Refresh re-runs validate + memo as usual. */
+  initialMemo?: Memo | null;
+  /** ISO timestamp the cached memo was generated. Drives the small grey
+   * "Last refreshed …" caption above the bubbles. */
+  memoGeneratedAt?: string | null;
   seedNames?: Record<string, string>;
   /** Ticker -> company name map. Sourced from universe + Yahoo for any
    * referenced ticker the universe doesn't cover yet. Used by the chat
@@ -54,6 +63,8 @@ export function ThesisDetail({
   initialUniverse,
   initialScan,
   initialValidation,
+  initialMemo = null,
+  memoGeneratedAt = null,
   seedNames,
   tickerNames,
   ratesByCurrency,
@@ -119,9 +130,15 @@ export function ThesisDetail({
   >(initialValidation);
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [memo, setMemo] = useState<Memo | null>(null);
+  const [memo, setMemo] = useState<Memo | null>(initialMemo);
   const [memoLoading, setMemoLoading] = useState(false);
   const [memoError, setMemoError] = useState<string | null>(null);
+  // Mirrors the server-hydrated `memoGeneratedAt` and gets reset to "now"
+  // when the user successfully re-clicks Proceed, so the caption updates
+  // without a page reload.
+  const [memoRefreshedAt, setMemoRefreshedAt] = useState<string | null>(
+    memoGeneratedAt,
+  );
   // True while validate → memo is sequencing. Drives the Spinner state on
   // the "Proceed to Anti/Thesis / Refresh →" button in ScanPanel and
   // prevents double-clicks during the in-flight period.
@@ -152,6 +169,7 @@ export function ThesisDetail({
         return false;
       }
       setMemo(body.memo);
+      setMemoRefreshedAt(new Date().toISOString());
       setMemoLoading(false);
       return true;
     } catch (err) {
@@ -388,6 +406,14 @@ export function ThesisDetail({
             ) : null}
             {memo ? (
               <>
+                {memoRefreshedAt ? (
+                  <p
+                    className="text-xs"
+                    style={{ color: "#9a9a9a" }}
+                  >
+                    Last refreshed {formatCompactDateTime(memoRefreshedAt)}
+                  </p>
+                ) : null}
                 <ChatThread>
                   <ChatBubble from="app" label="Thesis">
                     <RichProse text={memo.bull_summary} />

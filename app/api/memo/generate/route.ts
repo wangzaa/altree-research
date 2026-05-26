@@ -174,6 +174,26 @@ export async function POST(req: Request) {
       },
     });
 
+    // Cache the synthesised memo (with its inputs) so revisits to
+    // /thesis/[id] render the Anti/Thesis bubbles immediately without
+    // re-paying the LLM. Append-only — the page reads the latest row by
+    // generated_at desc.
+    const memoInsert = await supabase.from("memos").insert({
+      thesis_id,
+      memo: result.memo,
+      chart_window: chart_window ?? null,
+      visible_metric_keys: visible_metric_keys ?? null,
+      selected_tickers: selected_tickers ?? null,
+    });
+    if (memoInsert.error) {
+      console.error(
+        "[/api/memo/generate] memo cache insert failed:",
+        memoInsert.error,
+      );
+      // Don't fail the response — the synthesis succeeded; the cache is a
+      // perf optimisation. The user still sees the memo this turn.
+    }
+
     return NextResponse.json({ memo: result.memo }, { status: 200 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

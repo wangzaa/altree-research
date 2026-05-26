@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { getQuote } from "@/lib/data/yahoo";
 import { getRatesUsd, formatFxAsOf } from "@/lib/data/fx-live";
+import { MemoSchema, type Memo } from "@/lib/schemas/memo";
 import { ScanResultsSchema, type ScanResults } from "@/lib/schemas/scan";
 import { ThesisIdSchema, type Thesis } from "@/lib/schemas/thesis";
 import type { Universe } from "@/lib/schemas/universe";
@@ -88,6 +89,29 @@ export default async function ThesisViewerPage({
     }
   }
 
+  // Latest cached memo + when it was generated. When present, ThesisDetail
+  // seeds its memo state from this instead of rendering the click-to-
+  // generate empty state — revisits to a thesis pick up where the last
+  // session left off without re-paying LLM tokens.
+  let initialMemo: Memo | null = null;
+  let memoGeneratedAt: string | null = null;
+  {
+    const { data: mRows } = await supabase
+      .from("memos")
+      .select("memo, generated_at")
+      .eq("thesis_id", id)
+      .order("generated_at", { ascending: false })
+      .limit(1);
+    const raw = mRows?.[0]?.memo;
+    if (raw) {
+      const parsed = MemoSchema.safeParse(raw);
+      if (parsed.success) {
+        initialMemo = parsed.data;
+        memoGeneratedAt = (mRows?.[0]?.generated_at as string) ?? null;
+      }
+    }
+  }
+
   // Build a single ticker -> company name map for everything the page
   // surfaces. Universe takes precedence (already enriched), then fall back
   // to live Yahoo lookups for any seed or per-driver ticker that's not in
@@ -153,6 +177,8 @@ export default async function ThesisViewerPage({
         initialUniverse={initialUniverse}
         initialScan={initialScan}
         initialValidation={initialValidation}
+        initialMemo={initialMemo}
+        memoGeneratedAt={memoGeneratedAt}
         seedNames={seedNames}
         tickerNames={tickerNames}
         ratesByCurrency={ratesByCurrency}

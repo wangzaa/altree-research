@@ -70,6 +70,89 @@ export type Database = {
           },
         ]
       }
+      expert_posts: {
+        Row: {
+          author: string
+          content: string
+          expert_name: string
+          expert_slug: string
+          id: string
+          ingested_at: string
+          is_paywalled: boolean
+          link: string
+          published: string
+          sectors: string[]
+          tickers: string[]
+          title: string
+        }
+        Insert: {
+          author: string
+          content: string
+          expert_name: string
+          expert_slug: string
+          id: string
+          ingested_at?: string
+          is_paywalled?: boolean
+          link: string
+          published: string
+          sectors?: string[]
+          tickers?: string[]
+          title: string
+        }
+        Update: {
+          author?: string
+          content?: string
+          expert_name?: string
+          expert_slug?: string
+          id?: string
+          ingested_at?: string
+          is_paywalled?: boolean
+          link?: string
+          published?: string
+          sectors?: string[]
+          tickers?: string[]
+          title?: string
+        }
+        Relationships: []
+      }
+      memos: {
+        Row: {
+          chart_window: string | null
+          generated_at: string | null
+          id: string
+          memo: Json | null
+          selected_tickers: string[] | null
+          thesis_id: string | null
+          visible_metric_keys: string[] | null
+        }
+        Insert: {
+          chart_window?: string | null
+          generated_at?: string | null
+          id?: string
+          memo?: Json | null
+          selected_tickers?: string[] | null
+          thesis_id?: string | null
+          visible_metric_keys?: string[] | null
+        }
+        Update: {
+          chart_window?: string | null
+          generated_at?: string | null
+          id?: string
+          memo?: Json | null
+          selected_tickers?: string[] | null
+          thesis_id?: string | null
+          visible_metric_keys?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memos_thesis_id_fkey"
+            columns: ["thesis_id"]
+            isOneToOne: false
+            referencedRelation: "theses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_events: {
         Row: {
           agent: string | null

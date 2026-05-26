@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { LiveLog } from "@/components/live-log";
+import { formatCompactDateTime } from "@/lib/format-date";
 
 interface ThesisListItem {
   id: string;
@@ -17,21 +18,6 @@ interface RecentSessionsProps {
   currentThesisId?: string;
   /** Cap on the number of past sessions shown. Defaults to 5. */
   limit?: number;
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  // "Apr 20 · 14:32" — short enough for the narrow sidebar without losing
-  // the hour, which matters when the user runs multiple theses per day.
-  const month = d.toLocaleString([], { month: "short" });
-  const day = d.getDate();
-  const time = d.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return `${month} ${day} · ${time}`;
 }
 
 function snippetPreview(snippet: string | null): string {
@@ -133,7 +119,7 @@ export function RecentSessions({
                 {snippetPreview(t.source_snippet)}
               </span>
               <span style={{ color: "#9a9a9a" }}>
-                {formatDate(t.created_at)}
+                {formatCompactDateTime(t.created_at)}
               </span>
             </summary>
             <div

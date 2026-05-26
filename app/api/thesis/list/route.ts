@@ -7,6 +7,7 @@ export type ThesisListItem = {
   source_snippet: string | null;
   created_at: string;
   status: string | null;
+  verdict: string | null;
 };
 
 /** Returns the authenticated user's most recent theses, newest first. Used
@@ -29,7 +30,7 @@ export async function GET(req: Request): Promise<Response> {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("theses")
-    .select("id, source_snippet, created_at, status")
+    .select("id, source_snippet, created_at, status, verdict")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -46,6 +47,7 @@ export async function GET(req: Request): Promise<Response> {
     source_snippet: (r.source_snippet as string | null) ?? null,
     created_at: r.created_at as string,
     status: (r.status as string | null) ?? null,
+    verdict: (r.verdict as string | null) ?? null,
   }));
 
   return NextResponse.json({ theses }, { status: 200 });

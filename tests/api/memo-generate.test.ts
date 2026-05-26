@@ -14,9 +14,11 @@ const eqSelectMock = vi.fn(() => ({
 }));
 const selectMock = vi.fn(() => ({ eq: eqSelectMock }));
 const pipelineInsertMock = vi.fn();
+const memosInsertMock = vi.fn();
 
 const fromMock = vi.fn((table: string) => {
   if (table === "pipeline_events") return { insert: pipelineInsertMock };
+  if (table === "memos") return { insert: memosInsertMock };
   return { select: () => ({ eq: () => ({ maybeSingle: eqMaybeSingleMock, order: orderMock }) }) };
 });
 const supabaseClient = { from: fromMock };
@@ -46,7 +48,9 @@ describe("POST /api/memo/generate", () => {
     eqMaybeSingleMock.mockReset();
     orderLimitMock.mockReset();
     pipelineInsertMock.mockReset();
+    memosInsertMock.mockReset();
     pipelineInsertMock.mockResolvedValue({ error: null });
+    memosInsertMock.mockResolvedValue({ error: null });
     orderLimitMock.mockResolvedValue({ data: [], error: null });
   });
 
@@ -120,6 +124,61 @@ describe("POST /api/memo/generate", () => {
     const { POST } = await import("@/app/api/memo/generate/route");
     const res = await POST(makeRequest({ thesis_id: thesis.id }));
     expect(res.status).toBe(502);
+  });
+
+  it("caches the memo in the memos table on success, including chart params", async () => {
+    const thesis = cloneCanonicalThesis();
+    getCurrentUserMock.mockResolvedValue({ id: thesis.createdBy });
+    eqMaybeSingleMock.mockResolvedValue({
+      data: { id: thesis.id, user_id: thesis.createdBy, thesis },
+      error: null,
+    });
+    writeMemoMock.mockResolvedValue({
+      ok: true,
+      memo: {
+        verdict: "supports",
+        bull_summary: "Bull.",
+        bear_summary: "Bear.",
+        recommendation: "Hold.",
+        open_questions: [],
+      },
+      model: "claude-sonnet-4-6",
+      usage: { input_tokens: 800, output_tokens: 240 },
+    });
+    const { POST } = await import("@/app/api/memo/generate/route");
+    const res = await POST(
+      makeRequest({
+        thesis_id: thesis.id,
+        chart_window: "5y",
+        visible_metric_keys: ["ebitda", "pe"],
+        selected_tickers: ["RHM.DE"],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(memosInsertMock).toHaveBeenCalledTimes(1);
+    const inserted = memosInsertMock.mock.calls[0][0];
+    expect(inserted.thesis_id).toBe(thesis.id);
+    expect(inserted.chart_window).toBe("5y");
+    expect(inserted.visible_metric_keys).toEqual(["ebitda", "pe"]);
+    expect(inserted.selected_tickers).toEqual(["RHM.DE"]);
+    expect(inserted.memo.verdict).toBe("supports");
+  });
+
+  it("does not cache the memo when the agent returns ok:false", async () => {
+    const thesis = cloneCanonicalThesis();
+    getCurrentUserMock.mockResolvedValue({ id: thesis.createdBy });
+    eqMaybeSingleMock.mockResolvedValue({
+      data: { id: thesis.id, user_id: thesis.createdBy, thesis },
+      error: null,
+    });
+    writeMemoMock.mockResolvedValue({
+      ok: false,
+      error: "verdict was not in enum",
+      raw: { verdict: "maybe" },
+    });
+    const { POST } = await import("@/app/api/memo/generate/route");
+    await POST(makeRequest({ thesis_id: thesis.id }));
+    expect(memosInsertMock).not.toHaveBeenCalled();
   });
 
   it("returns 422 when the memo agent returns ok:false", async () => {

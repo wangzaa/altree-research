@@ -12,7 +12,7 @@ describe("ThesisExtractForm", () => {
   it("disables submit button below 20 characters", () => {
     render(<ThesisExtractForm />);
     const textarea = screen.getByPlaceholderText(
-      /Paste the investment thesis/i,
+      /Japanese small-caps/i,
     ) as HTMLTextAreaElement;
     const button = screen.getByRole("button", { name: /Extract thesis/i });
 
@@ -23,7 +23,7 @@ describe("ThesisExtractForm", () => {
   it("enables submit button at 20+ characters", () => {
     render(<ThesisExtractForm />);
     const textarea = screen.getByPlaceholderText(
-      /Paste the investment thesis/i,
+      /Japanese small-caps/i,
     ) as HTMLTextAreaElement;
     const button = screen.getByRole("button", { name: /Extract thesis/i });
 

@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth/require-user";
+import { PreviousSessions } from "@/components/previous-sessions";
 import { ThesisExtractForm } from "@/components/thesis-extract-form";
 
 export default async function NewThesisPage() {
@@ -33,6 +34,15 @@ export default async function NewThesisPage() {
           >
             <ThesisExtractForm />
           </div>
+          <section className="mt-10 flex flex-col gap-4">
+            <h2
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: "var(--color-black)" }}
+            >
+              Previous sessions
+            </h2>
+            <PreviousSessions />
+          </section>
         </div>
       </div>
     </main>
