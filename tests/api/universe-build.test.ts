@@ -235,6 +235,11 @@ describe("POST /api/universe/build", () => {
     const body = await res.json();
     expect(body.error).toBe("discovery_failed");
     expect(body.detail).toBe("too_few_survivors");
+    // The client renders a targeted diagnosis from these fields — keep
+    // them on the contract so the bubble copy stays computable.
+    expect(body.survivors).toBe(1); // only the anchor survived
+    expect(body.min_survivors).toBe(5);
+    expect(Array.isArray(body.dropped)).toBe(true);
   });
 
   it("returns 200, persists universe row, updates thesis.universe_id + version, reports dropped", async () => {

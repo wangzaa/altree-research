@@ -247,7 +247,13 @@ export async function POST(req: Request) {
 
     if (tickers.length < MIN_SURVIVORS) {
       return NextResponse.json(
-        { error: "discovery_failed", detail: "too_few_survivors", dropped },
+        {
+          error: "discovery_failed",
+          detail: "too_few_survivors",
+          dropped,
+          survivors: tickers.length,
+          min_survivors: MIN_SURVIVORS,
+        },
         { status: 422 },
       );
     }

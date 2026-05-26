@@ -13,6 +13,11 @@ import { ThesisChatArtifact } from "@/components/thesis-chat-artifact";
 import { UniverseTable } from "@/components/universe-table";
 import { formatCompactDateTime } from "@/lib/format-date";
 import {
+  summariseBuildFailure,
+  type BuildFailureSummary,
+  type DroppedTickerForFailure,
+} from "@/lib/universe-build-failure";
+import {
   PipelineSection,
   usePipelineStepState,
 } from "@/components/pipeline-layout";
@@ -75,6 +80,12 @@ export function ThesisDetail({
   const [universe, setUniverse] = useState<Universe | null>(initialUniverse);
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
+  // Set when /api/universe/build returns 422 with detail="too_few_survivors".
+  // Other failures still surface via `buildError` as red text — this path
+  // gets the chat-bubble treatment with a targeted diagnosis + fix.
+  const [buildFailure, setBuildFailure] = useState<BuildFailureSummary | null>(
+    null,
+  );
   const [dropped, setDropped] = useState<DroppedTicker[]>([]);
   // The anchor-picker section is gated behind "Ready for next step" — the
   // dialogue stays focused on refinement until the user explicitly signals
@@ -260,6 +271,7 @@ export function ThesisDetail({
   async function handleBuild(anchor: string) {
     setBuilding(true);
     setBuildError(null);
+    setBuildFailure(null);
     setDropped([]);
     try {
       const res = await fetch("/api/universe/build", {
@@ -273,12 +285,34 @@ export function ThesisDetail({
             dropped?: DroppedTicker[];
             error?: string;
             detail?: string;
+            survivors?: number;
+            min_survivors?: number;
           }
         | null;
       if (!res.ok || !body?.universe) {
-        setBuildError(
-          body?.detail ?? body?.error ?? `Build failed (${res.status})`,
-        );
+        // The route returns 422 with detail="too_few_survivors" plus the
+        // dropped breakdown + counts when the discoverer's picks couldn't
+        // get past the Yahoo filter. That branch gets a chat-bubble with a
+        // targeted diagnosis + fix; everything else falls back to the red
+        // alert text that already existed.
+        if (
+          res.status === 422 &&
+          body?.detail === "too_few_survivors" &&
+          body.dropped
+        ) {
+          setBuildFailure(
+            summariseBuildFailure({
+              dropped: body.dropped as DroppedTickerForFailure[],
+              scope: thesis.scope,
+              survivors: body.survivors ?? 0,
+              minSurvivors: body.min_survivors ?? 5,
+            }),
+          );
+        } else {
+          setBuildError(
+            body?.detail ?? body?.error ?? `Build failed (${res.status})`,
+          );
+        }
         setBuilding(false);
         return;
       }
@@ -321,6 +355,12 @@ export function ThesisDetail({
                   pending={building}
                   refreshKey={anchorSuggestRefreshKey}
                 />
+                {buildFailure ? (
+                  <>
+                    <ChatBubble from="app">{buildFailure.diagnosis}</ChatBubble>
+                    <ChatBubble from="app">{buildFailure.fix}</ChatBubble>
+                  </>
+                ) : null}
                 {dropped.length > 0 ? (
                   <details
                     className="rounded-md p-3 text-xs"
