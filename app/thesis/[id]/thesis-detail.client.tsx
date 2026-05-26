@@ -101,8 +101,15 @@ export function ThesisDetail({
   const [anchorSuggestRefreshKey, setAnchorSuggestRefreshKey] = useState(0);
   // Bumped when the user saves an edited universe — forces ScanPanel to
   // re-run the scan against the new ticker set so chart + table refresh
-  // without an explicit "Run scan" button.
+  // without an explicit "Run scan" button. Also bumped after an auto-
+  // rebuild triggered from "Ready for next step" when the thesis was
+  // refined since the universe was last built.
   const [scanRerunKey, setScanRerunKey] = useState(0);
+  // Flips true on user-driven thesis refinement (via ThesisChatArtifact's
+  // onApplied). Drives the "Ready for next step → auto-rebuild" branch in
+  // onContinue. Reset to false at the start of every handleBuild so the
+  // next refinement starts a fresh dirty cycle.
+  const [thesisDirty, setThesisDirty] = useState(false);
   // Chart state lifted from ScanPanel so handleProceedToInsights can pass
   // it to the memo route. selectedTickers seeds empty; the panel's own
   // auto-default effect populates it (top-by-mcap + worst-by-window).
@@ -273,6 +280,9 @@ export function ThesisDetail({
     setBuildError(null);
     setBuildFailure(null);
     setDropped([]);
+    // Starting a build consumes the "thesis was refined" signal — if the
+    // build succeeds, the new universe reflects the latest thesis state.
+    setThesisDirty(false);
     try {
       const res = await fetch("/api/universe/build", {
         method: "POST",
@@ -319,6 +329,10 @@ export function ThesisDetail({
       setUniverse(body.universe);
       setThesis((t) => ({ ...t, universe_id: body.universe!.id }));
       setDropped(body.dropped ?? []);
+      // Force ScanPanel to re-fetch the scan against the new universe.
+      // (The first-build path is a no-op via ScanPanel's firstKeyRef; on
+      // rebuilds this is what wires up the chart + table refresh.)
+      setScanRerunKey((k) => k + 1);
       setBuilding(false);
       router.refresh();
     } catch (err) {
@@ -333,9 +347,26 @@ export function ThesisDetail({
         <div className="flex flex-col gap-8">
           <ThesisChatArtifact
             thesis={thesis}
-            onApplied={setThesis}
+            onApplied={(next) => {
+              setThesis(next);
+              setThesisDirty(true);
+            }}
             tickerNames={tickerNames}
             onContinue={() => {
+              // When the user refined the thesis AFTER a universe was
+              // already built, "Ready for next step" rebuilds the universe
+              // with the same anchor so the scan reflects the new
+              // criteria. Without a refinement, fall through to the
+              // existing show-anchor-picker behavior.
+              if (universe && thesisDirty) {
+                const anchor = universe.tickers.find(
+                  (t) => t.is_anchor,
+                )?.ticker;
+                if (anchor) {
+                  handleBuild(anchor);
+                  return;
+                }
+              }
               setShowAnchorStep(true);
               setAnchorSuggestRefreshKey((k) => k + 1);
             }}

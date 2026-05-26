@@ -38,6 +38,11 @@ const USER_AVATAR_STYLE: React.CSSProperties = {
   flexShrink: 0,
 };
 
+// 680px is the desktop reading-line cap. The outer flex row already
+// allocates avatar + gap as siblings (gap-3 + 32px avatar), so the bubble
+// doesn't need to subtract that from its own width — doing so previously
+// applied the reservation twice (column + bubble), costing ~50px on
+// mobile and forcing 25-character lines on a phone.
 const APP_BUBBLE_STYLE: React.CSSProperties = {
   background: "var(--color-pear-beige)",
   color: "var(--color-black)",
@@ -45,7 +50,7 @@ const APP_BUBBLE_STYLE: React.CSSProperties = {
   padding: "12px 18px",
   fontSize: 15,
   lineHeight: 1.5,
-  maxWidth: "min(680px, calc(100% - 56px))",
+  maxWidth: 680,
 };
 
 const USER_BUBBLE_STYLE: React.CSSProperties = {
@@ -60,7 +65,7 @@ const USER_BUBBLE_STYLE: React.CSSProperties = {
   fontSize: 15,
   lineHeight: 1.5,
   minWidth: 48,
-  maxWidth: "min(680px, calc(100% - 56px))",
+  maxWidth: 680,
 };
 
 function AppAvatar() {
@@ -110,7 +115,7 @@ export function ChatBubble({ from, children, label, avatar }: ChatBubbleProps) {
         style={{
           alignItems: isApp ? "flex-start" : "flex-end",
           gap: 4,
-          maxWidth: "min(680px, calc(100% - 56px))",
+          maxWidth: 680,
         }}
       >
         {label ? (
