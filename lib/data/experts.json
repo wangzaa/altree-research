@@ -169,6 +169,16 @@
       "sectors": ["china_asia", "tech_platforms", "semis"],
       "active": true,
       "notes": "US-China tech / industrial policy / export controls; cross-tagged semis intentionally."
+    },
+    {
+      "slug": "asian_century_stocks",
+      "name": "Asian Century Stocks",
+      "author": "Michael Fritzell",
+      "url": "https://www.asiancenturystocks.com",
+      "feed_url": "https://www.asiancenturystocks.com/rss/",
+      "sectors": ["china_asia", "value_quality"],
+      "active": true,
+      "notes": "Bottom-up Asian equities (Japan, Greater China, SEA); fundamentals + quality focus. Profile at substack.com/@michaelfritzell redirects to the custom domain."
     }
   ],
   "sectors": {

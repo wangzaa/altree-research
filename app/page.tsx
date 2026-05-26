@@ -23,15 +23,16 @@ export default async function Home() {
               lineHeight: 1.1,
             }}
           >
-            Investment thesis research, end to end.
+            Most investment ideas live in your head. Get one out.
           </h1>
           <p
             className="mt-6 text-lg"
             style={{ color: "#585858", maxWidth: 560, lineHeight: 1.6 }}
           >
-            Extract structure from prose, build a universe, gather supporting
-            and threshold-breach evidence, and decide whether the thesis still
-            holds.
+            Paste a headline, a paragraph, a half-formed hunch. Altree pulls
+            out the structure, builds the ticker universe it implies, and
+            tracks both sides of the evidence — what supports it, and what
+            should make you reconsider.
           </p>
           <div className="mt-8 flex gap-4">
             <Link href="/thesis/new" className="btn btn-primary">

@@ -77,7 +77,7 @@ export function ThesisExtractForm() {
             border: "1px solid #E5E5E5",
             color: "var(--color-black)",
           }}
-          placeholder="Paste the investment thesis prose here (minimum 20 characters)..."
+          placeholder="Japanese small-caps are entering a multi-year re-rating as corporate governance reform forces buybacks and unlocks balance sheets. Risks: yen reversal, reform fatigue, US recession spillover…"
         />
       </label>
 
