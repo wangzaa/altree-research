@@ -19,9 +19,9 @@ export default async function NewThesisPage() {
             New thesis
           </h1>
           <p className="mt-3 text-base" style={{ color: "#585858" }}>
-            Drop in a headline, a paragraph, a Substack post you saved — drop
-            it in. We&apos;ll lift out the claims and drivers. Sharpen it
-            before the evidence weighs in.
+            A headline, a paragraph, a Substack post you saved — drop it in.
+            We&apos;ll lift out the claims and drivers. Sharpen it before the
+            evidence weighs in.
           </p>
           <div
             className="mt-8 bg-white"
