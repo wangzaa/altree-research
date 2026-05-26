@@ -2,6 +2,7 @@
 
 import React, { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { Spinner } from "@/components/spinner";
 
 const MIN_LENGTH = 20;
 
@@ -85,8 +86,19 @@ export function ThesisExtractForm() {
         <span className="text-xs" style={{ color: "#585858" }}>
           {snippet.trim().length} chars
         </span>
-        <button type="submit" disabled={disabled} className="btn btn-primary">
-          {submitting ? "Extracting..." : "Extract thesis"}
+        <button
+          type="submit"
+          disabled={disabled}
+          className="btn btn-primary inline-flex items-center gap-2"
+        >
+          {submitting ? (
+            <>
+              <Spinner size={14} />
+              Extracting...
+            </>
+          ) : (
+            "Extract thesis"
+          )}
         </button>
       </div>
 
