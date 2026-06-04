@@ -4,11 +4,16 @@
 //   1. lib/data/jp-companies.json  — the static, committed 388-company snapshot
 //   2. (with --sync-catalysts)     — upserts recent NEWS_UPDATE into Supabase
 //                                     jp_catalysts (volatile data; see ADR-0002)
+//   3. (with --sync-themes)        — re-derives the theme-exposure opportunity
+//                                     sets into jp_theme_exposure (issue #28).
+//                                     Reads jp_catalysts + calls the LLM tagger,
+//                                     so run AFTER --sync-catalysts.
 //
 // Usage:
 //   npm run jp:covered-set                 # regenerate the static JSON
 //   npm run jp:covered-set -- --verify     # + live Yahoo resolve (network)
 //   npm run jp:covered-set -- --sync-catalysts  # + sync jp_catalysts (Supabase)
+//   npm run jp:covered-set -- --sync-catalysts --sync-themes  # + opportunity sets
 //
 // sr.db path: $SR_DB_PATH, else the default ingester location below.
 // Reads sqlite via the `sqlite3` CLI (-json) so we add no runtime dependency.
@@ -30,6 +35,7 @@ const EXCERPT_CHARS = 400;
 
 const doVerify = process.argv.includes("--verify");
 const doSyncCatalysts = process.argv.includes("--sync-catalysts");
+const doSyncThemes = process.argv.includes("--sync-themes");
 
 function query<T = Record<string, unknown>>(sql: string): T[] {
   const out = execFileSync("sqlite3", [DB_PATH, "-json", sql], {
@@ -179,6 +185,24 @@ async function main(): Promise<void> {
   } else {
     console.log("Skipping jp_catalysts sync (run with --sync-catalysts).");
   }
+
+  if (doSyncThemes) {
+    await syncThemes();
+  } else {
+    console.log("Skipping theme-exposure sync (run with --sync-themes).");
+  }
+}
+
+async function syncThemes(): Promise<void> {
+  const { syncOpportunitySets } = await import(
+    "@/lib/agents/theme-exposure/opportunity-set"
+  );
+  console.log("\nDeriving theme-exposure opportunity sets (LLM)…");
+  const summary = await syncOpportunitySets();
+  for (const s of summary) {
+    console.log(`  ✓ ${s.theme_id}: ${s.count} exposed`);
+  }
+  console.log(`✓ Synced ${summary.length} themes' opportunity sets`);
 }
 
 async function syncCatalysts(): Promise<void> {
