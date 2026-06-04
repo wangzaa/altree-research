@@ -1,0 +1,99 @@
+{
+  "themes": [
+    {
+      "id": "memory_semiconductor_shortage",
+      "label": "Memory & semiconductor supply shortage",
+      "description": "Tight supply across memory and the broader semiconductor chain — capacity discipline, equipment bottlenecks, and rising ASPs.",
+      "keywords": [
+        "memory",
+        "DRAM",
+        "NAND",
+        "HBM",
+        "wafer",
+        "foundry",
+        "semiconductor test",
+        "chip equipment",
+        "lithography",
+        "packaging",
+        "substrate",
+        "silicon"
+      ]
+    },
+    {
+      "id": "china_decoupling",
+      "label": "China cross-border tension & supply-chain decoupling",
+      "description": "Geopolitical friction reshaping supply chains — export controls, reshoring/friend-shoring, and the scramble for non-China alternatives.",
+      "keywords": [
+        "China",
+        "decoupling",
+        "supply chain",
+        "reshoring",
+        "friend-shoring",
+        "export controls",
+        "tariffs",
+        "geopolitics",
+        "Taiwan",
+        "rare earths",
+        "sanctions",
+        "onshoring"
+      ]
+    },
+    {
+      "id": "ai_power_grid",
+      "label": "AI capex, power & grid",
+      "description": "AI-driven compute buildout and the electricity, grid, and infrastructure constraints it exposes.",
+      "keywords": [
+        "AI",
+        "data center",
+        "power grid",
+        "electricity demand",
+        "transformer",
+        "transmission",
+        "capex",
+        "GPU",
+        "accelerator",
+        "cooling",
+        "energy infrastructure",
+        "utility"
+      ]
+    },
+    {
+      "id": "defense_rearmament",
+      "label": "Defense & rearmament",
+      "description": "Rising defense budgets and rearmament cycles across allied nations, and the suppliers exposed to procurement.",
+      "keywords": [
+        "defense",
+        "military",
+        "rearmament",
+        "missiles",
+        "radar",
+        "naval",
+        "aerospace",
+        "procurement",
+        "deterrence",
+        "munitions",
+        "security",
+        "submarine"
+      ]
+    },
+    {
+      "id": "energy_transition",
+      "label": "Energy transition & climate",
+      "description": "Decarbonization and electrification — renewables, storage, EVs, and the materials and grid upgrades they require.",
+      "keywords": [
+        "renewable",
+        "solar",
+        "wind",
+        "hydrogen",
+        "battery",
+        "EV",
+        "decarbonization",
+        "carbon",
+        "grid storage",
+        "electrification",
+        "clean energy",
+        "climate"
+      ]
+    }
+  ]
+}
