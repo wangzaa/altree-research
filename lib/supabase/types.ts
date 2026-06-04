@@ -115,6 +115,39 @@ export type Database = {
         }
         Relationships: []
       }
+      jp_catalysts: {
+        Row: {
+          excerpt: string
+          id: string
+          published_at: string
+          synced_at: string
+          ticker: string
+          title: string
+          type: string
+          yahoo_ticker: string
+        }
+        Insert: {
+          excerpt: string
+          id: string
+          published_at: string
+          synced_at?: string
+          ticker: string
+          title: string
+          type?: string
+          yahoo_ticker: string
+        }
+        Update: {
+          excerpt?: string
+          id?: string
+          published_at?: string
+          synced_at?: string
+          ticker?: string
+          title?: string
+          type?: string
+          yahoo_ticker?: string
+        }
+        Relationships: []
+      }
       memos: {
         Row: {
           chart_window: string | null
