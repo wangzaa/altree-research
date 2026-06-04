@@ -115,6 +115,54 @@ export type Database = {
         }
         Relationships: []
       }
+      intro_requests: {
+        Row: {
+          created_at: string
+          id: string
+          memo_id: string | null
+          note: string | null
+          status: string
+          thesis_id: string | null
+          ticker: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          memo_id?: string | null
+          note?: string | null
+          status?: string
+          thesis_id?: string | null
+          ticker: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          memo_id?: string | null
+          note?: string | null
+          status?: string
+          thesis_id?: string | null
+          ticker?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intro_requests_thesis_id_fkey"
+            columns: ["thesis_id"]
+            isOneToOne: false
+            referencedRelation: "theses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intro_requests_memo_id_fkey"
+            columns: ["memo_id"]
+            isOneToOne: false
+            referencedRelation: "memos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memos: {
         Row: {
           chart_window: string | null
