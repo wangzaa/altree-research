@@ -148,6 +148,36 @@ export type Database = {
         }
         Relationships: []
       }
+      jp_theme_exposure: {
+        Row: {
+          as_of: string
+          derived_at: string
+          name_en: string
+          rationale: string
+          theme_id: string
+          ticker: string
+          yahoo_ticker: string
+        }
+        Insert: {
+          as_of: string
+          derived_at?: string
+          name_en: string
+          rationale: string
+          theme_id: string
+          ticker: string
+          yahoo_ticker: string
+        }
+        Update: {
+          as_of?: string
+          derived_at?: string
+          name_en?: string
+          rationale?: string
+          theme_id?: string
+          ticker?: string
+          yahoo_ticker?: string
+        }
+        Relationships: []
+      }
       intro_requests: {
         Row: {
           created_at: string

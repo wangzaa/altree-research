@@ -11,5 +11,6 @@
   "bear_synthesiser":    "claude-haiku-4-5",
   "memo_writer":         "claude-sonnet-4-6",
   "question_classifier": "claude-haiku-4-5",
-  "fund_selector":       "claude-sonnet-4-6"
+  "fund_selector":       "claude-sonnet-4-6",
+  "theme_tagger":        "claude-sonnet-4-6"
 }
