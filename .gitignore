@@ -53,6 +53,14 @@ coverage
 # prototype scratch data
 prototypes/**/data/
 
+# sharedresearch_ingester exclusions
+sharedresearch_ingester/.DS_Store
+sharedresearch_ingester/.venv
+sharedresearch_ingester/.pytest_cache
+sharedresearch_ingester/logs/
+sharedresearch_ingester/**/__pycache__/
+sharedresearch_ingester/data/
+
 # local-only docs: working notes, brainstorm specs, handoff. Anything that
 # should NOT travel with the repo lives here or in HANDOFF.md.
 local/
