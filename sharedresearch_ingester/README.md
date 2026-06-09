@@ -2,7 +2,7 @@
 
 Pulls publicly-accessible English **teaser** research from sharedresearch.jp for the
 ~388-company universe in `sr_universe.json`, converts each to Markdown, and stores it in
-SQLite (`data/sr.db`). Unauthenticated, polite (1 req/sec), runnable as a daily cron.
+SQLite (`data/sr.db`). Unauthenticated, polite (1 req/sec), run on-demand.
 Full design rationale is in `../SR_handoff.md`; the glossary in `../CONTEXT.md`.
 
 ## Install
@@ -15,7 +15,7 @@ Full design rationale is in `../SR_handoff.md`; the glossary in `../CONTEXT.md`.
     python -m ingester resolve   # fill/refresh companies from sr_universe.json (upsert)
     python -m ingester poll      # discover new/revised reports for resolved companies
     python -m ingester fetch [--limit N]   # download teaser HTML -> Markdown for unfetched reports
-    python -m ingester ingest    # resolve-if-needed -> poll -> fetch (the cron command)
+    python -m ingester ingest    # resolve-if-needed -> poll -> fetch (run when data refresh is needed)
     python -m ingester status    # DB stats + run health (last successful ingest, last error, staleness)
 
 Global flags: `--db PATH` (default `data/sr.db`), `--universe PATH`, `--rate-limit SECONDS`
@@ -26,8 +26,6 @@ Exit codes: `0` ok/skip, `1` completed with some fetch errors, `2` blocked (403)
 
 ## First run (one-time backfill, ~50 min at 1 rps)
 
-Run the backlog **before** enabling the cron:
-
     python -m ingester resolve
     python -m ingester poll
     python -m ingester fetch
@@ -37,17 +35,20 @@ Check it:
     python -m ingester status
     sqlite3 data/sr.db "SELECT type, COUNT(*) FROM reports GROUP BY type;"
 
-## Daily cron (only after the backfill finishes)
+## On-demand usage
 
-    # daily at 22:00 JST (13:00 UTC) — adjust the hour to your host's timezone
-    0 13 * * * cd /path/to/sharedresearch_ingester && /path/to/.venv/bin/python -m ingester ingest >> logs/ingest.log 2>&1
+Run `ingest` whenever you need to refresh data from SharedResearch. There is no scheduled
+cron job; updates are triggered manually as needed.
+
+    cd /path/to/sharedresearch_ingester && /path/to/.venv/bin/python -m ingester ingest
+
+Output is appended to `logs/ingest.log`.
 
 ## Operational notes
 
 - **Only one writer at a time** — a second `ingest`/`fetch` that overlaps logs
   `previous run still active, skipping` and exits 0 (flock on `data/sr.lock`).
-- **Failure visibility:** the exit-code signal only reaches you if cron `MAILTO`/MTA delivers —
-  verify it, or pass `--healthcheck-url` (a dead-man's switch that catches *missing* runs too).
+- **Failure visibility:** pass `--healthcheck-url` (a dead-man's switch that catches *missing* runs).
 - **Staleness** is owned by the downstream consumer: it should refuse to synthesize when
   `last_successful_ingest_at` / the newest `content_fetched_at` is older than its threshold.
 

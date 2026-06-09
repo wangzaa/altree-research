@@ -36,7 +36,7 @@ Ask the API which Reports exist for each resolved Company and record newly-seen 
 Download a Report's Teaser HTML and convert it to Markdown.
 
 **Ingest**:
-The cron cycle: resolve-if-needed → poll → fetch.
+The on-demand cycle: resolve-if-needed → poll → fetch.
 
 ## Flagged ambiguities
 
